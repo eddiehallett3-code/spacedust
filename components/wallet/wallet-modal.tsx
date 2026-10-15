@@ -20,10 +20,24 @@ import {
   type WalletName,
 } from "@solana/wallet-adapter-base";
 import {
+  MOBILE_WALLET_ADAPTER_NAME,
   diagnoseConnectFailure,
+  isMobileUserAgent,
+  looksLikeWalletInAppBrowser,
+  walletBrowseLink,
   type ConnectFailure,
 } from "@/lib/solana/wallet-diagnostics";
 import { cn } from "@/lib/utils/cn";
+
+/**
+ * Wallets whose own in-app browser we can open directly.
+ *
+ * Only wallets with a browse link that can be verified against their SDK are
+ * listed — see `walletBrowseLink`. A third entry belongs here the day its link is
+ * confirmed, never before: a guessed deep link fails in exactly the way this
+ * panel exists to fix.
+ */
+const MOBILE_BROWSE_WALLETS = ["Phantom", "Solflare"] as const;
 
 /**
  * How long to wait for a wallet before assuming the request went nowhere.
@@ -145,6 +159,54 @@ function WalletPickerDialog({ onClose }: { onClose: () => void }) {
   // (lazily, since this only ever mounts in the browser).
   const [isSecureContext] = useState(
     () => typeof window === "undefined" || window.isSecureContext,
+  );
+
+  /**
+   * Wallet-browser links, set only on a phone that is *not* already inside a
+   * wallet's browser.
+   *
+   * A mobile browser injects no provider, so every adapter reports "not detected"
+   * — even for a wallet the user has installed — and the picker can offer nothing
+   * better than an Install link for an app they already have. The way through is
+   * to open this page inside the wallet, and these are the links that do it.
+   *
+   * Set in an effect rather than during render: this component only ever mounts
+   * client-side, but reaching for `window` at render time is the habit that breaks
+   * the day something above it becomes server-rendered.
+   */
+  const [walletLinks, setWalletLinks] = useState<Record<string, string> | null>(null);
+
+  useEffect(() => {
+    const userAgent = navigator.userAgent;
+    // Inside a wallet's own browser the ordinary adapters already work, so the
+    // panel would be telling the user to do what they have just done.
+    if (!isMobileUserAgent(userAgent) || looksLikeWalletInAppBrowser(userAgent)) return;
+
+    const links: Record<string, string> = {};
+    for (const name of MOBILE_BROWSE_WALLETS) {
+      const href = walletBrowseLink(name, window.location.href, window.location.origin);
+      if (href) links[name] = href;
+    }
+
+    if (Object.keys(links).length > 0) setWalletLinks(links);
+  }, []);
+
+  /**
+   * Is a usable Mobile Wallet Adapter in the list?
+   *
+   * On Android that adapter speaks the same protocol the wallet apps themselves
+   * do, so the answer is a native connect: the wallet opens and asks. Where it is
+   * available the deep-link panel below is noise, so the two are mutually
+   * exclusive rather than both shouting at once.
+   *
+   * `readyState` is part of the test, not just the name: a device with no
+   * MWA-capable wallet still has the adapter constructed, and pointing a user at a
+   * row that cannot work would be the same dead end in a new costume.
+   */
+  const hasMobileWalletAdapter = wallets.some(
+    (entry) =>
+      entry.adapter.name === MOBILE_WALLET_ADAPTER_NAME &&
+      entry.readyState !== WalletReadyState.NotDetected,
   );
 
   // Handle for the current attempt's adapter error listener, so a second pick
@@ -303,6 +365,47 @@ return (
           </button>
         </div>
 
+        {/* Android, where the Mobile Wallet Adapter is present and usable: the
+            native path exists, so point at it. Shown *instead of* the deep-link
+            panel — two competing sets of instructions is how a user ends up doing
+            neither. */}
+        {hasMobileWalletAdapter ? (
+          <p className="mt-3 rounded-xl border border-success/25 bg-success/8 p-3 text-[11px] leading-relaxed text-muted">
+            <strong className="font-medium text-foreground">
+              Tap “Mobile Wallet Adapter” below.
+            </strong>{" "}
+            It hands the request to the wallet you already have installed, which
+            will open and ask you to approve.
+          </p>
+        ) : null}
+
+        {/* On a phone, outside a wallet's browser: the only thing that helps.
+            A mobile browser injects no provider, so the list underneath reads
+            "not detected" for wallets the user already has installed — which
+            reads as "you have not installed it", and that is the complaint this
+            panel exists to answer. Opening the page inside the wallet gives it the
+            same provider a desktop extension would, and everything works from
+            there. */}
+        {walletLinks && !hasMobileWalletAdapter ? (
+          <div className="mt-3 rounded-xl border border-border bg-white/4 p-3">
+            <p className="text-[11px] leading-relaxed text-muted">
+              On a phone, wallets connect from inside their own app. Open this
+              page in your wallet, then connect there:
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {Object.entries(walletLinks).map(([name, href]) => (
+                <a
+                  key={name}
+                  href={href}
+                  className="rounded-lg border border-border px-2.5 py-1.5 text-[11px] text-foreground transition-colors hover:border-violet-core/40"
+                >
+                  Open in {name}
+                </a>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         {/* Proactive: a plain-http origin is the most common reason a mobile
             connection silently dies, so say so before anything is clicked. */}
         {!isSecureContext ? (
@@ -355,6 +458,7 @@ return (
                 name={adapter.name}
                 icon={adapter.icon}
                 url={adapter.url}
+                browseHref={walletLinks?.[adapter.name] ?? null}
                 readyState={readyState}
                 pending={pending === adapter.name}
                 disabled={Boolean(pending)}
@@ -400,6 +504,7 @@ function WalletRow({
   name,
   icon,
   url,
+  browseHref,
   readyState,
   pending,
   disabled,
@@ -408,6 +513,8 @@ function WalletRow({
   name: WalletName;
   icon: string | undefined;
   url: string | undefined;
+  /** Set on a phone: the wallet's own in-app browser, showing this page. */
+  browseHref?: string | null;
   readyState: WalletReadyState;
   pending: boolean;
   disabled: boolean;
@@ -462,15 +569,17 @@ function WalletRow({
           </span>
         </span>
 
-        {info.tone === "missing" && url ? (
+        {info.tone === "missing" && (browseHref ?? url) ? (
           <a
-            href={url}
+            href={browseHref ?? url}
             target="_blank"
             rel="noopener noreferrer nofollow"
             onClick={(event) => event.stopPropagation()}
             className="shrink-0 rounded-lg border border-border px-2 py-1 text-[11px] text-muted transition-colors hover:border-violet-core/40 hover:text-foreground"
           >
-            Install
+            {/* "Install" is the wrong word on a phone, where the app is already
+                installed and what is needed is to open it. */}
+            {browseHref ? "Open" : "Install"}
           </a>
         ) : null}
       </button>
