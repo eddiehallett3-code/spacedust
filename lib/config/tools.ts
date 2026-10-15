@@ -116,3 +116,18 @@ export const TOOLS: Tool[] = [
     cta: "Look up a wallet",
   },
 ];
+
+/**
+ * One tool by key.
+ *
+ * For the places that need a single tool rather than the list — the per-route
+ * preview cards, and anything that labels one route by name. Throwing on an
+ * unknown key is deliberate: the alternative is a heading or a card that silently
+ * renders "undefined", and a typo is exactly the kind of mistake a build should
+ * refuse rather than ship.
+ */
+export function getTool(key: ToolKey): Tool {
+  const found = TOOLS.find((candidate) => candidate.key === key);
+  if (!found) throw new Error(`Unknown tool: ${key}`);
+  return found;
+}

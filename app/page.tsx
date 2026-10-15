@@ -5,7 +5,9 @@ import { ArrowRight, CheckCircle2, ShieldCheck, Wallet } from "lucide-react";
 import { Container } from "@/components/layout/container";
 import { ToolEmblem } from "@/components/layout/tool-emblem";
 import { Card, CardContent } from "@/components/ui/card";
+import { getSiteUrl } from "@/lib/config/site";
 import { TOOLS } from "@/lib/config/tools";
+import { RECLAIM_FEE_BPS, SWAP_FEE_BPS } from "@/lib/utils/constants";
 
 /**
  * The landing page.
@@ -39,9 +41,53 @@ const GUARANTEES = [
   { icon: Wallet, text: "You sign every transaction." },
 ];
 
+/**
+ * Structured data, so a search result can say what this is.
+ *
+ * `SoftwareApplication`, and deliberately not `FAQPage`. The how-it-works page
+ * reads like questions and answers, but its headings are numbered steps — "1.
+ * Finding your dust", "8. What can go wrong" — and FAQ markup is supposed to mirror
+ * visible question-and-answer pairs. Marking a page up as something it is not is the
+ * one way structured data can actively hurt, and this site's entire argument is that
+ * it does not overstate.
+ *
+ * There is no `offers` block either. The app costs nothing to use and takes a
+ * percentage of what it recovers, which is a sentence rather than a price, and a
+ * `price: "0"` offer would read as "free of charge" to anything parsing it. The rate
+ * goes in the description instead, where both halves of it fit.
+ *
+ * Every value is derived — the tools from `TOOLS`, the rates from the constants the
+ * flows charge from — so a renamed tool or a repriced flow cannot leave this claiming
+ * something the app no longer does.
+ */
+function structuredData() {
+  const swapRate = `${(SWAP_FEE_BPS / 100).toFixed(1)}%`;
+  const reclaimRate = `${(RECLAIM_FEE_BPS / 100).toFixed(1)}%`;
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: process.env.NEXT_PUBLIC_APP_NAME || "Spacedust",
+    applicationCategory: "FinanceApplication",
+    operatingSystem: "Web",
+    url: getSiteUrl(),
+    description: `Non-custodial tools for a Solana wallet. ${swapRate} on swaps and ${reclaimRate} of the rent any flow returns, both shown before you sign, and you sign every transaction.`,
+    featureList: TOOLS.map((tool) => `${tool.name} — ${tool.tagline}`),
+  };
+}
+
 export default function HomePage() {
   return (
     <Container size="wide">
+      <script
+        type="application/ld+json"
+        // `JSON.stringify` of an object assembled in this module: no user input and
+        // no request data reaches it, so there is nothing to escape. That is a
+        // property of *this* value, not a general rule — if anything dynamic is
+        // ever added here, the `</script>` sequence inside a string is enough to
+        // break out of the tag and it has to be escaped properly.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData()) }}
+      />
       <section className="pt-14 text-center sm:pt-18 lg:pt-20">
         {/* The site mark, not a tool emblem — each tool gets its own below, and
             this one is the product they share. The artwork itself carries the

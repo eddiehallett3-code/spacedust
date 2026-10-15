@@ -223,7 +223,7 @@ Chainstack) — the code does not care which one.
    `NEXT_PUBLIC_FEE_WALLET`) under **Settings → Environment Variables**.
 4. Deploy.
 
-Vercel's Hobby plan is enough: three dynamic routes, no database, no queue.
+Vercel's Hobby plan is enough: six dynamic routes, one static, no database, no queue.
 
 ### Before you take traffic: the two steps the repo cannot do
 
@@ -287,14 +287,26 @@ credits" into "the API is down", which is the failure you would rather have.
 
 ```
 app/
-├── layout.tsx              Root layout, fonts, providers
-├── page.tsx                Home
+├── layout.tsx              Root layout, fonts, providers, metadata
+├── page.tsx                Home — the six tools in boxes, plus structured data
 ├── how-it-works/page.tsx   Long-form explanation
 ├── security/page.tsx       Security model
+├── not-found.tsx           404 — branded, and lists every page
+├── error.tsx               Per-route error boundary
+├── global-error.tsx        Last resort: catches root-layout failures
+├── robots.ts               Crawler rules, and the sitemap declaration
+├── sitemap.ts              Every page, built from TOOLS
+├── manifest.ts             Web app manifest, shortcuts from TOOLS
+├── opengraph-image.tsx     The site's preview card
+├── <tool>/page.tsx         slingshot · void · payload · salvage · approvals · scan
+├── <tool>/opengraph-image.tsx  One preview card per tool, built from TOOLS
 └── api/
     ├── tokens/route.ts     GET  — scan a wallet, return valued tokens
     ├── plan/route.ts       POST — build one Jupiter route per token
-    └── rpc/route.ts        POST — allow-listed JSON-RPC proxy
+    ├── domains/route.ts    GET  — a wallet's .sol names; POST builds the deletes
+    ├── asset-proof/route.ts POST — cNFT proofs, one DAS call per asset
+    ├── rpc/route.ts        POST — allow-listed JSON-RPC proxy
+    └── health/route.ts     GET  — setup diagnostics, one real call per provider
 
 lib/
 ├── config/env.ts           Server-only env access
