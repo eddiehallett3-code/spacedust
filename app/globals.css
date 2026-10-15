@@ -1,0 +1,326 @@
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Spacedust design system
+   Dark-first, glassmorphic, with an electric violet → cyan accent ramp that
+   reads as "deep space" without the usual neon cliché.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@theme {
+  /* Surfaces — near-black with a blue undertone rather than pure grey. */
+  --color-space-950: #04050c;
+  --color-space-900: #070917;
+  --color-space-850: #0a0d1f;
+  --color-space-800: #0f1228;
+  --color-space-700: #171b38;
+  --color-space-600: #232849;
+
+  /* Accent ramp. */
+  --color-violet-glow: #a78bfa;
+  --color-violet-core: #8b5cf6;
+  --color-violet-deep: #6d28d9;
+  --color-indigo-core: #6366f1;
+  --color-cyan-glow: #67e8f9;
+  --color-cyan-core: #22d3ee;
+
+  /* Semantic tokens, mapped into shadcn-style utility names. */
+  --color-background: var(--color-space-950);
+  --color-surface: var(--color-space-900);
+  --color-foreground: #e8ecf8;
+  --color-muted: #8b93b8;
+  --color-subtle: #5c6488;
+  --color-border: color-mix(in oklab, #ffffff 9%, transparent);
+  --color-border-strong: color-mix(in oklab, #ffffff 16%, transparent);
+  --color-ring: var(--color-violet-core);
+
+  --color-success: #34d399;
+  --color-warning: #fbbf24;
+  --color-danger: #fb7185;
+
+  /* Typography. Geist for UI, Geist Mono for addresses and numbers. */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  /* Motion. Durations are short — this is a tool, not a landing page. */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --animate-shimmer: shimmer 2.2s linear infinite;
+  --animate-pulse-ring: pulse-ring 2.6s var(--ease-out-expo) infinite;
+  --animate-drift: drift 26s ease-in-out infinite alternate;
+  --animate-twinkle: twinkle 4.5s ease-in-out infinite;
+  --animate-gradient-x: gradient-x 7s ease infinite;
+
+  @keyframes shimmer {
+    from {
+      background-position: 200% 0;
+    }
+    to {
+      background-position: -200% 0;
+    }
+  }
+
+  @keyframes pulse-ring {
+    0% {
+      opacity: 0.5;
+      transform: scale(1);
+    }
+    70%,
+    100% {
+      opacity: 0;
+      transform: scale(1.9);
+    }
+  }
+
+  @keyframes drift {
+    from {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    to {
+      transform: translate3d(3%, -4%, 0) scale(1.08);
+    }
+  }
+
+  @keyframes twinkle {
+    0%,
+    100% {
+      opacity: 0.15;
+    }
+    50% {
+      opacity: 0.75;
+    }
+  }
+
+  @keyframes gradient-x {
+    0%,
+    100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    /* Reserve the scrollbar gutter so the starfield does not visibly jump. */
+    scrollbar-gutter: stable;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    /* Subtle radial wash so the page never reads as flat black. */
+    background-image:
+      radial-gradient(
+        ellipse 80% 50% at 50% -10%,
+        color-mix(in oklab, var(--color-violet-deep) 22%, transparent),
+        transparent 70%
+      ),
+      radial-gradient(
+        ellipse 60% 40% at 90% 10%,
+        color-mix(in oklab, var(--color-cyan-core) 10%, transparent),
+        transparent 70%
+      );
+    background-attachment: fixed;
+    min-height: 100dvh;
+  }
+
+  /* Visible, consistent keyboard focus everywhere. */
+  :focus-visible {
+    outline: 2px solid var(--color-violet-glow);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-violet-core) 45%, transparent);
+    color: #fff;
+  }
+
+  /* Slim, theme-matched scrollbars. */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--color-violet-core) 26%, transparent);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklab, var(--color-violet-core) 45%, transparent);
+    background-clip: padding-box;
+  }
+}
+
+@layer components {
+  /* Glassmorphic surface used by every card in the app. */
+  .glass {
+    background: linear-gradient(
+      160deg,
+      color-mix(in oklab, #ffffff 7%, transparent),
+      color-mix(in oklab, #ffffff 2.5%, transparent)
+    );
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    border: 1px solid var(--color-border);
+    box-shadow:
+      0 1px 0 0 color-mix(in oklab, #ffffff 6%, transparent) inset,
+      0 18px 45px -22px rgb(0 0 0 / 0.85);
+  }
+
+  /* Gradient hairline along the top edge of a hero card. */
+  .glass-sheen {
+    position: relative;
+  }
+  .glass-sheen::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in oklab, var(--color-violet-glow) 55%, transparent),
+      color-mix(in oklab, var(--color-cyan-glow) 45%, transparent),
+      transparent
+    );
+    pointer-events: none;
+  }
+
+  /* Animated gradient text for headline words. */
+  .text-gradient {
+    background-image: linear-gradient(
+      100deg,
+      var(--color-violet-glow) 0%,
+      var(--color-cyan-glow) 50%,
+      var(--color-violet-glow) 100%
+    );
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: var(--animate-gradient-x);
+  }
+
+  /* Skeleton loader base. */
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      color-mix(in oklab, #ffffff 4%, transparent) 25%,
+      color-mix(in oklab, #ffffff 9%, transparent) 50%,
+      color-mix(in oklab, #ffffff 4%, transparent) 75%
+    );
+    background-size: 200% 100%;
+    animation: var(--animate-shimmer);
+  }
+}
+
+@layer utilities {
+  /* Respect users who ask the OS to reduce motion. Every animation in the app
+     degrades gracefully; this is the hard guarantee. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+/* Entry/exit animations.
+     Tailwind v4 does not ship the `tailwindcss-animate` helpers
+     (`animate-in`, `fade-in-0`, `zoom-in-95`), so these are defined explicitly.
+     Using them keeps every overlay transition consistent and dependency-free. */
+  .animate-overlay-in {
+    animation: overlay-in 200ms var(--ease-out-expo);
+  }
+  .animate-overlay-out {
+    animation: overlay-out 150ms ease-in;
+  }
+  .animate-pop-in {
+    animation: pop-in 240ms var(--ease-spring);
+  }
+  .animate-pop-out {
+    animation: pop-out 150ms ease-in;
+  }
+  .animate-fade-in {
+    animation: fade-in 200ms var(--ease-out-expo);
+  }
+  .animate-fade-out {
+    animation: fade-out 150ms ease-in;
+  }
+
+  @keyframes overlay-in {
+    from {
+      opacity: 0;
+      backdrop-filter: blur(0);
+    }
+    to {
+      opacity: 1;
+      backdrop-filter: blur(4px);
+    }
+  }
+  @keyframes overlay-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+  @keyframes pop-in {
+    from {
+      opacity: 0;
+      transform: translate(-50%, -48%) scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+  }
+  @keyframes pop-out {
+    from {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: translate(-50%, -48%) scale(0.97);
+    }
+  }
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  @keyframes fade-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+}

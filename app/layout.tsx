@@ -1,0 +1,123 @@
+import type { Metadata, Viewport } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css";
+import { Providers } from "./providers";
+import { StarfieldBackground } from "@/components/layout/starfield-background";
+import { Navbar } from "@/components/layout/navbar";
+import { Footer } from "@/components/layout/footer";
+import { RECLAIM_FEE_BPS, SWAP_FEE_BPS } from "@/lib/utils/constants";
+import { getSiteUrl } from "@/lib/config/site";
+import { getTwitterHandle } from "@/lib/config/social";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "Spacedust";
+// The rent-reclaim rates are three separate constants so any of them can be
+// repriced alone. This summary states one number because today they are equal —
+// if that ever stops being true, this line has to say so rather than pick one.
+const APP_DESCRIPTION = `Six non-custodial Solana wallet tools: batch swap, send and burn (tokens, NFTs and cNFTs), reclaim rent, revoke approvals, and scan any address read-only. ${(SWAP_FEE_BPS / 100).toFixed(1)}% on swaps, ${(RECLAIM_FEE_BPS / 100).toFixed(1)}% of rent reclaimed.`;
+const APP_TITLE = `${APP_NAME} — batch tools for a Solana wallet`;
+
+export const metadata: Metadata = {
+  // Absolute URLs for the OG card and any canonical link. Without this, Next
+  // warns at build time and a relative `og:image` never resolves in a crawler —
+  // so the generated card in `app/opengraph-image.tsx` would exist and never be
+  // seen.
+  metadataBase: new URL(getSiteUrl()),
+  title: {
+    default: APP_TITLE,
+    template: `%s · ${APP_NAME}`,
+  },
+  description: APP_DESCRIPTION,
+  applicationName: APP_NAME,
+  keywords: [
+    "Solana",
+    "dust sweeper",
+    "SOL",
+    "USDC",
+    "JUP",
+    "Jupiter",
+    "token cleanup",
+    "non-custodial",
+    "crypto wallet cleanup",
+  ],
+  authors: [{ name: APP_NAME }],
+  openGraph: {
+    type: "website",
+    title: APP_TITLE,
+    description: APP_DESCRIPTION,
+    siteName: APP_NAME,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: APP_TITLE,
+    description: APP_DESCRIPTION,
+    // Attribution, so a card posted anywhere carries the account rather than
+    // looking like it came from no one. Read from the same config as the footer
+    // link and the security page's anti-phishing line, so all three name the same
+    // account. Coalesced to `undefined` rather than passed as `null`: the metadata
+    // type accepts `string | undefined` here, and `undefined` is what makes Next
+    // omit the tag instead of emitting an empty one.
+    site: getTwitterHandle() ?? undefined,
+    creator: getTwitterHandle() ?? undefined,
+  },
+  robots: {
+    // Indexable, deliberately — and this comment used to say the opposite. It
+    // read "keep it out of broad indexing until the operator has reviewed it"
+    // while the values beside it said `index: true`, which is a contradiction
+    // that survives every build. A public tool that cannot be found is not much
+    // of a public tool, so the values are the intent and the comment now says so.
+    index: true,
+    follow: true,
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#04050c",
+  colorScheme: "dark",
+  width: "device-width",
+  initialScale: 1,
+  // Not user-scalable=no: that breaks zoom for low-vision users, which is an
+  // accessibility failure. Users are free to pinch-zoom.
+  maximumScale: 5,
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
+  return (
+    <html
+      lang="en"
+      className={`${geistSans.variable} ${geistMono.variable}`}
+      suppressHydrationWarning
+    >
+      <body className="min-h-dvh font-sans antialiased">
+        <Providers>
+          {/* Decorative only: aria-hidden, and never intercepts pointer events. */}
+          <StarfieldBackground />
+          <a
+            href="#main"
+            className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-100 focus:rounded-lg focus:bg-violet-core focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-white"
+          >
+            Skip to main content
+          </a>
+          <Navbar />
+          <main id="main" className="relative z-10">
+            {children}
+          </main>
+          <Footer />
+        </Providers>
+      </body>
+    </html>
+  );
+}

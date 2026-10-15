@@ -1,0 +1,135 @@
+import type { Metadata } from "next";
+import Image from "next/image";
+import Link from "next/link";
+import { ArrowRight, CheckCircle2, ShieldCheck, Wallet } from "lucide-react";
+import { Container } from "@/components/layout/container";
+import { ToolEmblem } from "@/components/layout/tool-emblem";
+import { Card, CardContent } from "@/components/ui/card";
+import { TOOLS } from "@/lib/config/tools";
+
+/**
+ * The landing page.
+ *
+ * This was the sweeper until the tools outgrew a single front door: a visitor
+ * arriving at the root was asked for a wallet to do one specific job, with the
+ * others a nav item away and unexplained. The root is now a front door instead —
+ * what each tool is for, in one line each, and a way in.
+ *
+ * No wallet is requested here. The connect button is in the header for anyone
+ * who already knows what they want, and `/scan` is the read-only way in for
+ * anyone who does not.
+ *
+ * `title` is deliberately absent: the root layout supplies the site title, and
+ * a page title here would only repeat it with a suffix.
+ */
+export const metadata: Metadata = {
+  // Per page, and deliberately not in the root layout: metadata merges downwards,
+  // so a canonical of "/" there would declare every page a duplicate of the home
+  // page. It matters because the site answers on two hosts — the custom domain and
+  // the *.vercel.app one — and a crawler finding both is free to choose either.
+  alternates: { canonical: "/" },
+  description:
+    "Six non-custodial tools for a Solana wallet: batch swap, send and burn (tokens, NFTs and cNFTs), reclaim rent, revoke approvals, and scan any address read-only.",
+};
+
+/** True of every tool, which is why it is said once, here. */
+const GUARANTEES = [
+  { icon: ShieldCheck, text: "Non-custodial. No seed phrase, ever." },
+  { icon: CheckCircle2, text: "Simulated before you sign." },
+  { icon: Wallet, text: "You sign every transaction." },
+];
+
+export default function HomePage() {
+  return (
+    <Container size="wide">
+      <section className="pt-14 text-center sm:pt-18 lg:pt-20">
+        {/* The site mark, not a tool emblem — each tool gets its own below, and
+            this one is the product they share. The artwork itself carries the
+            name, so there is no visible wordmark next to it: the heading below is
+            for search and assistive tech, not for the eye. */}
+        <div className="flex justify-center">
+          <span className="relative flex size-64 items-center justify-center overflow-hidden rounded-[3rem] ring-1 ring-inset ring-white/10">
+            <Image
+              src="/logo.svg"
+              alt=""
+              width={256}
+              height={256}
+              priority
+              className="size-64"
+              aria-hidden
+            />
+            <span className="absolute inset-0 rounded-[3rem] ring-1 ring-inset ring-white/20 animate-pulse-ring" />
+          </span>
+        </div>
+
+        <h1 className="sr-only">Spacedust</h1>
+      </section>
+
+      {/* Each tool in its own box: the mark large enough to recognise, one line
+          of what it is for, and a way in. The line comes from the shared tool
+          list, so it cannot drift away from the nav's own labels. Three across
+          rather than four: with six tools that is two even rows, and the wider
+          column keeps each line to one line. */}
+      <section
+        aria-label="The tools"
+        className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+      >
+        {TOOLS.map((tool) => (
+          <Card
+            key={tool.key}
+            className="flex flex-col transition-colors hover:border-white/20"
+          >
+            <CardContent className="flex flex-1 flex-col items-center gap-3 text-center">
+              <ToolEmblem tool={tool.key} className="size-10" />
+              <p className="text-base font-semibold tracking-tight">
+                {tool.name}
+              </p>
+              <p className="text-sm leading-relaxed text-muted">
+                {tool.tagline}
+              </p>
+              <Link
+                href={tool.href}
+                className="group mt-auto inline-flex items-center gap-1 pt-1 text-sm font-medium text-violet-glow transition-colors hover:text-violet-core"
+              >
+                {tool.cta}
+                <ArrowRight
+                  className="size-3.5 transition-transform group-hover:translate-x-0.5"
+                  aria-hidden
+                />
+              </Link>
+            </CardContent>
+          </Card>
+        ))}
+      </section>
+
+      <section className="mt-14">
+        <ul className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm text-muted">
+          {GUARANTEES.map((item) => (
+            <li key={item.text} className="flex items-center gap-2">
+              <item.icon className="size-4 shrink-0 text-success" aria-hidden />
+              {item.text}
+            </li>
+          ))}
+        </ul>
+
+        <p className="mt-6 text-center text-sm">
+          <Link
+            href="/how-it-works"
+            className="text-violet-glow transition-colors hover:text-violet-core hover:underline"
+          >
+            How each tool works
+          </Link>
+          <span className="text-subtle" aria-hidden>
+            {" · "}
+          </span>
+          <Link
+            href="/security"
+            className="text-violet-glow transition-colors hover:text-violet-core hover:underline"
+          >
+            What Spacedust can and cannot do
+          </Link>
+        </p>
+      </section>
+    </Container>
+  );
+}
