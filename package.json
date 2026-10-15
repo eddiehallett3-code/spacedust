@@ -17,7 +17,6 @@
   },
   "dependencies": {
     "@bonfida/spl-name-service": "^4.0.1",
-    "@jup-ag/jup-mobile-adapter": "^0.0.2",
     "@metaplex-foundation/mpl-bubblegum": "^6.0.0",
     "@metaplex-foundation/mpl-core": "^1.10.0",
     "@metaplex-foundation/mpl-token-metadata": "^3.4.0",

@@ -50,6 +50,19 @@ const MOBILE_BROWSE_WALLETS = ["Phantom", "Solflare"] as const;
 const CONNECT_TIMEOUT_MS = 15_000;
 
 /**
+ * How long to wait when the wallet is reached over WalletConnect.
+ *
+ * Considerably longer, because the user has to leave this page to finish: the
+ * wallet list opens, the wallet app takes over, they approve there and come back.
+ * Fifteen seconds comfortably covers a browser extension, which answers in place,
+ * but would abandon a phone handshake that is progressing perfectly well.
+ *
+ * This only governs the failure message — the connect attempt itself keeps going,
+ * so a connection that lands late still closes the picker.
+ */
+const WALLETCONNECT_TIMEOUT_MS = 120_000;
+
+/**
  * Spacedust's own wallet picker.
  *
  * Replaces `WalletModalProvider` from `@solana/wallet-adapter-react-ui`, whose
@@ -268,18 +281,23 @@ function WalletPickerDialog({ onClose }: { onClose: () => void }) {
    */
   useEffect(() => {
     if (!pending) return;
-    const timer = setTimeout(() => {
-      setPending(null);
-      setFailure((current) =>
-        current ??
-        diagnoseConnectFailure({
-          walletName: pending,
-          userAgent: navigator.userAgent,
-          isSecureContext: window.isSecureContext,
-          errorMessage: null,
-        }),
-      );
-    }, CONNECT_TIMEOUT_MS);
+    const timer = setTimeout(
+      () => {
+        setPending(null);
+        setFailure((current) =>
+          current ??
+          diagnoseConnectFailure({
+            walletName: pending,
+            userAgent: navigator.userAgent,
+            isSecureContext: window.isSecureContext,
+            errorMessage: null,
+          }),
+        );
+      },
+      pending === WALLET_CONNECT_ADAPTER_NAME
+        ? WALLETCONNECT_TIMEOUT_MS
+        : CONNECT_TIMEOUT_MS,
+    );
     return () => clearTimeout(timer);
   }, [pending]);
 

@@ -44,10 +44,10 @@ const REOWN_PROJECT_ID =
  * `createAppKit` touches the DOM; the bridge renders `null`, so nothing about
  * the server-rendered page changes either way.
  */
-const ReownWalletBridge = dynamic(
+const WalletConnectBridge = dynamic(
   () =>
-    import("@/components/wallet/reown-bridge").then(
-      (module) => module.ReownWalletBridge,
+    import("@/components/wallet/walletconnect-bridge").then(
+      (module) => module.WalletConnectBridge,
     ),
   { ssr: false },
 );
@@ -124,7 +124,7 @@ export function Providers({ children }: { children: ReactNode }) {
             a component with an effect rather than a call in this file. */}
         <MobileWalletAdapter />
         {REOWN_PROJECT_ID ? (
-          <ReownWalletBridge
+          <WalletConnectBridge
             projectId={REOWN_PROJECT_ID}
             onAdapters={setWalletConnect}
           />
