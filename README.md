@@ -25,8 +25,9 @@ Program charges the same fee but pays out the account's on-chain `share_bps` on
 claim, keeping only part of it. `/api/health` reads each account back from chain
 and names any that is missing, because Jupiter does not check, and a fee with
 nowhere to land is a swap that fails for everyone. **1.5% of the rent that any flow
-reclaims** is unchanged: a token burned in The Void, an empty account closed, a
-Payload send that empties the account it came from, or a `.sol` name deleted.
+reclaims** is unchanged: a token burned in The Void, an account a swap emptied and
+closed, an already-empty account closed, a Payload send that empties the account
+it came from, or a `.sol` name deleted.
 Burning an NFT or a cNFT costs nothing. Revoking an approval and looking a wallet
 up cost only the network fee.
 
@@ -38,8 +39,9 @@ and the panel that runs it says so before you sign, not after.
 
 ## What makes it different
 
-Most dust sweepers take a cut. This one takes a visible 0.5%, from the swap's
-output rather than the dust being recovered.
+Most dust sweepers take a cut. This one takes a visible 0.5% of the swap's
+output rather than the dust being recovered — and 1.5% of the rent it reclaims,
+the same rate every other flow here charges for a reclaim.
 
 | | |
 |---|---|
@@ -47,7 +49,7 @@ output rather than the dust being recovered.
 | **The Void** | The burn flow, for tokens with no market left. Named, for a reason — see below. |
 | **Non-custodial** | Transactions are built in your browser and signed by *your* wallet. Spacedust has no keyring, no seed phrase field, and no ability to move funds. |
 | **Fewest signatures** | Swaps are packed into as few versioned transactions as the 1232-byte limit allows — often clearing 10+ dust tokens in a single approval. |
-| **Rent reclaim** | Emptied token accounts are closed in the same flow, returning ~0.00203928 SOL each. Frequently worth more than the dust itself. |
+| **Rent reclaim** | Emptied token accounts are closed in the same flow, returning ~0.00203928 SOL each, less the 1.5% reclaim fee. Frequently worth more than the dust itself. |
 | **Simulated first** | Every transaction is dry-run against the cluster *before* you are asked to sign. |
 | **Revoke approvals** | Finds token accounts where someone else still holds a delegate — from NFT listings and old dApp approvals — and clears them. |
 | **Rent from empty accounts** | A token account with no balance still holds ~0.002 SOL, and nothing else in the app can reach it. Closing it returns that rent, with no swap and no burn — for 1.5% of what comes back. |
@@ -391,8 +393,9 @@ that allow-list it would be an open RPC relay pointed at your Helius account.
 5. Fees are charged in two places, never hidden: 0.5% of a swap's output
    (applied by Jupiter *inside* the swap instruction, so it cannot be skipped or
    redirected client-side, and paid in the output asset into the fee wallet's own
-   token account for it), and 1.5% of any rent reclaimed — a Void burn, an empty
-   account closed, a Payload send that emptied its account, a `.sol` name deleted.
+   token account for it), and 1.5% of any rent reclaimed — a Void burn, an account
+   a swap emptied and closed, an already-empty account closed, a Payload send that
+   emptied its account, a `.sol` name deleted.
    The rent fee is a plain SOL transfer taken from the rent just returned to the
    user.
 
@@ -1161,7 +1164,7 @@ What it enforces, for all six flows:
 | The program must be on that flow's allow-list (`lib/security/program-ids.ts`) | A sweep has no business naming the SNS registry; a revoke has no business naming Jupiter. |
 | `Approve` and `SetAuthority` are refused in **every** flow | The two instructions that turn a mistake into a loss. Nothing here ever grants a delegation or hands over ownership. |
 | A `closeAccount` may only refund to the owner | Rent goes back to the wallet that paid it. |
-| The only SOL that may leave is the computed fee | A sweep's fee rides inside the aggregator's call, so a sweep allows *no* System transfer except one into the wallet's own wrapped-SOL account. |
+| The only SOL that may leave is the computed fee | A sweep's swap fee rides inside the aggregator's call, so the only System transfers a sweep allows are the rent-reclaim fee and the wrapping transfer into the wallet's own wrapped-SOL account. |
 | A fee transfer may not exceed the figure the plan showed | The overcharge is what is being prevented, not just the drain. |
 | A burn must be authorised by the wallet | Only a balance the wallet owns is destroyed. |
 | A send's transfer must land in the verified destination, for an account owned by it | The destination proof is only worth something if the transfer is held to it. |
@@ -1641,7 +1644,7 @@ has already been violated once:
 | `lib/solana/rent.test.ts` | The Void's fee is a rate on the rent it is given, floored, and never a constant — and a burned Core asset's one-byte husk is priced, so its rent is not claimed as returned |
 | `lib/solana/liveness.test.ts` | A missing account is not always a dead asset (a cNFT's id is a leaf, never an account) and a tiny account is not always a live one (a burned Core asset is one zero byte) — and the index's `burnt` flag is believed only when it is literally `true` |
 | `lib/sweep/plan-void.test.ts` | The SOL transfer sent on chain is 22,326 lamports — 1.5% of the rent the chain reports, and a frozen token account is refused before a burn is built for it |
-| `lib/sweep/summary.test.ts` | Reclaimed rent comes from the plan, and the fee reported is the one actually applied |
+| `lib/sweep/summary.test.ts` | Reclaimed rent comes from the plan, the fee reported is the one actually applied, and the rent on the success screen is **net** of the reclaim fee — one fee per closed account, never one per transaction |
 | `lib/sweep/void-prompt.test.ts` | "Left behind" means left behind *by this sweep*, not present in the wallet |
 | `lib/sweep/phase.test.ts` | Whatever phase a successful `prepare()` settles on is not a busy one |
 | `lib/security/instruction-audit.test.ts` | Every instruction a plan produces is checked against the program and the destination it is supposed to touch, so a built plan cannot quietly point somewhere else — and each flow's "accepts" case runs through the real builder the app ships, so a change to an instruction layout fails here rather than at a wallet prompt |
@@ -1651,7 +1654,7 @@ has already been violated once:
 | `lib/sweep/plan-nft-burn.test.ts` | A plain NFT is burned through Token Metadata — one instruction naming the metadata and master edition accounts, so nothing is left for an index to describe the asset from — with the SPL fallback taken, and reported, only when that builder fails; a Core asset goes through the Core program's instruction |
 | `lib/sweep/preview.test.ts` | A preview is discarded the moment its selection moves, so the button always describes what will be signed — and that both burn flows are actually wired to that rule |
 | `lib/solana/simulate-error.test.ts` | A program's `Custom` code is only named when we have checked *which* program raised it — `17` means `AccountFrozen` from the token program and something else from anything else |
-| `lib/solana/compose.test.ts` | The audit is told about every close the composer will make — including the derived-ATA fallback for a holding the scanner could not name, which is the close that used to be reported as one "the plan did not name"; a non-canonical account declares nothing, because nothing is closed |
+| `lib/solana/compose.test.ts` | The audit is told about every close the composer will make — including the derived-ATA fallback for a holding the scanner could not name, and the wrapped-SOL account Jupiter's own cleanup closes on a SOL-output swap, which was the close reported four times over as one "the plan did not name"; a non-canonical account declares nothing, because nothing is closed. The composer's other output is the rent-reclaim fee: exactly one SOL transfer per closed account, sitting directly after the close that funds it, and nothing at all when fees are off, the fee is zero, or no account is closed |
 | `app/api/plan/route.test.ts` | The money path refuses what the app would never send: an owner that is not an address, an output asset outside the SOL/USDC/JUP allow-list, more tokens than a sweep can carry, slippage outside the band, and a swap amount that is not a whole base-unit string — while both a partial amount and the original whole-balance request still parse |
 | `lib/solana/cnft-burn.test.ts` | A cNFT burn is Bubblegum's `Burn` with each leaf fact at its own offset and the proof appended — and for V2, `burnV2` with the payer and authority as the signers, not the leaf owner |
 | `lib/solana/pnft-burn.test.ts` | A pNFT burn is Token Metadata's `burnV1` with an amount of one, from the account the scan found, asking *only* the owner to sign |

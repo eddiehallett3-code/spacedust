@@ -66,6 +66,17 @@ export interface PlanResponse {
    */
   tokenAccountRentLamports: number;
   /**
+   * Rent-exempt minimum for an account with **no data**, from the same read as
+   * the figure above.
+   *
+   * The client needs this to decide whether the fee wallet is *funded* before it
+   * builds a rent-reclaim fee: Solana refuses to create an account below the
+   * rent-exempt minimum, and that fee is tens of thousands of lamports — far
+   * below this one — so a fee sent to a fresh address fails the whole sweep with
+   * `InsufficientFundsForRent`.
+   */
+  emptyAccountRentLamports: number;
+  /**
    * Integrator fee actually applied to this plan, in basis points. Zero when the
    * fee wallet is not configured, or when its token account for the output asset
    * is missing or unusable (see `warnings`).
@@ -275,7 +286,17 @@ export interface SweepSummary {
   tokenCount: number;
   successCount: number;
   failedCount: number;
+  /**
+   * Rent the sweep reclaimed, **after** the Spacedust fee on it — what actually
+   * reached the wallet.
+   *
+   * A sweep is charged the same 1.5% of reclaimed rent every other flow is, as a
+   * plain SOL transfer taken from the rent each close returns. Reporting the
+   * gross here would overstate every figure on the success screen.
+   */
   rentReclaimedLamports: number;
+  /** The Spacedust fee on that rent, in lamports. Zero when fees are off. */
+  reclaimFeeLamports: number;
   feeLamports: number;
   signatures: string[];
   routeLabels: string[];

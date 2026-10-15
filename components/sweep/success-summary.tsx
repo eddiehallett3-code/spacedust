@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TokenLogo } from "@/components/scanner/token-logo";
 import { solscanTxUrl } from "@/lib/solana/submit";
+import { RECLAIM_RATE } from "@/lib/config/tools";
 import {
   formatAmount,
   formatPercent,
@@ -145,7 +146,11 @@ export function SuccessSummary({
         <BigStat
           label="Rent reclaimed"
           value={formatSol(summary.rentReclaimedLamports)}
-          hint="returned to your wallet"
+          hint={
+            summary.reclaimFeeLamports > 0
+              ? `after ${RECLAIM_RATE} fee — in your wallet`
+              : "returned to your wallet"
+          }
         />
         <BigStat
           label="Network fee"

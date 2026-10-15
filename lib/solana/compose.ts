@@ -1,8 +1,11 @@
 import {
   PublicKey,
+  SystemProgram,
   type Connection,
   type TransactionInstruction,
 } from "@solana/web3.js";
+import { base64ToBytes } from "@/lib/utils/base64";
+import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@/lib/utils/constants";
 import {
   apiToInstruction,
   apiToInstructions,
@@ -42,6 +45,19 @@ export interface ComposeUnitInput {
    * the behaviour that produced on-chain `InvalidAccountData` failures.
    */
   connection?: Connection;
+  /**
+   * The wallet a rent-reclaim fee is paid to, or null when fees are off.
+   *
+   * Passed in rather than read here, because the planner that resolves it is the
+   * same one that tells the audit what to expect — so the two can never disagree
+   * about where the fee goes. Null builds no transfer at all.
+   */
+  feeWallet: string | null;
+  /**
+   * The Spacedust fee for closing one emptied account, in lamports, floored.
+   * Zero when fees are off, so "no transfer" and "no fee" are the same thing.
+   */
+  feeLamportsPerAccount: number;
 }
 
 export interface ComposeUnitResult {
@@ -75,6 +91,8 @@ export async function composePackUnits({
   skipCloseMints,
   tokenPrograms,
   connection,
+  feeWallet,
+  feeLamportsPerAccount,
 }: ComposeUnitInput): Promise<ComposeUnitResult> {
   const units: PackUnit[] = [];
   const errors: Array<{ mint: string; reason: string }> = [];
@@ -127,11 +145,35 @@ export async function composePackUnits({
       // Rent reclaim: only ever close the account that really holds the
       // balance, and only when we could confirm it still exists.
       const plan = plansByMint.get(build.mint);
-      const closeInstructions: TransactionInstruction[] = [];
+      const postSwap: TransactionInstruction[] = [];
       if (plan?.account && plan.program) {
-        closeInstructions.push(
+        postSwap.push(
           createCloseAccountInstruction(plan.account, owner, plan.program),
         );
+
+        // The rent-reclaim fee, taken from the rent that close is about to
+        // return — so it sits immediately after the close and is always funded:
+        // the close credits the whole deposit to `owner` first, and the fee is a
+        // floor of 1.5% of it.
+        //
+        // Priced per account rather than per transaction on purpose. The packer
+        // decides how many swaps share a transaction, so a per-transaction fee
+        // would be charged once per *packet* and would silently scale with the
+        // grouping. This amount is exact however the units are packed.
+        //
+        // Both guards matter: `feeWallet` null means fees are off, and a zero
+        // per-account fee means the planner decided not to charge (the fee
+        // wallet is unfunded, or there is no rent to take a fee from). Either
+        // way, no transfer is built — and the audit is told the same thing.
+        if (feeWallet && feeLamportsPerAccount > 0) {
+          postSwap.push(
+            SystemProgram.transfer({
+              fromPubkey: owner,
+              toPubkey: new PublicKey(feeWallet),
+              lamports: feeLamportsPerAccount,
+            }),
+          );
+        }
       } else if (plan?.reason) {
         warnings.push(`Rent reclaim skipped for ${build.symbol}: ${plan.reason}.`);
       }
@@ -141,11 +183,11 @@ export async function composePackUnits({
         instructions: [
           ...setup,
           swap,
-          ...closeInstructions,
+          ...postSwap,
           ...(cleanup ? [cleanup] : []),
           ...other,
         ],
-        rentReclaim: closeInstructions.length > 0,
+        rentReclaim: postSwap.length > 0,
       });
     } catch (error) {
       errors.push({
@@ -216,8 +258,50 @@ function planClose(
 }
 
 /**
- * The accounts this batch will close for its rent, computed by the same function
- * that builds the closes.
+ * The account a swap's own cleanup closes, when it closes one.
+ *
+ * A swap that outputs SOL wraps it: the setup creates the wallet's wrapped-SOL
+ * account and the cleanup closes it again, so the lamports come back as plain
+ * SOL. That close is built by Jupiter, not by us, and it is on an account no
+ * *swap* names — the wrapped-SOL account is created and destroyed inside the
+ * batch. Reading it back out of the bundle the composer is about to splice in is
+ * what tells the audit the truth: the close is part of the plan, because the
+ * plan is the thing that carries it.
+ *
+ * Only a token-program `CloseAccount` counts, and only when its refund goes to
+ * the owner. Anything else is deliberately left undeclared: the audit refuses a
+ * close that pays a third party on its own terms, and a close this function
+ * cannot read must not be quietly excused.
+ */
+function cleanupCloseTarget(
+  build: SwapBuild,
+  owner: PublicKey,
+): string | null {
+  const cleanup = build.bundle.cleanup;
+  if (!cleanup) return null;
+  if (
+    cleanup.programId !== TOKEN_PROGRAM_ID &&
+    cleanup.programId !== TOKEN_2022_PROGRAM_ID
+  ) {
+    return null;
+  }
+  let data: Uint8Array;
+  try {
+    data = base64ToBytes(cleanup.data);
+  } catch {
+    return null;
+  }
+  // CloseAccount is instruction index 9 on both token programs.
+  if (data.length !== 1 || data[0] !== 9) return null;
+  const account = cleanup.accounts?.[0]?.pubkey;
+  const refund = cleanup.accounts?.[1]?.pubkey;
+  if (!account || refund !== owner.toBase58()) return null;
+  return account;
+}
+
+/**
+ * The accounts this batch will close for its rent, computed by the same code that
+ * builds the closes.
  *
  * WHY THIS IS EXPORTED rather than reconstructed by the caller: two pieces of
  * code need to agree on which accounts get closed, and they disagreed. `planClose`
@@ -229,8 +313,15 @@ function planClose(
  * the app had decided on itself. A warning that fires on correct behaviour is
  * worse than no warning: it teaches the reader to ignore the panel.
  *
- * Deriving the expectation from `planClose` means the answer cannot drift again —
- * whatever the composer closes, the audit was told about.
+ * That same lesson repeats one level up. Our own `closeAccount` is not the only
+ * close in a batch: a SOL-output swap's own cleanup closes the wallet's
+ * wrapped-SOL account once **per swap**, an account no swap names. Undeclared,
+ * that produced the identical warning four times over a four-token sweep — about
+ * one account the plan had created itself. So the expectation is read from every
+ * bundle the composer will splice, not only from the mint it came from.
+ *
+ * Deriving the answer from the builds the composer uses means it cannot drift
+ * again — whatever the composer closes, the audit was told about.
  *
  * The converse is deliberately not promised: `verifyCloseTargets` may drop a
  * target that no longer exists, so the batch can close *fewer* than this. That is
@@ -243,14 +334,19 @@ export function plannedCloseAccounts(input: {
   skipCloseMints: Set<string>;
   tokenPrograms: Map<string, "legacy" | "token2022">;
 }): string[] {
-  return input.builds
-    .map(
-      (build) =>
-        planClose(build, input.owner, input.tokenPrograms, input.skipCloseMints)
-          .account,
-    )
-    .filter((account): account is PublicKey => account !== null)
-    .map((account) => account.toBase58());
+  const accounts = new Set<string>();
+  for (const build of input.builds) {
+    const close = planClose(
+      build,
+      input.owner,
+      input.tokenPrograms,
+      input.skipCloseMints,
+    );
+    if (close.account) accounts.add(close.account.toBase58());
+    const cleanupClose = cleanupCloseTarget(build, input.owner);
+    if (cleanupClose) accounts.add(cleanupClose);
+  }
+  return [...accounts];
 }
 
 /**

@@ -109,11 +109,12 @@ export const FLOW_PROGRAMS: Record<AuditFlowName, readonly string[]> = {
     TOKEN_2022_PROGRAM_ID,
     ASSOCIATED_TOKEN_PROGRAM_ID,
     // A sweep that outputs SOL wraps it, and wrapping moves lamports into the
-    // wallet's own wrapped-SOL account. Banning the program outright would break
-    // that route; what protects the user instead is the destination rule — SOL
-    // may only go to the fee wallet, to the wallet itself, or to an account the
-    // plan declared. (The sweep's own fee is not here at all: it rides inside
-    // the aggregator's call as a `platformFeeBps` transfer.)
+    // wallet's own wrapped-SOL account; and a sweep pays its rent-reclaim fee
+    // with a plain SOL transfer to the fee wallet. Banning the program outright
+    // would break both routes; what protects the user instead is the destination
+    // rule — SOL may only go to the fee wallet, to the wallet itself, or to an
+    // account the plan declared. (The *swap* fee is not here at all: it rides
+    // inside the aggregator's call as a `platformFeeBps` transfer.)
     SYSTEM_PROGRAM_ID,
   ],
   void: [

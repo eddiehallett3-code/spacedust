@@ -259,6 +259,7 @@ export async function POST(request: Request) {
       estimatedRentReclaimLamports:
         processed.rentReclaimMints * rent.tokenAccount,
       tokenAccountRentLamports: rent.tokenAccount,
+      emptyAccountRentLamports: rent.emptyAccount,
       // The integrator fee actually applied to this plan, and the token account
       // it is paid into. Zero means no fee was charged — either no fee wallet is
       // configured, or its account for this asset is unusable (reported in

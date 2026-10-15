@@ -15,6 +15,8 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { SimulationReport } from "./simulation-report";
 import { InstructionAuditPanel } from "@/components/security/instruction-audit-panel";
 import { WarningsList } from "./warnings-list";
+import { getPublicFeeWallet } from "@/lib/config/public-env";
+import { RECLAIM_RATE } from "@/lib/config/tools";
 import { formatSol, formatUsd, pluralize } from "@/lib/utils/format";
 import type { AuditResult } from "@/lib/security/instruction-audit";
 import type {
@@ -43,6 +45,7 @@ export function SweepPanel({
   disabled,
   feeBps,
   rentLamportsPerAccount,
+  reclaimFeePerAccount,
   onPreview,
   onSweep,
   onReset,
@@ -67,13 +70,28 @@ export function SweepPanel({
    * rate cannot make this label lie.
    */
   rentLamportsPerAccount: number;
+  /**
+   * The Spacedust fee for closing one account for its rent, in lamports, from
+   * the same plan. Zero when fees are off, so it can be multiplied by a count.
+   */
+  reclaimFeePerAccount: number;
   onPreview: () => void;
   onSweep: () => void;
   onReset: () => void;
   onRescan: () => void;
 }) {
   const rentMints = new Set(packed.flatMap((tx) => tx.rentReclaimMints));
-  const rentLamports = rentMints.size * rentLamportsPerAccount;
+  // One fee transfer is built per closed account, so the fee rides the same
+  // count as the rent. Shown net, because the gross is not what lands.
+  const grossRentLamports = rentMints.size * rentLamportsPerAccount;
+  const reclaimFeeLamports = rentMints.size * reclaimFeePerAccount;
+  const rentLamports = grossRentLamports - reclaimFeeLamports;
+  // Whether the copy below states a fee. Read from the public config rather than
+  // from the plan's own per-account figure, so the sentence describes what this
+  // deployment charges before any preview exists — the same way The Void's panel
+  // decides it. A configured-but-unfunded wallet charges nothing, and the plan
+  // says so in a warning beside this.
+  const rentFeeConfigured = getPublicFeeWallet() !== null;
   const feeLamports = simulations.reduce(
     (sum, simulation) => sum + (simulation.feeLamports ?? 0),
     0,
@@ -93,7 +111,13 @@ export function SweepPanel({
           icon={<Gauge className="size-3.5" aria-hidden />}
           label="Rent reclaimable"
           value={hasPreview ? formatSol(rentLamports) : "—"}
-          hint={hasPreview ? `from ${pluralize(rentMints.size, "account")}` : "run preview"}
+          hint={
+            hasPreview
+              ? reclaimFeeLamports > 0
+                ? `after ${RECLAIM_RATE} fee, from ${pluralize(rentMints.size, "account")}`
+                : `from ${pluralize(rentMints.size, "account")}`
+              : "run preview"
+          }
           accent={rentLamports > 0}
         />
         <Stat
@@ -232,8 +256,15 @@ export function SweepPanel({
       <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-subtle">
         <Info className="mt-px size-3 shrink-0" aria-hidden />
         <span>
-          Reclaimed rent is returned to your wallet. Spacedust never takes a
-          cut.
+          {rentFeeConfigured ? (
+            <>
+              Reclaimed rent is returned to your wallet, less Spacedust&apos;s{" "}
+              {RECLAIM_RATE} fee on it — taken from that rent, so a swap that
+              reclaims nothing costs nothing extra.
+            </>
+          ) : (
+            <>Reclaimed rent is returned to your wallet in full.</>
+          )}
         </span>
       </p>
     </div>

@@ -1,16 +1,19 @@
 import { PublicKey, type Connection } from "@solana/web3.js";
 import { apiFetch } from "@/lib/utils/api";
+import { getPublicFeeWallet } from "@/lib/config/public-env";
 import {
   BASE_FEE_LAMPORTS,
   COMPUTE_UNIT_LIMIT,
   DEFAULT_SLIPPAGE_BPS,
   OUTPUT_ASSETS,
   PRIORITY_FEE_MICRO_LAMPORTS,
+  RECLAIM_FEE_BPS,
   TOKEN_PROGRAM_ID,
 } from "@/lib/utils/constants";
 import { auditPlanBeforeSigning } from "@/lib/security/audit-plan";
 import type { AuditResult } from "@/lib/security/instruction-audit";
 import { loadLookupTables } from "@/lib/solana/connection";
+import { feeFromRentLamports } from "@/lib/solana/rent";
 import {
   createComputeBudgetInstructions,
   getOwnerAta,
@@ -66,6 +69,19 @@ export interface PlanSweepResult {
   lastValidBlockHeight: number;
   /** Precise fee estimate, based on the real transaction count. */
   estimatedFeeLamports: number;
+  /**
+   * The Spacedust fee for closing ONE account for its rent, in lamports, floored.
+   *
+   * Zero when fees are off — so a caller can multiply it by a closed-account
+   * count without checking whether fees were charged first.
+   */
+  reclaimFeeLamportsPerAccount: number;
+  /** Rent this batch's closes return, before the reclaim fee. */
+  estimatedRentReclaimLamports: number;
+  /** The Spacedust fee on that rent. Zero when fees are off. */
+  estimatedReclaimFeeLamports: number;
+  /** Rent minus that fee — what actually reaches the wallet. */
+  estimatedNetRentLamports: number;
   /** True when at least one transaction failed to simulate. */
   hasFailures: boolean;
   /**
@@ -160,6 +176,42 @@ export async function planSweep(
   // `mintsWithoutRentReclaim`, which is the same rule the server counts against.
   const skipCloseMints = mintsWithoutRentReclaim(tokens, amounts);
 
+  // ── The rent-reclaim fee ──────────────────────────────────────────────────
+  // A sweep returns the rent locked in every token account it empties, and that
+  // reclaim is charged like every other flow here: 1.5% of the rent, taken as a
+  // plain SOL transfer from the rent the close has just handed back. It is a
+  // *second* fee, on a different base from the 0.5% swap fee — that one is
+  // charged inside Jupiter's call on the swap's output, this one on the rent.
+  //
+  // Priced from the plan's own rent figure, so the fee is exactly 1.5% of the
+  // "rent reclaimable" the panel shows. Read from the *public* config because
+  // this pipeline runs in the browser and builds the transfer itself.
+  const feeWallet = getPublicFeeWallet();
+  const feeWarnings: string[] = [];
+  let feeEnabled = false;
+  if (feeWallet) {
+    // A configured fee wallet still has to be *funded*: Solana refuses to create
+    // an account below the rent-exempt minimum, and this fee is tens of
+    // thousands of lamports — far below it — so sending it to a fresh address
+    // fails the whole transaction with `InsufficientFundsForRent` instead of
+    // creating anything. Verified once for The Void; the trap is identical here.
+    try {
+      const info = await connection.getAccountInfo(new PublicKey(feeWallet));
+      feeEnabled = (info?.lamports ?? 0) >= plan.emptyAccountRentLamports;
+    } catch {
+      // Could not check — skip the fee rather than risk the whole sweep.
+      feeEnabled = false;
+    }
+    if (!feeEnabled) {
+      feeWarnings.push(
+        "No fee was charged: the fee wallet has not been funded yet, and a fee this small cannot create it.",
+      );
+    }
+  }
+  const reclaimFeePerAccount = feeEnabled
+    ? feeFromRentLamports(plan.tokenAccountRentLamports, RECLAIM_FEE_BPS)
+    : 0;
+
   const { units, errors: composeErrors, warnings: composeWarnings } =
     await composePackUnits({
       owner,
@@ -169,6 +221,8 @@ export async function planSweep(
       // Lets the composer confirm a close target exists before we commit to
       // closing it — a missing account fails the whole transaction on-chain.
       connection,
+      feeWallet: feeEnabled ? feeWallet : null,
+      feeLamportsPerAccount: reclaimFeePerAccount,
     });
 
   const warnings = [
@@ -178,6 +232,7 @@ export async function planSweep(
     ...composeErrors.map(
       (error) => `Skipped ${error.mint.slice(0, 6)}…: ${error.reason}`,
     ),
+    ...feeWarnings,
   ];
 
   if (units.length === 0) {
@@ -219,6 +274,18 @@ export async function planSweep(
     ),
   );
 
+  // Rent actually reclaimed, and the fee on it. Counted from the accounts that
+  // made it into a transaction rather than the ones we set out to close: a
+  // dropped unit returns no rent, and one fee transfer was built per closed
+  // account, so the same count prices the fee.
+  const packedCloseMints = new Set(
+    packedResult.transactions.flatMap((tx) => tx.rentReclaimMints),
+  );
+  const estimatedRentReclaimLamports =
+    packedCloseMints.size * plan.tokenAccountRentLamports;
+  const estimatedReclaimFeeLamports =
+    packedCloseMints.size * reclaimFeePerAccount;
+
   // ── The audit: what is about to be signed, checked before it is simulated ─
   // Runs on the instructions that actually made it into a transaction and on the
   // packed bytes themselves. A plan that fails here never reaches a wallet
@@ -230,12 +297,13 @@ export async function planSweep(
     expected: {
       flow: "sweep",
       owner: owner.toBase58(),
-      // A sweep's own fee rides inside the aggregator's call, as a
-      // `platformFeeBps` transfer on one of Jupiter's own instructions — so no
-      // System transfer is expected here at all, and any that appears has to go
-      // to the wallet itself.
-      feeWallet: null,
-      expectedFeeLamports: 0,
+      // Two fees ride in a sweep, and they reach the chain differently. The swap
+      // fee is a `platformFeeBps` charge inside the aggregator's own call, so it
+      // never appears as a System instruction. The rent-reclaim fee *is* one
+      // System transfer per closed account, so the wallet is named here and the
+      // batch's own total is the ceiling the audit checks each transfer against.
+      feeWallet: feeEnabled ? feeWallet : null,
+      expectedFeeLamports: estimatedReclaimFeeLamports,
       // Told to the audit through the composer's own function, so the two can
       // never disagree about which accounts this batch closes — including the
       // derived-ATA fallback for a holding the scanner could not name. See
@@ -294,5 +362,10 @@ export async function planSweep(
     estimatedFeeLamports,
     hasFailures,
     audit,
+    reclaimFeeLamportsPerAccount: reclaimFeePerAccount,
+    estimatedRentReclaimLamports,
+    estimatedReclaimFeeLamports,
+    estimatedNetRentLamports:
+      estimatedRentReclaimLamports - estimatedReclaimFeeLamports,
   };
 }

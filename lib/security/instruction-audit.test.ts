@@ -157,7 +157,10 @@ describe("a sweep's own instructions", () => {
     expect(
       result.findings.find((f) => f.code === "sol-leaves-owner")?.message,
     ).toContain("9qDz…Yrmt");
-    // A sweep has no lamport fee at all — it rides inside the aggregator call.
+    // Nothing was paid to a fee wallet here — the transfer was refused, and this
+    // sweep fixture declares no fee wallet anyway (a fee no longer rides solely
+    // inside the aggregator call: a sweep charges its rent-reclaim fee as a
+    // System transfer, which is why `feeWallet` is a thing this flow sets).
     expect(result.feeLamports).toBe(0);
   });
 

@@ -26,6 +26,7 @@ function build(overrides: Partial<PlanResponse> = {}): PlanResponse {
     totalExpectedOutUsd: 0,
     estimatedRentReclaimLamports: 0,
     tokenAccountRentLamports: 1_488_440,
+    emptyAccountRentLamports: 650_240,
     feeBps: 0,
     feeAccount: null,
     warnings: [],
@@ -58,6 +59,9 @@ describe("buildSummary rent", () => {
       outcomes: noOutcomes,
       outputAsset: "SOL",
       estimatedFeeLamports: 5_000,
+      // Fees are off in these fixtures, so net rent is the gross: the
+      // reclaim-fee subtraction has its own describe block below.
+      reclaimFeeLamportsPerAccount: 0,
       dryRun: false,
     });
 
@@ -74,6 +78,9 @@ describe("buildSummary rent", () => {
       outcomes: noOutcomes,
       outputAsset: "SOL",
       estimatedFeeLamports: 5_000,
+      // Fees are off in these fixtures, so net rent is the gross: the
+      // reclaim-fee subtraction has its own describe block below.
+      reclaimFeeLamportsPerAccount: 0,
       dryRun: false,
     });
 
@@ -88,6 +95,9 @@ describe("buildSummary rent", () => {
       outcomes: noOutcomes,
       outputAsset: "SOL",
       estimatedFeeLamports: 5_000,
+      // Fees are off in these fixtures, so net rent is the gross: the
+      // reclaim-fee subtraction has its own describe block below.
+      reclaimFeeLamportsPerAccount: 0,
       dryRun: false,
     });
 
@@ -106,6 +116,9 @@ describe("buildSummary fee", () => {
       outcomes: noOutcomes,
       outputAsset: "SOL",
       estimatedFeeLamports: 5_000,
+      // Fees are off in these fixtures, so net rent is the gross: the
+      // reclaim-fee subtraction has its own describe block below.
+      reclaimFeeLamportsPerAccount: 0,
       dryRun: false,
     });
 
@@ -139,10 +152,51 @@ describe("buildSummary fee", () => {
       outcomes: noOutcomes,
       outputAsset: "SOL",
       estimatedFeeLamports: 5_000,
+      // Fees are off in these fixtures, so net rent is the gross: the
+      // reclaim-fee subtraction has its own describe block below.
+      reclaimFeeLamportsPerAccount: 0,
       dryRun: false,
     });
 
     expect(summary.spacedustFeeBps).toBe(50);
     expect(summary.spacedustFeeAmount).toBeCloseTo(0.005, 9);
+  });
+});
+
+describe("buildSummary reclaim fee", () => {
+  it("reports rent net of the reclaim fee, and the fee itself", () => {
+    const summary = buildSummary({
+      plan: build(),
+      packed: [closedTx("A"), closedTx("B")],
+      simulations: [],
+      outcomes: noOutcomes,
+      outputAsset: "SOL",
+      estimatedFeeLamports: 5_000,
+      // One fee per closed account, so two closes pay it twice — never once
+      // per transaction, which is what the packer grouping would decide.
+      reclaimFeeLamportsPerAccount: 22_326,
+      dryRun: false,
+    });
+
+    expect(summary.reclaimFeeLamports).toBe(2 * 22_326);
+    expect(summary.rentReclaimedLamports).toBe(2 * 1_488_440 - 2 * 22_326);
+  });
+
+  it("charges nothing when the plan could not charge a reclaim fee", () => {
+    // A zero per-account fee is what the planner resolves when fees are off or
+    // the fee wallet is unfunded, so the screen shows the whole rent.
+    const summary = buildSummary({
+      plan: build(),
+      packed: [closedTx("A")],
+      simulations: [],
+      outcomes: noOutcomes,
+      outputAsset: "SOL",
+      estimatedFeeLamports: 5_000,
+      reclaimFeeLamportsPerAccount: 0,
+      dryRun: false,
+    });
+
+    expect(summary.reclaimFeeLamports).toBe(0);
+    expect(summary.rentReclaimedLamports).toBe(1_488_440);
   });
 });

@@ -112,6 +112,9 @@ export function ControlsColumn({
             rentLamportsPerAccount={
               sweep.plan?.tokenAccountRentLamports ?? TOKEN_ACCOUNT_RENT_LAMPORTS
             }
+            // The rent-reclaim fee the plan resolved, per closed account. Zero
+            // when fees are off, so the panel can multiply it by a count.
+            reclaimFeePerAccount={sweep.reclaimFeeLamportsPerAccount}
             onPreview={() => void onPreview()}
             onSweep={() => void onSweep()}
             onReset={sweep.reset}

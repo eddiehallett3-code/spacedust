@@ -47,6 +47,11 @@ interface SweepState {
   simulations: SimulationOutcome[];
   /** What the instruction audit saw in the bytes about to be signed. */
   audit: AuditResult | null;
+  /**
+   * The Spacedust fee for closing one account for its rent, in lamports, from
+   * the plan. Zero when fees are off, so the panel can multiply it by a count.
+   */
+  reclaimFeeLamportsPerAccount: number;
   outcomes: TokenOutcome[];
   summary: SweepSummary | null;
   error: FriendlyError | null;
@@ -62,6 +67,7 @@ const INITIAL: SweepState = {
   packed: [],
   simulations: [],
   audit: null,
+  reclaimFeeLamportsPerAccount: 0,
   outcomes: [],
   summary: null,
   error: null,
@@ -158,6 +164,7 @@ export function useSweep() {
           simulations: result.simulations,
           audit: result.audit,
           warnings: result.warnings,
+          reclaimFeeLamportsPerAccount: result.reclaimFeeLamportsPerAccount,
         });
 
         if (dryRun) {
@@ -170,6 +177,7 @@ export function useSweep() {
               outcomes: [],
               outputAsset: request.outputAsset,
               estimatedFeeLamports: result.estimatedFeeLamports,
+              reclaimFeeLamportsPerAccount: result.reclaimFeeLamportsPerAccount,
               dryRun: true,
             }),
           });
@@ -336,6 +344,7 @@ export function useSweep() {
         outcomes,
         outputAsset: request.outputAsset,
         estimatedFeeLamports: result.estimatedFeeLamports,
+        reclaimFeeLamportsPerAccount: result.reclaimFeeLamportsPerAccount,
         dryRun: false,
       });
 

@@ -23,6 +23,15 @@ export function buildSummary(params: {
   outcomes: TokenOutcome[];
   outputAsset: OutputAsset;
   estimatedFeeLamports: number;
+  /**
+   * The Spacedust fee for closing ONE account for its rent, in lamports.
+   *
+   * Passed in rather than derived, because the planner already resolved it
+   * against the plan's own rent figure and the fee wallet's funding — and the
+   * success screen must report the fee that was actually charged, not a
+   * rate that might have been skipped.
+   */
+  reclaimFeeLamportsPerAccount: number;
   dryRun: boolean;
 }): SweepSummary {
   const {
@@ -32,6 +41,7 @@ export function buildSummary(params: {
     outcomes,
     outputAsset,
     estimatedFeeLamports,
+    reclaimFeeLamportsPerAccount,
     dryRun,
   } = params;
 
@@ -44,6 +54,15 @@ export function buildSummary(params: {
   const rentReclaimedMints = new Set(
     packed.flatMap((tx) => tx.rentReclaimMints),
   );
+
+  // Priced from the rent the chain reported for THIS plan, not a constant. The
+  // fee rides on the same count, because the planner built one transfer per
+  // closed account — so the gross, the fee and the net all come from one number
+  // and cannot disagree.
+  const grossRentLamports =
+    rentReclaimedMints.size * plan.tokenAccountRentLamports;
+  const reclaimFeeLamports =
+    rentReclaimedMints.size * reclaimFeeLamportsPerAccount;
 
   const successCount = outcomes.filter((o) => o.status === "success").length;
   const failedCount = outcomes.filter((o) => o.status === "failed").length;
@@ -68,8 +87,10 @@ export function buildSummary(params: {
     tokenCount: outcomes.length > 0 ? outcomes.length : plan.builds.length,
     successCount,
     failedCount,
-    // Priced from the rent the chain reported for THIS plan, not a constant.
-    rentReclaimedLamports: rentReclaimedMints.size * plan.tokenAccountRentLamports,
+    // What the user actually receives, not the gross rent: showing the pre-fee
+    // figure would overstate every number on the success screen.
+    rentReclaimedLamports: grossRentLamports - reclaimFeeLamports,
+    reclaimFeeLamports,
     feeLamports,
     // The integrator fee, in output units. Derived from the plan's *applied*
     // rate rather than the configured one, so a sweep that could not collect

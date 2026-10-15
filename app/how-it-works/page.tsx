@@ -169,6 +169,13 @@ export default function HowItWorksPage() {
           account cannot be closed by the legacy Token program.
         </p>
         <p>
+          Reclaimed rent is charged like every other flow here: {RECLAIM_RATE} of
+          it, taken as a plain SOL transfer from the rent the close just
+          returned. It is the same rate The Void and the rent-reclaim panel
+          charge, because closing an empty account is the same kind of job
+          wherever it happens — and the panel states it before you sign.
+        </p>
+        <p>
           Tokens with a Token-2022 transfer fee are skipped for rent reclaim,
           because the fee leaves a residue behind and the close would fail. The
           same goes for a token you chose to swap only part of: the account still
@@ -248,7 +255,7 @@ export default function HowItWorksPage() {
           ability to move funds on your behalf.
         </p>
 
-        <h3>7. Fees are {SWAP_RATE}, and always visible</h3>
+        <h3>7. Fees are {SWAP_RATE} on a swap and {VOID_RATE} on rent, and always visible</h3>
         <p>
           Spacedust charges {SWAP_RATE} of each swap&apos;s output, and{" "}
           {VOID_RATE} of the rent any flow reclaims. Both are shown before you
