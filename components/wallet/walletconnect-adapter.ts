@@ -74,9 +74,40 @@ export interface WalletConnectBridge {
   readState: () => ConnectWaitState;
   /** Read fresh on every call; null until the session supplies one. */
   readProvider: () => WalletConnectProvider | null;
+  /**
+   * Connect straight to a named wallet, skipping the wallet list.
+   *
+   * Separate from `openWalletList` because they are different journeys: one asks
+   * AppKit for its directory and waits for a choice, the other goes to a wallet
+   * the user has already named and never shows a list at all.
+   */
+  connectWallet: (id: WalletConnectWalletId) => Promise<void>;
 }
 
 export const WALLETCONNECT_NAME = "WalletConnect" as WalletName<"WalletConnect">;
+
+/**
+ * The Solana wallets this app offers by name.
+ *
+ * WalletConnect's own list runs to 160-odd entries, and finding Phantom in it
+ * means searching. These are the wallets a Solana dust sweep actually meets, so
+ * the picker offers them directly and the full list stays as the fallback for
+ * everything else.
+ *
+ * The ids are the keys of `WalletButtonsIds` in the installed
+ * `@reown/appkit-wallet-button` — not invented here — and the type below is
+ * derived from this list, so a typo is a compile error rather than a button that
+ * does nothing.
+ */
+export const WALLETCONNECT_WALLETS = [
+  { id: "phantom", label: "Phantom" },
+  { id: "solflare", label: "Solflare" },
+  { id: "backpack", label: "Backpack" },
+  { id: "jupiter", label: "Jupiter" },
+] as const;
+
+export type WalletConnectWalletId =
+  (typeof WALLETCONNECT_WALLETS)[number]["id"];
 
 export class WalletConnectWalletAdapter extends BaseMessageSignerWalletAdapter {
   name = WALLETCONNECT_NAME;
@@ -94,6 +125,8 @@ export class WalletConnectWalletAdapter extends BaseMessageSignerWalletAdapter {
 
   private _connecting = false;
   private _publicKey: PublicKey | null = null;
+  /** Set by `connectToWalletOnNextConnect`, consumed and cleared by `connect`. */
+  private _namedWallet: WalletConnectWalletId | null = null;
 
   constructor(private readonly bridge: WalletConnectBridge) {
     super();
@@ -134,12 +167,16 @@ export class WalletConnectWalletAdapter extends BaseMessageSignerWalletAdapter {
     if (this._publicKey || this._connecting) return;
     this._connecting = true;
     try {
-      // A session that is already live needs no wallet list.
-      if (!this.bridge.readState().address) this.bridge.openWalletList();
+      // A wallet the user named by hand: no list, no search. Cleared either way,
+      // so a later plain connect() opens the directory as usual.
+      const named = this._namedWallet;
+      this._namedWallet = null;
 
-      const address = await this.waitForAccount();
-      this._publicKey = new PublicKey(address);
-      this.emit("connect", this._publicKey);
+      if (!this.bridge.readState().address) {
+        if (named) await this.bridge.connectWallet(named);
+        else this.bridge.openWalletList();
+      }
+      await this.finishConnect();
     } catch (error) {
       this.emit("error", this.asWalletError(error));
       this.emit("disconnect");
@@ -147,6 +184,25 @@ export class WalletConnectWalletAdapter extends BaseMessageSignerWalletAdapter {
     } finally {
       this._connecting = false;
     }
+  }
+
+  /**
+   * Connect to a named wallet on the *next* connect, instead of opening the list.
+   *
+   * An instruction rather than a connection, deliberately. The picker's flow is
+   * "select the adapter, and let WalletProvider call `connect()`" — so connecting
+   * here as well would race it, and the loser of that race would open the 160-wallet
+   * directory at the same time as the wallet the user actually asked for.
+   */
+  connectToWalletOnNextConnect(id: WalletConnectWalletId): void {
+    this._namedWallet = id;
+  }
+
+  /** Wait for the account once a connection has been asked for. */
+  private async finishConnect(): Promise<void> {
+    const address = await this.waitForAccount();
+    this._publicKey = new PublicKey(address);
+    this.emit("connect", this._publicKey);
   }
 
   /**

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import type { Adapter } from "@solana/wallet-adapter-base";
 import { SolanaAdapter } from "@reown/appkit-adapter-solana";
 import { solana } from "@reown/appkit/networks";
+import { useAppKitWallet } from "@reown/appkit-wallet-button/react";
 import {
   createAppKit,
   useAppKit,
@@ -15,6 +16,7 @@ import {
 import {
   WalletConnectWalletAdapter,
   type WalletConnectProvider,
+  type WalletConnectWalletId,
 } from "@/components/wallet/walletconnect-adapter";
 
 /**
@@ -79,6 +81,7 @@ interface LiveAppKit {
   open: () => void;
   close: () => void;
   disconnect: () => Promise<void>;
+  connectWallet: (id: WalletConnectWalletId) => Promise<void>;
 }
 
 export function WalletConnectBridge({
@@ -96,6 +99,9 @@ export function WalletConnectBridge({
   const { address } = useAppKitAccount();
   const { walletProvider } = useAppKitProvider("solana");
   const { disconnect } = useDisconnect();
+  // Connecting to a wallet by name, for the picker's direct rows. This is the
+  // path the Jupiter adapter used, and it never opens the wallet list.
+  const { connect: connectNamedWallet } = useAppKitWallet();
 
   const live = useRef<LiveAppKit>(null as unknown as LiveAppKit);
   // Written during render on purpose: the adapter is only ever called from an
@@ -110,6 +116,9 @@ export function WalletConnectBridge({
     close: () => close(),
     disconnect: async () => {
       await disconnect();
+    },
+    connectWallet: async (id: WalletConnectWalletId) => {
+      await connectNamedWallet(id);
     },
   };
 
@@ -126,6 +135,9 @@ export function WalletConnectBridge({
           return { address, modalOpen, loading };
         },
         readProvider: () => live.current.walletProvider,
+        // Reads through the ref like everything else, so the adapter never holds a
+        // stale copy of the connect function either.
+        connectWallet: (id) => live.current.connectWallet(id),
       }),
     [],
   );

@@ -29,6 +29,7 @@ function bridge(overrides: Partial<WalletConnectBridge> = {}): WalletConnectBrid
     openWalletList: () => undefined,
     closeWalletList: () => undefined,
     disconnectSession: async () => undefined,
+    connectWallet: async () => undefined,
     readState: () => ({ address: null, modalOpen: false, loading: false }),
     readProvider: () => null,
     ...overrides,
@@ -65,6 +66,69 @@ describe("WalletConnectWalletAdapter", () => {
 
     await expect(connecting).resolves.toBeUndefined();
     expect(adapter.publicKey?.toBase58()).toBe(ADDRESS);
+  });
+
+  it("goes straight to a named wallet instead of opening the directory", async () => {
+    vi.useFakeTimers();
+    const calls: string[] = [];
+    let state: ConnectWaitState = { address: null, modalOpen: false, loading: false };
+
+    const adapter = new WalletConnectWalletAdapter(
+      bridge({
+        openWalletList: () => calls.push("list"),
+        connectWallet: async (id) => {
+          calls.push(`wallet:${id}`);
+        },
+        readState: () => state,
+      }),
+    );
+
+    // What the picker's shortlist does before the pick, so WalletProvider's own
+    // connect() takes this branch rather than opening the list.
+    adapter.connectToWalletOnNextConnect("phantom");
+    const connecting = adapter.connect();
+    await vi.advanceTimersByTimeAsync(600);
+
+    state = { address: ADDRESS, modalOpen: false, loading: false };
+    await vi.advanceTimersByTimeAsync(600);
+    await connecting;
+
+    expect(calls).toEqual(["wallet:phantom"]);
+    expect(adapter.publicKey?.toBase58()).toBe(ADDRESS);
+  });
+
+  it("is a one-shot instruction: the next connect without it opens the list", async () => {
+    vi.useFakeTimers();
+    const calls: string[] = [];
+    let state: ConnectWaitState = { address: null, modalOpen: false, loading: false };
+
+    const adapter = new WalletConnectWalletAdapter(
+      bridge({
+        openWalletList: () => calls.push("list"),
+        connectWallet: async (id) => {
+          calls.push(`wallet:${id}`);
+        },
+        readState: () => state,
+      }),
+    );
+
+    adapter.connectToWalletOnNextConnect("phantom");
+    const first = adapter.connect();
+    await vi.advanceTimersByTimeAsync(600);
+    state = { address: ADDRESS, modalOpen: false, loading: false };
+    await vi.advanceTimersByTimeAsync(600);
+    await first;
+
+    // A later connect — after a disconnect, say — must not silently reuse it.
+    adapter.disconnect();
+    state = { address: null, modalOpen: false, loading: false };
+    const second = adapter.connect();
+    await vi.advanceTimersByTimeAsync(1_200);
+    state = { address: ADDRESS, modalOpen: false, loading: false };
+    await vi.advanceTimersByTimeAsync(600);
+    await second;
+
+    expect(calls).toEqual(["wallet:phantom", "list"]);
   });
 
   it("opens the wallet list once, and closes it when the account arrives", async () => {

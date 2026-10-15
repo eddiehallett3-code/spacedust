@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Fragment,
   createContext,
   useCallback,
   useContext,
@@ -28,6 +29,11 @@ import {
   walletBrowseLink,
   type ConnectFailure,
 } from "@/lib/solana/wallet-diagnostics";
+import {
+  WALLETCONNECT_WALLETS,
+  type WalletConnectWalletAdapter,
+  type WalletConnectWalletId,
+} from "@/components/wallet/walletconnect-adapter";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -301,6 +307,30 @@ function WalletPickerDialog({ onClose }: { onClose: () => void }) {
     return () => clearTimeout(timer);
   }, [pending]);
 
+  /**
+   * Connect to a wallet the user named from the shortlist.
+   *
+   * The instruction goes to the adapter *before* the pick, because the pick is what
+   * makes WalletProvider call `connect()` — and that call is what reads it. Doing
+   * the connecting here as well would race that call, and one of the two would open
+   * WalletConnect's whole directory on the way to a wallet the user had already
+   * chosen.
+   */
+  const pickNamedWallet = (wallet: {
+    id: WalletConnectWalletId;
+    label: string;
+  }): void => {
+    const entry = wallets.find(
+      (item) => item.adapter.name === WALLET_CONNECT_ADAPTER_NAME,
+    );
+    if (!entry || !("connectToWalletOnNextConnect" in entry.adapter)) return;
+
+    (entry.adapter as WalletConnectWalletAdapter).connectToWalletOnNextConnect(
+      wallet.id,
+    );
+    handlePick({ adapter: entry.adapter, readyState: entry.readyState });
+  };
+
   const handlePick = (entry: {
     adapter: Adapter;
     readyState: WalletReadyState;
@@ -501,25 +531,44 @@ return (
         ) : (
           <ul className="mt-4 space-y-1.5">
             {orderedWallets.map(({ adapter, readyState }) => (
-              <WalletRow
-                key={adapter.name}
-                name={adapter.name}
-                icon={adapter.icon}
-                url={adapter.url}
-                browseHref={walletLinks?.[adapter.name] ?? null}
-                // "Detected — try connecting" is the wrong fact for this row: it
-                // is always ready, and what the user needs to know is which
-                // wallets it reaches.
-                note={
-                  adapter.name === WALLET_CONNECT_ADAPTER_NAME
-                    ? "Phantom, Solflare and hundreds more — works in any browser"
-                    : null
-                }
-                readyState={readyState}
-                pending={pending === adapter.name}
-                disabled={Boolean(pending)}
-                onPick={() => handlePick({ adapter, readyState })}
-              />
+              <Fragment key={adapter.name}>
+                <WalletRow
+                  name={adapter.name}
+                  icon={adapter.icon}
+                  url={adapter.url}
+                  browseHref={walletLinks?.[adapter.name] ?? null}
+                  note={
+                    adapter.name === WALLET_CONNECT_ADAPTER_NAME
+                      ? "Tap a wallet below, or search the full list"
+                      : null
+                  }
+                  readyState={readyState}
+                  pending={pending === adapter.name}
+                  disabled={Boolean(pending)}
+                  onPick={() => handlePick({ adapter, readyState })}
+                />
+                {/* The wallets people actually want, by name. WalletConnect's own
+                    list is 160 entries long and Phantom is rarely near the top of
+                    it; these four are what a Solana dust sweep meets, and tapping
+                    one goes straight to the wallet. The row above stays as the
+                    way to anything else. */}
+                {adapter.name === WALLET_CONNECT_ADAPTER_NAME ? (
+                  <li className="flex flex-wrap gap-1.5 pl-1">
+                    {WALLETCONNECT_WALLETS.map((wallet) => (
+                      <button
+                        key={wallet.id}
+                        type="button"
+                        onClick={() => pickNamedWallet(wallet)}
+                        disabled={Boolean(pending)}
+                        aria-label={`Connect with ${wallet.label}`}
+                        className="rounded-lg border border-border bg-white/3 px-2.5 py-1.5 text-[11px] font-medium text-foreground transition-colors hover:border-violet-core/45 hover:bg-white/6 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-glow disabled:cursor-not-allowed disabled:opacity-45"
+                      >
+                        {wallet.label}
+                      </button>
+                    ))}
+                  </li>
+                ) : null}
+              </Fragment>
             ))}
             {jupiterExtensionListed ? null : (
               <WalletRow
