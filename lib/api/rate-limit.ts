@@ -165,6 +165,36 @@ export function clientKey(request: Request): string {
   return "unknown";
 }
 
+/**
+ * The two numbers a route is allowed, in one place.
+ *
+ * Exported so the shared counter in `rate-limit-store.ts` cannot drift from the
+ * in-process one: both layers price the same route from the same source.
+ */
+export function budgetFor(route: LimitedRoute): {
+  perClient: number;
+  perRoute: number;
+} {
+  const budget = BUDGETS[route];
+  return { perClient: budget, perRoute: budget * GLOBAL_MULTIPLIER };
+}
+
+/**
+ * Which budget applies to a request path, or null for one no budget covers.
+ *
+ * Paths, not requests: this map is what lets a single middleware apply the right
+ * budget to every API route without each route having to repeat its own name. An
+ * `/api/` path that is not listed has no budget and is not counted — a new endpoint
+ * then fails towards "unlimited" rather than towards "unexpectedly rate limited",
+ * which is the failure that gets noticed and fixed.
+ */
+export function limitedRouteForPath(pathname: string): LimitedRoute | null {
+  const match = /^\/api\/([^/?#]+)/.exec(pathname);
+  const name = match?.[1];
+  if (!name) return null;
+  return name in BUDGETS ? (name as LimitedRoute) : null;
+}
+
 /** The instance the routes share. */
 const limiter = createRateLimiter();
 

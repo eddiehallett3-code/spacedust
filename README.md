@@ -272,6 +272,14 @@ reprice both.
   WAF rules are a paid-plan feature, so on Hobby either put Cloudflare in front as
   above, or accept the in-process limit as your only one.
 
+**If your plan has no rate limiting rules**, the shared counter is the equivalent
+that costs nothing: set `RATE_LIMIT_REDIS_URL` and `RATE_LIMIT_REDIS_TOKEN` (any
+Redis-compatible HTTP store — Upstash's free tier is the usual choice, and it speaks
+HTTP, which is what a serverless function needs) and `middleware.ts` applies the same
+`BUDGETS` through a counter *every instance shares*, which is the gap the edge rule
+would otherwise close. Unset it and it does nothing at all; unreachable, it fails
+open, because a counter store that hiccups must not take the API down with it.
+
 Use **429, not a challenge or a JS challenge**: this app's clients are `fetch` and
 web3.js, and neither can solve a CAPTCHA. A block would present to a user as an
 unexplained failure.
@@ -300,8 +308,16 @@ driving `getTokenAccountsByOwner` through `/api/rpc` is invisible until the cred
 are gone or the key starts answering 429 to real users. An alert is the only signal
 you get, and it is free.
 
-If the plan offers a hard **spend cap**, set it too: a cap turns "we lost the
-credits" into "the API is down", which is the failure you would rather have.
+**What can actually be spent.** On Helius's **Free** plan — $0, 1M credits a month,
+no card — running out ends the service rather than starting a bill. Autoscaling,
+which spends more to keep the API answering, is enabled by default only on the
+**Business and Professional** plans. So the "unlimited money" risk is not the free
+tier; it is a paid plan left on autoscaling. If you have upgraded, check that
+setting before anything else here.
+
+On Free the risk is the *service*: a script can exhaust a month's credits in hours,
+and the app then fails for everyone until they reset. That is what the limits above
+are for, and why the alert belongs at 50% rather than 95%.
 
 ---
 
