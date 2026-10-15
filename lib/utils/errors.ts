@@ -34,6 +34,34 @@ export function isNoLiquidityFailure(reason: string): boolean {
 
 const RULES: Rule[] = [
   {
+    // A wallet that accepted the request and never answered it. Distinct from a
+    // refusal: nothing was declined and nothing was sent. On mobile this is
+    // almost always the app-to-wallet channel rather than the wallet itself —
+    // the wallet opens, shows no approval, and the page waits forever.
+    test: /did not answer the signing request|Wallet connection timed out/i,
+    map: (match) => ({
+      title: "Your wallet never answered",
+      message:
+        "The wallet opened but never came back with a signature, so nothing was sent and nothing was charged.",
+      hint: /Wallet connection timed out/i.test(match[0])
+        ? "If your wallet opened and showed no approval, try again — and if Chrome asked to find and connect to devices on your local network, choose Allow."
+        : "Try again — and if Chrome asked to find and connect to devices on your local network, choose Allow. If your wallet keeps opening with nothing to approve, connecting with WalletConnect instead avoids that channel completely.",
+    }),
+  },
+  {
+    // The mobile wallet adapter keeps its authorization in memory, so a page
+    // that was reloaded (or a session that expired) can look connected in the
+    // app while the wallet no longer holds a session. The fix is to reconnect,
+    // which is worth saying outright rather than passing along the raw text.
+    test: /Wallet not connected/i,
+    map: () => ({
+      title: "Your wallet session has ended",
+      message:
+        "The app still shows your address, but the wallet no longer holds an open session — this happens after the page reloads or the connection times out.",
+      hint: "Disconnect and connect again, then run the preview and sign in one go.",
+    }),
+  },
+  {
     test: /user rejected|declined|cancell?ed by (the )?user/i,
     map: () => ({
       title: "Signature declined",

@@ -47,6 +47,63 @@ function isUnsigned(transaction: VTx): boolean {
 }
 
 /**
+ * How long to wait for a wallet to answer a signing request.
+ *
+ * The mobile wallet SDK has a timeout of its own, but it only covers the
+ * *association* — opening the wallet and letting it attach. Once a wallet has
+ * attached, a request it never answers waits **forever**: the promise never
+ * rejects and never resolves, so the app has nothing to report and no state to
+ * leave. That is the exact shape of a wallet that opens and shows no approval
+ * prompt, and it left the sweep sitting on "waiting for you" indefinitely with
+ * no way to tell whether a transaction existed at all.
+ *
+ * Generous on purpose. A real approval includes unlocking a phone and reading
+ * what is being signed, so this is a stuck detector, not a hurry — the only
+ * thing it must not do is mistake a slow human for a broken channel.
+ */
+export const SIGNING_TIMEOUT_MS = 180_000;
+
+/**
+ * A wallet accepted a request and never answered it.
+ *
+ * Distinct from a rejection: nothing was declined, nothing was sent, and the
+ * wallet may still be holding the request. Recognised by name in
+ * `lib/utils/errors.ts`, which turns it into advice.
+ */
+export class SigningTimeoutError extends Error {
+  constructor(readonly timeoutMs: number) {
+    super(
+      `The wallet did not answer the signing request within ${Math.round(timeoutMs / 1000)} seconds. Nothing was sent.`,
+    );
+    this.name = "SigningTimeoutError";
+  }
+}
+
+/**
+ * Reject if `call` has not settled inside the signing window.
+ *
+ * Only the *wait* is abandoned: the wallet call itself is not cancelled, because
+ * nothing here can cancel it. That is safe — a signature produced after we stop
+ * waiting is never broadcast, so an abandoned request cannot move funds.
+ */
+async function withSigningTimeout<T>(call: () => Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      call(),
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(
+          () => reject(new SigningTimeoutError(SIGNING_TIMEOUT_MS)),
+          SIGNING_TIMEOUT_MS,
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
  * Ask the wallet to sign every transaction at once.
  *
  * `signAllTransactions` is used whenever there is more than one transaction:
@@ -65,7 +122,7 @@ export async function signTransactions(
   const batch = wallet.signAllTransactions;
 
   if (decoded.length === 1 && single) {
-    const signed = await single(decoded[0] as VTx);
+    const signed = await withSigningTimeout(() => single(decoded[0] as VTx));
     if (!signed || isUnsigned(signed)) {
       throw new Error("The wallet did not return a signed transaction.");
     }
@@ -75,7 +132,7 @@ export async function signTransactions(
   // Multiple transactions: prefer the batch call so most wallets show a single
   // approval rather than a queue of prompts. Fall back to signing each one.
   if (batch) {
-    const signed = await batch(decoded as VTx[]);
+    const signed = await withSigningTimeout(() => batch(decoded as VTx[]));
 
     // Some wallets silently return the input unchanged when the user declines.
     // Detect that instead of broadcasting garbage.
@@ -93,7 +150,7 @@ export async function signTransactions(
     for (let i = 0; i < decoded.length; i += 1) {
       const transaction = decoded[i];
       if (!transaction) continue;
-      const result = await single(transaction);
+      const result = await withSigningTimeout(() => single(transaction));
       if (!result || isUnsigned(result)) {
         throw new Error(
           `Transaction ${i + 1} of ${decoded.length} was not signed. Nothing was sent.`,

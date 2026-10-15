@@ -1,5 +1,15 @@
-import { describe, expect, it } from "vitest";
-import { settleTransaction, type SettleVerdict } from "./submit";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { PublicKey, TransactionMessage, VersionedTransaction } from "@solana/web3.js";
+import { bytesToBase64 } from "@/lib/utils/base64";
+import type { PackedTransaction } from "@/types/sweep";
+import {
+  SIGNING_TIMEOUT_MS,
+  SigningTimeoutError,
+  settleTransaction,
+  signTransactions,
+  type SettleVerdict,
+  type SigningCapableWallet,
+} from "./submit";
 
 /**
  * The settle path that a test transfer uses.
@@ -151,5 +161,128 @@ describe("settling one transaction", () => {
       signatures: [SIGNATURE],
       config: { searchTransactionHistory: true },
     });
+  });
+});
+
+/**
+ * The stuck detector.
+ *
+ * A mobile wallet answers through a channel that can go quiet mid-request: the
+ * SDK's own timeout covers only the *association* — opening the wallet and
+ * letting it attach — so a wallet that attaches and then never answers leaves
+ * the promise pending forever. That is how a real sweep ended up sitting on
+ * "waiting for you" with nothing to report, because the app could not tell
+ * "no answer yet" from "no answer, ever". These tests pin that distinction.
+ *
+ * The window is generous by design (three minutes), so these use fake timers
+ * rather than waiting.
+ */
+
+/** A real serialised v0 transaction, unsigned — what `signTransactions` decodes. */
+function packed(index: number): PackedTransaction {
+  const message = new TransactionMessage({
+    payerKey: PublicKey.default,
+    recentBlockhash: "11111111111111111111111111111111",
+    instructions: [],
+  }).compileToV0Message();
+
+  return {
+    index,
+    base64: bytesToBase64(new VersionedTransaction(message).serialize()),
+    mints: [],
+    sizeBytes: 0,
+    instructionCount: 0,
+    includesRentReclaim: false,
+    rentReclaimMints: [],
+  };
+}
+
+/** The same transaction with a signature filled in, so `isUnsigned` is false. */
+function signed(transaction: VersionedTransaction): VersionedTransaction {
+  const copy = VersionedTransaction.deserialize(transaction.serialize());
+  copy.signatures = copy.signatures.map(() => new Uint8Array(64).fill(7));
+  return copy;
+}
+
+/** A wallet that accepts a request and never settles it. */
+const muteWallet = (): SigningCapableWallet =>
+  ({ signTransaction: () => new Promise<never>(() => {}) }) as unknown as SigningCapableWallet;
+
+describe("signTransactions — a wallet that never answers", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("gives up instead of waiting forever", async () => {
+    vi.useFakeTimers();
+    const call = signTransactions(muteWallet(), [packed(0)]);
+    // Attach the expectation before advancing, so the rejection is never
+    // momentarily unhandled.
+    const rejects = expect(call).rejects.toThrow(SigningTimeoutError);
+
+    await vi.advanceTimersByTimeAsync(SIGNING_TIMEOUT_MS);
+    await rejects;
+  });
+
+  it("says nothing was sent, because nothing was", async () => {
+    vi.useFakeTimers();
+    const call = signTransactions(muteWallet(), [packed(0)]);
+    const rejects = expect(call).rejects.toThrow(/Nothing was sent/);
+
+    await vi.advanceTimersByTimeAsync(SIGNING_TIMEOUT_MS);
+    await rejects;
+  });
+
+  it("covers a batch request that never answers", async () => {
+    vi.useFakeTimers();
+    const wallet = {
+      signAllTransactions: () => new Promise<never>(() => {}),
+    } as unknown as SigningCapableWallet;
+
+    const call = signTransactions(wallet, [packed(0), packed(1)]);
+    const rejects = expect(call).rejects.toThrow(SigningTimeoutError);
+
+    await vi.advanceTimersByTimeAsync(SIGNING_TIMEOUT_MS);
+    await rejects;
+  });
+
+  it("covers a wallet that answers the first transaction and then goes quiet", async () => {
+    vi.useFakeTimers();
+    let calls = 0;
+    const wallet = {
+      signTransaction: async (transaction: VersionedTransaction) => {
+        calls += 1;
+        if (calls === 2) return new Promise<never>(() => {});
+        return signed(transaction);
+      },
+    } as unknown as SigningCapableWallet;
+
+    const call = signTransactions(wallet, [packed(0), packed(1)]);
+    const rejects = expect(call).rejects.toThrow(SigningTimeoutError);
+
+    await vi.advanceTimersByTimeAsync(SIGNING_TIMEOUT_MS);
+    await rejects;
+    expect(calls).toBe(2);
+  });
+
+  it("does not interfere with a wallet that answers", async () => {
+    const wallet = {
+      signTransaction: async (transaction: VersionedTransaction) => signed(transaction),
+    } as unknown as SigningCapableWallet;
+
+    const [result] = await signTransactions(wallet, [packed(0)]);
+    expect(result?.signatures[0]?.some((byte) => byte !== 0)).toBe(true);
+  });
+
+  it("passes a wallet's own refusal through untouched, not the timeout", async () => {
+    const wallet = {
+      signTransaction: async () => {
+        throw new Error("User rejected the request");
+      },
+    } as unknown as SigningCapableWallet;
+
+    await expect(signTransactions(wallet, [packed(0)])).rejects.toThrow(
+      "User rejected the request",
+    );
   });
 });
