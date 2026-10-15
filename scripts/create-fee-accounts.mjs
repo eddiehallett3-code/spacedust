@@ -82,6 +82,51 @@ if (!feeWallet) {
   process.exit(1);
 }
 
+/**
+ * What is actually on chain, checked before anything is asked for.
+ *
+ * This runs *ahead* of the keypair requirement, and that ordering is the whole
+ * point: if every account already exists there is nothing to do, and a script that
+ * demands a key in order to tell you "nothing to do" turns a verification into a
+ * scare. It also makes the bare command — no arguments — the check, which is how it
+ * actually gets run a week later.
+ */
+const helius = read("HELIUS_API_KEY");
+const connection = new Connection(
+  helius
+    ? `https://mainnet.helius-rpc.com/?api-key=${helius}`
+    : "https://api.mainnet-beta.solana.com",
+  "confirmed",
+);
+
+const ASSETS = [
+  ["SOL (wrapped)", "So11111111111111111111111111111111111111112"],
+  ["USDC", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"],
+  ["JUP", "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN"],
+];
+
+const owner = new PublicKey(feeWallet);
+const accounts = ASSETS.map(([symbol, mint]) => ({
+  symbol,
+  mint: new PublicKey(mint),
+  address: getAssociatedTokenAddressSync(new PublicKey(mint), owner, true, TOKEN_PROGRAM_ID),
+}));
+
+const existing = await connection.getMultipleAccountsInfo(accounts.map((a) => a.address));
+const missing = accounts.filter((_, index) => existing[index] === null);
+
+console.log(`fee wallet : ${feeWallet}`);
+for (const [index, account] of accounts.entries()) {
+  console.log(`${existing[index] ? "exists " : "MISSING"}  ${account.symbol}`);
+  console.log(`         ${account.address.toBase58()}`);
+}
+console.log();
+
+if (missing.length === 0) {
+  console.log(`All ${accounts.length} accounts exist. Nothing to do.`);
+  process.exit(0);
+}
+
 // Handled before the "no keypair" check below, because making one is the answer to
 // that check rather than a failure of it.
 if (flag("--generate")) {
@@ -191,42 +236,7 @@ function base58ToBytes(value) {
 }
 
 const payer = loadPayer(keypairPath);
-
-const helius = read("HELIUS_API_KEY");
-const connection = new Connection(
-  helius
-    ? `https://mainnet.helius-rpc.com/?api-key=${helius}`
-    : "https://api.mainnet-beta.solana.com",
-  "confirmed",
-);
-
-const ASSETS = [
-  ["SOL (wrapped)", "So11111111111111111111111111111111111111112"],
-  ["USDC", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"],
-  ["JUP", "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN"],
-];
-
-const owner = new PublicKey(feeWallet);
-const accounts = ASSETS.map(([symbol, mint]) => ({
-  symbol,
-  mint: new PublicKey(mint),
-  address: getAssociatedTokenAddressSync(new PublicKey(mint), owner, true, TOKEN_PROGRAM_ID),
-}));
-
-const existing = await connection.getMultipleAccountsInfo(accounts.map((a) => a.address));
-const missing = accounts.filter((_, index) => existing[index] === null);
-
-console.log(`fee wallet : ${feeWallet}`);
 console.log(`payer      : ${payer.publicKey.toBase58()}\n`);
-for (const [index, account] of accounts.entries()) {
-  console.log(`${existing[index] ? "exists " : "MISSING"}  ${account.symbol}`);
-  console.log(`         ${account.address.toBase58()}`);
-}
-
-if (missing.length === 0) {
-  console.log("\nAll accounts exist. Nothing to do.");
-  process.exit(0);
-}
 
 // Idempotent, so re-running after a partial failure is harmless — and the same
 // instruction the app's own composer uses, rather than a second way to do it.
@@ -245,7 +255,7 @@ for (const account of missing) {
 transaction.feePayer = payer.publicKey;
 transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
 
-console.log(`\n${missing.length} to create: ${missing.map((a) => a.symbol).join(", ")}`);
+console.log(`${missing.length} to create: ${missing.map((a) => a.symbol).join(", ")}`);
 
 // 165 bytes: the fixed size of an SPL token account, as in
 // `TOKEN_ACCOUNT_SIZE_BYTES`. Read from chain rather than remembered, because this
