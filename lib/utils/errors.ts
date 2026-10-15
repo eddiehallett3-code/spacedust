@@ -34,6 +34,22 @@ export function isNoLiquidityFailure(reason: string): boolean {
 
 const RULES: Rule[] = [
   {
+    // The WalletConnect relay is one DNS lookup away from working, and this is
+    // what its absence looks like: the relay host does not resolve, so a request
+    // can never reach the wallet. Captured on a real device as
+    // `ERR_NAME_NOT_RESOLVED` against `relay.walletconnect.org` — five attempts
+    // in a row — and it presents in the worst possible way, because connecting can
+    // still appear to work (or was completed earlier) while the signing request
+    // quietly goes nowhere: the page waits, the wallet never prompts.
+    test: /ERR_NAME_NOT_RESOLVED|relay\.walletconnect\.org/i,
+    map: () => ({
+      title: "Could not reach WalletConnect",
+      message:
+        "The relay that carries requests to your wallet could not be reached, so nothing was sent to it.",
+      hint: "Check your connection, and try turning off any DNS-level ad blocker, VPN or custom Private DNS setting — those are what usually stop this host resolving.",
+    }),
+  },
+  {
     // A wallet that accepted the request and never answered it. Distinct from a
     // refusal: nothing was declined and nothing was sent.
     //

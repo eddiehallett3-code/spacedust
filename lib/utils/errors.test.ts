@@ -14,6 +14,17 @@ import { toFriendlyError } from "./errors";
  */
 
 describe("toFriendlyError — a wallet that never answered", () => {
+  it("names a relay that will not resolve, which looks like a wallet that never prompts", () => {
+    const friendly = toFriendlyError(
+      new Error(
+        "WebSocket connection to 'wss://relay.walletconnect.org/?auth=x' failed: Error in connection establishment: net::ERR_NAME_NOT_RESOLVED",
+      ),
+    );
+
+    expect(friendly.title).toBe("Could not reach WalletConnect");
+    expect(friendly.hint).toMatch(/Private DNS|ad blocker/i);
+  });
+
   it("names the app's own stuck detector", () => {
     const friendly = toFriendlyError(new SigningTimeoutError(180_000));
 
