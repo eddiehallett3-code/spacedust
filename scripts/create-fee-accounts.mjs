@@ -69,9 +69,74 @@ if (!fs.existsSync(keypairPath)) {
   process.exit(1);
 }
 
-const payer = Keypair.fromSecretKey(
-  Uint8Array.from(JSON.parse(fs.readFileSync(keypairPath, "utf8"))),
-);
+/**
+ * A keypair from a file, in either of the two formats people actually have.
+ *
+ * A `solana-keygen` / CLI keypair is a JSON array of 64 bytes; Phantom's export is
+ * a base58 string. Accepting only the first would mean telling anyone without a
+ * Solana CLI install to convert a file by hand — for a script whose entire purpose
+ * is to avoid installing the Solana CLI.
+ *
+ * The key is read, used, and never printed. Nothing here logs it, and the caller is
+ * told to delete the file afterwards.
+ */
+function loadPayer(file) {
+  const raw = fs.readFileSync(file, "utf8").trim();
+
+  let secretKey;
+  try {
+    secretKey = Uint8Array.from(JSON.parse(raw));
+  } catch {
+    secretKey = base58ToBytes(raw);
+  }
+
+  if (secretKey.length !== 64) {
+    console.error(
+      `That keypair is ${secretKey.length} bytes, not 64. Point --keypair at a secret ` +
+        "key file, not a public key.",
+    );
+    process.exit(1);
+  }
+
+  return Keypair.fromSecretKey(secretKey);
+}
+
+/**
+ * Base58 → bytes.
+ *
+ * Written out rather than imported: `bs58` is only a transitive dependency of
+ * `@solana/web3.js`, and a script that breaks when a hoisting change reshuffles
+ * node_modules is worse than fourteen lines of long division.
+ */
+const BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+
+function base58ToBytes(value) {
+  let total = 0n;
+  for (const character of value) {
+    const index = BASE58_ALPHABET.indexOf(character);
+    if (index === -1) throw new Error(`Not a base58 string: "${character}"`);
+    total = total * 58n + BigInt(index);
+  }
+
+  const bytes = [];
+  while (total > 0n) {
+    bytes.unshift(Number(total & 0xffn));
+    total >>= 8n;
+  }
+
+  // Every leading "1" is a leading zero byte, which the division above cannot see.
+  for (const character of value) {
+    if (character !== "1") break;
+    bytes.unshift(0);
+  }
+
+  return Uint8Array.from(bytes);
+}
+
+// Resolved only now, after the helpers exist. Calling it above would put the call
+// ahead of `BASE58_ALPHABET`'s initialisation, and a base58 key would die on the
+// temporal dead zone rather than on anything to do with the key.
+const payer = loadPayer(keypairPath);
 
 const helius = read("HELIUS_API_KEY");
 const connection = new Connection(
