@@ -27,6 +27,9 @@ yarn-error.log*
 .env*.local
 !.env.example
 
+# a throwaway payer key made by scripts/create-fee-accounts.mjs --generate
+.fee-setup-keypair.json
+
 # vercel
 .vercel
 

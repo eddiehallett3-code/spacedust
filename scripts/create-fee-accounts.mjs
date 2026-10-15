@@ -45,7 +45,30 @@ const value = (name) => {
 };
 
 const send = flag("--send");
-const keypairPath = value("--keypair") ?? path.join(os.homedir(), ".config/solana/id.json");
+
+/**
+ * Where a throwaway payer key lives when nobody supplies one.
+ *
+ * It exists so the common case needs no key *export* at all. Getting a private key
+ * out of a wallet is fiddly — the menu differs by wallet and moves between versions
+ * — and being asked for one is alarming, while the payer here needs nothing except
+ * a few thousandths of a SOL. So: generate one, send it 0.01 SOL from the wallet
+ * you already have, use it, delete it.
+ *
+ * Losing the file afterwards does not matter. The accounts being created belong to
+ * the fee wallet; this key is only the wallet that signs the paperwork, and once
+ * that is done it holds nothing.
+ *
+ * It is in `.gitignore` as well as being deleted, because a stray secret key inside
+ * a repository is the kind of accident that only has to happen once.
+ */
+const GENERATED_KEY_PATH = ".fee-setup-keypair.json";
+
+const keypairPath =
+  value("--keypair") ??
+  (fs.existsSync(GENERATED_KEY_PATH)
+    ? GENERATED_KEY_PATH
+    : path.join(os.homedir(), ".config/solana/id.json"));
 
 const read = (name) => {
   if (!fs.existsSync(".env.local")) return undefined;
@@ -59,12 +82,41 @@ if (!feeWallet) {
   process.exit(1);
 }
 
+// Handled before the "no keypair" check below, because making one is the answer to
+// that check rather than a failure of it.
+if (flag("--generate")) {
+  if (fs.existsSync(GENERATED_KEY_PATH)) {
+    const existing = loadPayer(GENERATED_KEY_PATH);
+    console.log(`A payer key is already here: ${GENERATED_KEY_PATH}`);
+    console.log(`Its address: ${existing.publicKey.toBase58()}`);
+    console.log(
+      "Send it a little SOL and run with --send — or delete the file to start over.",
+    );
+    process.exit(0);
+  }
+
+  const fresh = Keypair.generate();
+  // The same JSON format `solana-keygen` writes, so this file is not a special case
+  // if it is ever handed to another tool.
+  fs.writeFileSync(GENERATED_KEY_PATH, JSON.stringify(Array.from(fresh.secretKey)));
+
+  console.log("Made a throwaway key to pay with. Nothing was exported from any wallet.\n");
+  console.log(`  address : ${fresh.publicKey.toBase58()}`);
+  console.log(`  file    : ${GENERATED_KEY_PATH}\n`);
+  console.log("Next:");
+  console.log("  1. Send it about 0.01 SOL, from any wallet you already have.");
+  console.log("  2. node scripts/create-fee-accounts.mjs --send");
+  console.log(`  3. rm ${GENERATED_KEY_PATH}`);
+  process.exit(0);
+}
+
 if (!fs.existsSync(keypairPath)) {
   console.error(
     `No keypair at ${keypairPath}.\n` +
-      "Pass one that holds a little SOL to cover the rent:\n" +
-      "  --keypair /path/to/keypair.json\n" +
-      "The keypair only pays; it is not the fee wallet and is not stored anywhere.",
+      "Either have this script make you a throwaway payer key:\n" +
+      "  node scripts/create-fee-accounts.mjs --generate\n" +
+      "or pass one that holds a little SOL:\n" +
+      "  --keypair /path/to/keypair.json",
   );
   process.exit(1);
 }
@@ -106,14 +158,19 @@ function loadPayer(file) {
  *
  * Written out rather than imported: `bs58` is only a transitive dependency of
  * `@solana/web3.js`, and a script that breaks when a hoisting change reshuffles
- * node_modules is worse than fourteen lines of long division.
+ * node_modules is worse than a dozen lines of long division.
+ *
+ * The alphabet is local rather than a module constant. It was a module constant,
+ * declared below the first call, so a base58 key died on the temporal dead zone
+ * while every JSON key worked — which reads as "the script rejects my key" and has
+ * nothing to do with the key. A local string cannot get that wrong.
  */
-const BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-
 function base58ToBytes(value) {
+  const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+
   let total = 0n;
   for (const character of value) {
-    const index = BASE58_ALPHABET.indexOf(character);
+    const index = alphabet.indexOf(character);
     if (index === -1) throw new Error(`Not a base58 string: "${character}"`);
     total = total * 58n + BigInt(index);
   }
@@ -133,9 +190,6 @@ function base58ToBytes(value) {
   return Uint8Array.from(bytes);
 }
 
-// Resolved only now, after the helpers exist. Calling it above would put the call
-// ahead of `BASE58_ALPHABET`'s initialisation, and a base58 key would die on the
-// temporal dead zone rather than on anything to do with the key.
 const payer = loadPayer(keypairPath);
 
 const helius = read("HELIUS_API_KEY");
