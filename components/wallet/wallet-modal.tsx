@@ -21,6 +21,7 @@ import {
 } from "@solana/wallet-adapter-base";
 import {
   MOBILE_WALLET_ADAPTER_NAME,
+  WALLET_CONNECT_ADAPTER_NAME,
   diagnoseConnectFailure,
   isMobileUserAgent,
   looksLikeWalletInAppBrowser,
@@ -208,6 +209,28 @@ function WalletPickerDialog({ onClose }: { onClose: () => void }) {
       entry.adapter.name === MOBILE_WALLET_ADAPTER_NAME &&
       entry.readyState !== WalletReadyState.NotDetected,
   );
+
+  /**
+   * WalletConnect first — but only where it is the only thing that can work.
+   *
+   * `walletLinks` is set exactly when this is a phone that is not already inside
+   * a wallet's own browser: no extension is injected, and the Mobile Wallet
+   * Adapter completes with some wallets and not others — Phantom opens and never
+   * starts the local socket the protocol needs. There, the WalletConnect row is
+   * the one that can connect the wallet the user already has, so it should not sit
+   * fifth behind rows that cannot work at all. Everywhere else the adapters keep
+   * the order they registered in.
+   *
+   * `sort` is stable, so the remaining rows hold their place.
+   */
+  const orderedWallets = useMemo(() => {
+    if (!walletLinks) return wallets;
+    const rank = (name: string) =>
+      name === WALLET_CONNECT_ADAPTER_NAME ? 0 : 1;
+    return [...wallets].sort(
+      (a, b) => rank(a.adapter.name) - rank(b.adapter.name),
+    );
+  }, [wallets, walletLinks]);
 
   // Handle for the current attempt's adapter error listener, so a second pick
   // (or unmount) never leaves a stale subscription behind.
@@ -459,13 +482,21 @@ return (
           </p>
         ) : (
           <ul className="mt-4 space-y-1.5">
-            {wallets.map(({ adapter, readyState }) => (
+            {orderedWallets.map(({ adapter, readyState }) => (
               <WalletRow
                 key={adapter.name}
                 name={adapter.name}
                 icon={adapter.icon}
                 url={adapter.url}
                 browseHref={walletLinks?.[adapter.name] ?? null}
+                // "Detected — try connecting" is the wrong fact for this row: it
+                // is always ready, and what the user needs to know is which
+                // wallets it reaches.
+                note={
+                  adapter.name === WALLET_CONNECT_ADAPTER_NAME
+                    ? "Phantom, Solflare and hundreds more — works in any browser"
+                    : null
+                }
                 readyState={readyState}
                 pending={pending === adapter.name}
                 disabled={Boolean(pending)}
@@ -512,6 +543,7 @@ function WalletRow({
   icon,
   url,
   browseHref,
+  note,
   readyState,
   pending,
   disabled,
@@ -522,6 +554,8 @@ function WalletRow({
   url: string | undefined;
   /** Set on a phone: the wallet's own in-app browser, showing this page. */
   browseHref?: string | null;
+  /** Replaces the ready-state line when that state is not the useful fact. */
+  note?: string | null;
   readyState: WalletReadyState;
   pending: boolean;
   disabled: boolean;
@@ -583,7 +617,7 @@ function WalletRow({
           info.tone === "missing" && "text-subtle",
         )}
           >
-            {info.label}
+            {note ?? info.label}
           </span>
         </span>
 

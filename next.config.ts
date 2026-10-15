@@ -32,6 +32,22 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react", "framer-motion"],
   },
+  /**
+   * Three dependencies that exist only in Node, pulled in optionally by the
+   * WalletConnect/AppKit stack: `pino-pretty` for logger output, `lokijs` and
+   * `encoding` for storage. They are never reached in a browser, and Reown's own
+   * Next.js instructions say to mark them external — bundling the WalletConnect
+   * chunk otherwise fails to resolve them.
+   *
+   * Added with the WalletConnect bridge, which is the first thing in this app to
+   * pull that stack into a build at all.
+   */
+  webpack: (config) => {
+    if (Array.isArray(config.externals)) {
+      config.externals.push("pino-pretty", "lokijs", "encoding");
+    }
+    return config;
+  },
   async headers() {
     return [
       {

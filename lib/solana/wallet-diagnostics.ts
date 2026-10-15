@@ -84,6 +84,21 @@ export function isAndroidUserAgent(userAgent: string): boolean {
 export const MOBILE_WALLET_ADAPTER_NAME = "Mobile Wallet Adapter";
 
 /**
+ * The name the WalletConnect (Reown) adapter reports.
+ *
+ * Same reason `MOBILE_WALLET_ADAPTER_NAME` lives here: the picker needs it, and
+ * the picker is imported *by* the providers, so a constant shared the other way
+ * would make that a cycle. It is also a string the user sees, which is worth one
+ * spelling of.
+ *
+ * The value is the library's own — `@jup-ag/jup-mobile-adapter` sets exactly this
+ * — not a label of our choosing, so it must not be "tidied up" to match our
+ * design language.
+ */
+export const WALLET_CONNECT_ADAPTER_NAME = "WalletConnect/Reown";
+
+
+/**
  * The "open this page in your wallet" deep link, for wallets that publish one.
  *
  * Taken from the adapters themselves rather than from documentation — both
