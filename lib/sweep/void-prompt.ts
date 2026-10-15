@@ -41,3 +41,28 @@ export function countTokensLeftBehind(input: {
   );
   return unroutableMints.filter((mint) => leftBehind.has(mint)).length;
 }
+
+/**
+ * Which of The Void's tokens start out ticked, for tokens it has not seen
+ * before.
+ *
+ * Illiquid tokens are ticked by default: after a sweep the common case really
+ * is "yes, burn the rest", and a token with no market has no sale to protect.
+ *
+ * The exception is a token with `decimals === 0`. Zero decimals is the shape of
+ * an NFT — and also the shape of a collectible that was minted as a fungible,
+ * which is how a Jupiter collectible with no market ends up in the token list:
+ * the indexer types it as a fungible and nothing else here can tell the
+ * difference. A tick is consent to destroy the asset, so it is not given on the
+ * user's behalf for something that may be a collectible. Such a token is still
+ * listed and still selectable — it is only left unticked.
+ *
+ * Kept as a pure function rather than inside the effect that consumes it so the
+ * rule can be tested without a renderer; `nonFungibles` never reaches here, so
+ * the only assets this can mis-tick are ones the scanner called fungible.
+ */
+export function preselectForVoid<T extends { mint: string; decimals: number }>(
+  tokens: readonly T[],
+): string[] {
+  return tokens.filter((token) => token.decimals > 0).map((token) => token.mint);
+}

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { countTokensLeftBehind } from "@/lib/sweep/void-prompt";
+import {
+  countTokensLeftBehind,
+  preselectForVoid,
+} from "@/lib/sweep/void-prompt";
 
 /**
  * "Left behind" means left behind **by this sweep**.
@@ -84,5 +87,36 @@ describe("countTokensLeftBehind", () => {
         outcomes: [failed(UNPRICED)],
       }),
     ).toBe(0);
+  });
+});
+/**
+ * The Void pre-ticks illiquid tokens, because after a sweep the common case
+ * really is "yes, burn the rest". A tick is consent to destroy the asset, so
+ * that offer has exactly one exception: a token with no decimals.
+ *
+ * `decimals === 0` is the shape of an NFT, and it is also the shape of a
+ * collectible minted as a fungible. A Jupiter collectible with no market
+ * arrives from the indexer typed as a fungible, unpriced, and therefore lands
+ * in the pre-ticked set — an asset that may well be a collectible, already
+ * selected for destruction before the user has looked at it. It must stay
+ * listed and selectable; it must not be ticked on their behalf.
+ */
+describe("preselectForVoid", () => {
+  const fungible = (mint: string) => ({ mint, decimals: 6 });
+  const zeroDecimal = (mint: string) => ({ mint, decimals: 0 });
+
+  it("pre-ticks illiquid tokens that have decimals", () => {
+    expect(preselectForVoid([fungible(A), fungible(B)])).toEqual([A, B]);
+  });
+
+  it("never pre-ticks a 0-decimal token — the collectible-minted-as-fungible case", () => {
+    expect(preselectForVoid([fungible(A), zeroDecimal("MB")])).toEqual([A]);
+  });
+
+  it("preselecting none is not the same as listing none", () => {
+    // The caller keeps listing every candidate and ticks only what this
+    // returns, so an empty result means "nothing ticked", never "nothing shown".
+    expect(preselectForVoid([zeroDecimal("MB")])).toEqual([]);
+    expect(preselectForVoid([])).toEqual([]);
   });
 });

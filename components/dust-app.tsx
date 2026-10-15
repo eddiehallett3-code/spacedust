@@ -23,7 +23,10 @@ import { useSweepHistory } from "@/hooks/use-sweep-history";
 import { useSweep } from "@/hooks/use-sweep";
 import { useVoid } from "@/hooks/use-void";
 import { useWalletScan } from "@/hooks/use-wallet-scan";
-import { countTokensLeftBehind } from "@/lib/sweep/void-prompt";
+import {
+  countTokensLeftBehind,
+  preselectForVoid,
+} from "@/lib/sweep/void-prompt";
 import { isSweepableToken } from "@/lib/sweep/sweepable";
 import { resolveAmount } from "@/lib/sweep/amounts";
 import {
@@ -319,12 +322,18 @@ export function DustApp() {
   // that must be a deliberate act.
   useEffect(() => {
     const seen = seenVoidMints.current;
+    // Which of those are allowed to arrive already ticked — see
+    // `preselectForVoid` for why a 0-decimal token is not one of them. A tick
+    // is consent to destroy the asset, so for something that may be a
+    // collectible that has to be the user's own click.
+    const preselect = new Set(preselectForVoid(illiquidTokens));
     setVoidMints((previous) => {
       let changed = false;
       const next = new Set(previous);
       for (const token of illiquidTokens) {
         if (!seen.has(token.mint)) {
           seen.add(token.mint);
+          if (!preselect.has(token.mint)) continue;
           next.add(token.mint);
           changed = true;
         }
