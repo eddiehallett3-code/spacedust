@@ -365,32 +365,34 @@ return (
           </button>
         </div>
 
-        {/* Android, where the Mobile Wallet Adapter is present and usable: the
-            native path exists, so point at it. Shown *instead of* the deep-link
-            panel — two competing sets of instructions is how a user ends up doing
-            neither. */}
+        {/* Android, where the Mobile Wallet Adapter is present. Not shown *instead*
+            of the links below, because MWA coverage is wallet-dependent: Jupiter
+            completes the handshake, while Phantom opens and never starts the local
+            socket the protocol needs (verified on a real device — the console shows
+            `ERR_CONNECTION_REFUSED` on `ws://localhost:<port>/solana-wallet`).
+            Hiding the fallback behind "this works" would leave Phantom users with a
+            row that dead-ends. */}
         {hasMobileWalletAdapter ? (
           <p className="mt-3 rounded-xl border border-success/25 bg-success/8 p-3 text-[11px] leading-relaxed text-muted">
             <strong className="font-medium text-foreground">
-              Tap “Mobile Wallet Adapter” below.
+              Tap “Mobile Wallet Adapter” below
             </strong>{" "}
-            It hands the request to the wallet you already have installed, which
-            will open and ask you to approve.
+            if your wallet supports it — it opens the app you already have and asks
+            you to approve there.
           </p>
         ) : null}
 
-        {/* On a phone, outside a wallet's browser: the only thing that helps.
-            A mobile browser injects no provider, so the list underneath reads
-            "not detected" for wallets the user already has installed — which
+        {/* On a phone, outside a wallet's browser: the reliable route, and the only
+            one on iOS. A mobile browser injects no provider, so the list underneath
+            reads "not detected" for wallets the user already has installed — which
             reads as "you have not installed it", and that is the complaint this
-            panel exists to answer. Opening the page inside the wallet gives it the
-            same provider a desktop extension would, and everything works from
-            there. */}
-        {walletLinks && !hasMobileWalletAdapter ? (
+            panel answers. Opening the page inside the wallet gives it the same
+            provider a desktop extension would, and everything works from there. */}
+        {walletLinks ? (
           <div className="mt-3 rounded-xl border border-border bg-white/4 p-3">
             <p className="text-[11px] leading-relaxed text-muted">
-              On a phone, wallets connect from inside their own app. Open this
-              page in your wallet, then connect there:
+              Or open this page inside your wallet — this works with every wallet,
+              including Phantom:
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
               {Object.entries(walletLinks).map(([name, href]) => (

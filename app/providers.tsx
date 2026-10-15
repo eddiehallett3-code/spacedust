@@ -89,14 +89,19 @@ function buildAdapters(): WalletAdapter[] {
   // The only adapter here that talks to a wallet *app* rather than a browser
   // extension, which is what makes a phone work properly: the OS hands the request
   // to the installed wallet, that wallet opens and asks the user to approve, and no
-  // browser-inside-a-browser detour is involved. Phantom, Solflare, Backpack and
-  // Jupiter Mobile all speak it.
+  // browser-inside-a-browser detour is involved.
+  //
+  // **Coverage is wallet-dependent**, and measured rather than assumed. Jupiter
+  // completes the handshake on a real Android device; Phantom opens and never
+  // starts the local socket the protocol needs, so its attempts fail with
+  // `ERR_CONNECTION_REFUSED` on `ws://localhost:<port>/solana-wallet`. That is why
+  // the picker shows the in-app-browser links *alongside* this row instead of
+  // treating MWA as the whole answer.
   //
   // Android only, and only when there is a `navigator` to read. On iOS and on
   // desktop MWA has nothing to talk to, so it would be a permanently greyed-out row
   // telling the user they have not installed something — the exact complaint the
-  // picker's mobile panel exists to answer. (iOS is covered by the in-app-browser
-  // links in `walletBrowseLink`.)
+  // picker's mobile panel exists to answer.
   if (typeof navigator !== "undefined" && isAndroidUserAgent(navigator.userAgent)) {
     register(
       MOBILE_WALLET_ADAPTER_NAME,
@@ -107,7 +112,14 @@ function buildAdapters(): WalletAdapter[] {
           appIdentity: {
             name: APP_NAME,
             uri: window.location.origin,
-            icon: `${window.location.origin}/logo-512.png`,
+            // **Relative**, and that is a requirement rather than a style choice:
+            // the wallet resolves it against `uri`, and an absolute URL is
+            // rejected outright — `WalletConnectionError: When specified,
+            // identity.icon must be a relative URI`. Found by reading the
+            // console of a real phone over the DevTools protocol, which is the
+            // only place that error surfaces: our own validation passed it, and
+            // the failure looked like an unresponsive wallet.
+            icon: "/logo-512.png",
           },
           authorizationResultCache: createDefaultAuthorizationResultCache(),
           chain: "solana:mainnet",
