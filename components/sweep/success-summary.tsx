@@ -298,7 +298,7 @@ export function SuccessSummary({
             className="shrink-0"
             onClick={onEnterVoid}
           >
-            Send into The Void
+            Open The Void
           </Button>
         </div>
       ) : null}

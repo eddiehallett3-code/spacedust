@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { VoidPanel } from "@/components/sweep/void-panel";
+import { preselectForVoid } from "@/lib/sweep/void-prompt";
 import { VoidEmblem } from "@/components/void/void-emblem";
 import { NftBurnPanel } from "@/components/void/nft-burn-panel";
 import { previewAction } from "@/lib/sweep/preview";
@@ -215,12 +216,18 @@ export function VoidApp() {
 
   useEffect(() => {
     const seen = seenMints.current;
+    // Not everything illiquid may arrive pre-ticked — see `preselectForVoid`. A
+    // 0-decimal token can be a collectible minted as a fungible, and a tick is
+    // consent to destroy the asset, so that one takes a deliberate click here as
+    // well as on the sweeper.
+    const preselect = new Set(preselectForVoid(illiquidTokens));
     setSelectedMints((previous) => {
       let changed = false;
       const next = new Set(previous);
       for (const token of illiquidTokens) {
         if (!seen.has(token.mint)) {
           seen.add(token.mint);
+          if (!preselect.has(token.mint)) continue;
           next.add(token.mint);
           changed = true;
         }

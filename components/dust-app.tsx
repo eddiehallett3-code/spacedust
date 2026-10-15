@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import { AlertTriangle, Info, RefreshCw, ShieldCheck, Sparkles, Wand2 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -21,12 +22,8 @@ import { SuccessSummary } from "@/components/sweep/success-summary";
 import { ConnectWalletCta } from "@/components/wallet/wallet-button";
 import { useSweepHistory } from "@/hooks/use-sweep-history";
 import { useSweep } from "@/hooks/use-sweep";
-import { useVoid } from "@/hooks/use-void";
 import { useWalletScan } from "@/hooks/use-wallet-scan";
-import {
-  countTokensLeftBehind,
-  preselectForVoid,
-} from "@/lib/sweep/void-prompt";
+import { countTokensLeftBehind } from "@/lib/sweep/void-prompt";
 import { isSweepableToken } from "@/lib/sweep/sweepable";
 import { resolveAmount } from "@/lib/sweep/amounts";
 import {
@@ -164,22 +161,13 @@ export function DustApp() {
   }, [tokens]);
 
   // ── The Void ──────────────────────────────────────────────────────────
-  // A second, completely separate selection: tokens with no liquidity that
-  // are burned for their rent instead of swapped. Swaps and burns never share
-  // a transaction — they are separate previews, separate signatures.
-  const theVoid = useVoid();
-  const [voidMints, setVoidMints] = useState<Set<string>>(new Set());
-  // Mints the Void selection has already made a decision about, so a user
-  // who deselects a token is not out-voted by the next re-render.
-  const seenVoidMints = useRef<Set<string>>(new Set());
-
-  // ── Swap first, The Void second ───────────────────────────────────────────
-  // The app's suggested order is: confirm the swaps, *then* send whatever
-  // could not be swapped into The Void. Until a real (non-dry-run) sweep
-  // lands, illiquid assets are only flagged — the inline Void panel stays
-  // locked and a prompt offers it instead. Opening The Void explicitly
-  // (prompt button, or its own page) unlocks it for users who want it alone.
-  const [voidUnlocked, setVoidUnlocked] = useState(false);
+  // No selection state here any more. The Void is its own page, with its own
+  // scan, its own selection and its own preview; the copy that used to live
+  // inside this one meant two versions of the same flow to keep in step. What
+  // remains on this page is a pointer to it — `VoidPrompt` in the controls
+  // column, shown once the sweeper has actually been refused a route — and the
+  // navigation below, for the one button that should take you there.
+  const router = useRouter();
 
   // ── Tally counters (site-wide dust-sweep tallies). Show: wallets swept · SOL
   // · USDC · JUP swept. These survive a reload and are never used for anything
@@ -257,12 +245,6 @@ export function DustApp() {
     [illiquidTokens],
   );
 
-  /** Everything the Void panel is allowed to show. */
-  const voidCandidateSet = useMemo(
-    () => new Set(voidCandidates.map((token) => token.mint)),
-    [voidCandidates],
-  );
-
   /**
    * How many tokens this sweep failed to move and cannot be moved at all.
    *
@@ -296,59 +278,6 @@ export function DustApp() {
     () => voidCandidates.filter((token) => noRouteMints.has(token.mint)).length,
     [voidCandidates, noRouteMints],
   );
-
-  // A Void preview describes the selection it was built from. If that
-  // selection changes, the preview is stale: the user must never sign a
-  // batch that no longer matches what the checkboxes show. Mirrors the
-  // sweep's `planKey` reset, with the same in-flight guard — and never
-  // while a result summary is up, so a finished burn stays on screen.
-  const voidPreviewKey = [...voidMints]
-    .filter((mint) => voidCandidateSet.has(mint))
-    .sort()
-    .join(",");
-  const voidPreviewKeyRef = useRef(voidPreviewKey);
-  useEffect(() => {
-    if (voidPreviewKeyRef.current === voidPreviewKey) return;
-    if (theVoid.isBusy || theVoid.summary !== null) return;
-    voidPreviewKeyRef.current = voidPreviewKey;
-    if (theVoid.packed.length > 0) theVoid.reset();
-  }, [voidPreviewKey, theVoid]);
-
-  // Every new candidate starts out selected — the common case after a sweep
-  // is "yes, burn the rest" — while an explicit deselect is remembered.
-  //
-  // Only the *illiquid* ones are picked up here. A token that looks swappable
-  // is listed but left unchecked, because a tick is consent to destroy it and
-  // that must be a deliberate act.
-  useEffect(() => {
-    const seen = seenVoidMints.current;
-    // Which of those are allowed to arrive already ticked — see
-    // `preselectForVoid` for why a 0-decimal token is not one of them. A tick
-    // is consent to destroy the asset, so for something that may be a
-    // collectible that has to be the user's own click.
-    const preselect = new Set(preselectForVoid(illiquidTokens));
-    setVoidMints((previous) => {
-      let changed = false;
-      const next = new Set(previous);
-      for (const token of illiquidTokens) {
-        if (!seen.has(token.mint)) {
-          seen.add(token.mint);
-          if (!preselect.has(token.mint)) continue;
-          next.add(token.mint);
-          changed = true;
-        }
-      }
-      // Forget tokens that left the list (burned, or gone after a rescan) so
-      // a reappearance starts fresh rather than inheriting an old decision.
-      for (const mint of Array.from(seen)) {
-        if (!voidCandidateSet.has(mint)) {
-          seen.delete(mint);
-          if (next.delete(mint)) changed = true;
-        }
-      }
-      return changed ? next : previous;
-    });
-  }, [illiquidTokens, voidCandidateSet]);
 
   // Tokens the Void has claimed must not be swappable here: a token Jupiter
   // could not even route has no business in a swap preview, and the two flows
@@ -482,28 +411,6 @@ export function DustApp() {
   // "Select all" covers everything The Void lists, including tokens flagged as
   // having liquidity — selecting one is the user's explicit call, and the panel
   // warns about the value before anything is signed.
-  const voidSelectableMints = useMemo(
-    () => voidCandidates.map((token) => token.mint),
-    [voidCandidates],
-  );
-
-  const toggleVoidMint = useCallback((mint: string, next: boolean): void => {
-    setVoidMints((previous) => {
-      const updated = new Set(previous);
-      if (next) updated.add(mint);
-      else updated.delete(mint);
-      return updated;
-    });
-  }, []);
-
-  const onVoidSelectAll = useCallback((): void => {
-    setVoidMints(new Set(voidSelectableMints));
-  }, [voidSelectableMints]);
-
-  const onVoidDeselectAll = useCallback((): void => {
-    setVoidMints(new Set());
-  }, []);
-
   const selectedTokens = useMemo(
     () => visibleTokens.filter((token) => selectedMints.has(token.mint)),
     [visibleTokens, selectedMints],
@@ -585,64 +492,23 @@ export function DustApp() {
     toast("Wallet rescanned");
   }, [deselectAll, rescan, sweep]);
 
-  const onVoidBurnt = useCallback((): void => {
-    setVoidMints(new Set());
-    handleRescan();
-  }, [handleRescan]);
-
-  // The moment a real sweep confirms, The Void is offered: swaps are done,
-  // what is left is what could not be swapped. A dry run unlocks nothing —
-  // nothing was actually sent.
-  useEffect(() => {
-    if (sweep.phase === "success" && sweep.summary && !sweep.summary.dryRun) {
-      setVoidUnlocked(true);
-    }
-  }, [sweep.phase, sweep.summary]);
+  // A confirmed sweep changes what is left behind, which is what the pointer to
+  // The Void counts — so the prompt appears on its own, from the scan. Nothing to
+  // unlock, and nothing to navigate to on the user's behalf: arriving somewhere
+  // they did not ask for is not an offer.
 
   /**
-   * Bumped by "Send into The Void" so the scroll effect always re-runs.
+   * Leaves for The Void, which is its own page.
    *
-   * A counter rather than a boolean because The Void is usually *already*
-   * unlocked by the time the button is clicked (a confirmed sweep unlocks it),
-   * so setting `voidUnlocked` again would not change anything and nothing would
-   * scroll.
-   */
-  const [voidScrollRequest, setVoidScrollRequest] = useState(0);
-
-  /**
-   * Closes the success overlay and scrolls The Void into view.
-   *
-   * The rescan is part of this, not an afterthought: The Void acts on the token
-   * list, and a sweep has just changed the balances that list describes. Without
-   * a fresh scan a fully-swapped token still looks voidable, and a swap that was
-   * reported as failed but actually landed would look like it left the tokens
-   * behind — which is exactly how a user ends up trying to burn an account that
-   * no longer exists.
+   * There is nothing to unlock and nothing to scroll to any more: the panel used
+   * to live at the bottom of this page, so this handler had to open it *and* race
+   * React's commit to bring it into view. A page has its own address and, more to
+   * the point, its own scan — The Void acts on a token list, and a sweep has just
+   * changed the balances that list describes.
    */
   const handleEnterVoid = useCallback((): void => {
-    setVoidUnlocked(true);
-    setVoidScrollRequest((previous) => previous + 1);
-    deselectAll();
-    sweep.reset();
-    // Fresh scan, fresh verdict: drop stale "no route" marks from the last plan.
-    setNoRouteMints(new Set());
-    void rescan();
-  }, [deselectAll, rescan, sweep]);
-
-  // Scroll only once the panel has actually rendered. Scrolling straight from
-  // the click handler races React's commit, and scrolling an empty wrapper
-  // looks exactly like the button doing nothing — which is what used to happen.
-  useEffect(() => {
-    if (voidScrollRequest === 0) return;
-    const frame = requestAnimationFrame(() =>
-      requestAnimationFrame(() => {
-        document
-          .getElementById("the-void")
-          ?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }),
-    );
-    return () => cancelAnimationFrame(frame);
-  }, [voidScrollRequest]);
+    router.push("/void");
+  }, [router]);
 
   if (!connected) return <ConnectPrompt />;
 
@@ -735,16 +601,7 @@ export function DustApp() {
           smartFilter={smartFilter}
           onSmartFilterChange={setSmartFilter}
           deselectAll={deselectAll}
-          theVoid={theVoid}
-          voidTokens={voidCandidates}
           unroutableCount={unroutableCount}
-          voidMints={voidMints}
-          voidUnlocked={voidUnlocked}
-          onVoidToggle={toggleVoidMint}
-          onVoidSelectAll={onVoidSelectAll}
-          onVoidDeselectAll={onVoidDeselectAll}
-          onVoidBurnt={onVoidBurnt}
-          onOpenVoid={() => setVoidUnlocked(true)}
           emptyAccounts={scan?.emptyAccounts ?? []}
           emptyAccountsError={scan?.emptyAccountsError ?? null}
           onRentReclaimed={handleRescan}
