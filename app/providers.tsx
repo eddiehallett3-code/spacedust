@@ -6,17 +6,11 @@ import { ConnectionProvider, WalletProvider } from "@solana/wallet-adapter-react
 import { PhantomWalletAdapter } from "@solana/wallet-adapter-phantom";
 import { SolflareWalletAdapter } from "@solana/wallet-adapter-solflare";
 import { BackpackWalletAdapter } from "@solana/wallet-adapter-backpack";
-import {
-  SolanaMobileWalletAdapter,
-  createDefaultAddressSelector,
-  createDefaultAuthorizationResultCache,
-  createDefaultWalletNotFoundHandler,
-} from "@solana-mobile/wallet-adapter-mobile";
 import type { Adapter, WalletAdapter } from "@solana/wallet-adapter-base";
 import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { MobileWalletAdapter } from "@/components/wallet/mobile-wallet-adapter";
 import { WalletModalProvider } from "@/components/wallet/wallet-modal";
-import { isAndroidUserAgent, MOBILE_WALLET_ADAPTER_NAME } from "@/lib/solana/wallet-diagnostics";
 
 /**
  * Client-side providers.
@@ -34,9 +28,6 @@ import { isAndroidUserAgent, MOBILE_WALLET_ADAPTER_NAME } from "@/lib/solana/wal
  */
 
 const RPC_ENDPOINT = "https://api.mainnet-beta.solana.com";
-
-/** Shown in a wallet's own approval prompt, so it is the real product name. */
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "Spacedust";
 
 /**
  * Free project id from https://dashboard.reown.com — powers the WalletConnect
@@ -85,50 +76,10 @@ function buildAdapters(): WalletAdapter[] {
   // standard registry has not picked it up yet.
   register("Backpack", () => new BackpackWalletAdapter());
 
-  // ── Android: the Mobile Wallet Adapter ────────────────────────────────────
-  // The only adapter here that talks to a wallet *app* rather than a browser
-  // extension, which is what makes a phone work properly: the OS hands the request
-  // to the installed wallet, that wallet opens and asks the user to approve, and no
-  // browser-inside-a-browser detour is involved.
-  //
-  // **Coverage is wallet-dependent**, and measured rather than assumed. Jupiter
-  // completes the handshake on a real Android device; Phantom opens and never
-  // starts the local socket the protocol needs, so its attempts fail with
-  // `ERR_CONNECTION_REFUSED` on `ws://localhost:<port>/solana-wallet`. That is why
-  // the picker shows the in-app-browser links *alongside* this row instead of
-  // treating MWA as the whole answer.
-  //
-  // Android only, and only when there is a `navigator` to read. On iOS and on
-  // desktop MWA has nothing to talk to, so it would be a permanently greyed-out row
-  // telling the user they have not installed something — the exact complaint the
-  // picker's mobile panel exists to answer.
-  if (typeof navigator !== "undefined" && isAndroidUserAgent(navigator.userAgent)) {
-    register(
-      MOBILE_WALLET_ADAPTER_NAME,
-      () =>
-        new SolanaMobileWalletAdapter({
-          addressSelector: createDefaultAddressSelector(),
-          // Shown in the wallet's approval prompt: who is asking.
-          appIdentity: {
-            name: APP_NAME,
-            uri: window.location.origin,
-            // **Relative**, and that is a requirement rather than a style choice:
-            // the wallet resolves it against `uri`, and an absolute URL is
-            // rejected outright — `WalletConnectionError: When specified,
-            // identity.icon must be a relative URI`. Found by reading the
-            // console of a real phone over the DevTools protocol, which is the
-            // only place that error surfaces: our own validation passed it, and
-            // the failure looked like an unresponsive wallet.
-            icon: "/logo-512.png",
-          },
-          authorizationResultCache: createDefaultAuthorizationResultCache(),
-          chain: "solana:mainnet",
-          // Sends the user to a wallet to install when none on the device speaks
-          // MWA, rather than failing with an unexplained error.
-          onWalletNotFound: createDefaultWalletNotFoundHandler(),
-        }),
-    );
-  }
+  // The Mobile Wallet Adapter is *not* an adapter in this list. It registers
+  // itself as a Wallet Standard wallet (see `MobileWalletAdapter`), which
+  // `WalletProvider` merges into `wallets` automatically — the same route
+  // Jupiter's extension takes, and the reason nothing for Android appears here.
 
   return adapters;
 }
@@ -165,6 +116,10 @@ export function Providers({ children }: { children: ReactNode }) {
         `connect()` and show the wallet's approval prompt.
       */}
       <WalletProvider wallets={wallets} autoConnect onError={onAdapterError}>
+        {/* Registers Mobile Wallet Adapter as a Wallet Standard wallet on
+            Android. Renders nothing; must not run during SSR, which is why it is
+            a component with an effect rather than a call in this file. */}
+        <MobileWalletAdapter />
         {REOWN_PROJECT_ID ? (
           <JupiterMobileBridge
             projectId={REOWN_PROJECT_ID}

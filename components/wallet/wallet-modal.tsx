@@ -524,12 +524,23 @@ function WalletRow({
 }) {
   const info = readyStateInfo(readyState);
 
+  // On a phone, a row for an installed wallet reads "not detected" — true, and
+  // useless: there is nothing to detect in a browser that has no extensions. When
+  // we know how to open this page inside that wallet, the row *is* the way in, so
+  // it stops being a disabled button and becomes the link. Tapping the row is what
+  // people do; a small "Open" affordance beside a dead row is not.
+  const openInWallet = browseHref ?? null;
+
   return (
     <li>
       <button
         type="button"
-        onClick={onPick}
-        disabled={info.tone === "missing" || disabled}
+        onClick={
+          openInWallet
+            ? () => window.location.assign(openInWallet)
+            : onPick
+        }
+        disabled={(!openInWallet && info.tone === "missing") || disabled}
         className={cn(
           "flex w-full items-center gap-3 rounded-xl border border-border bg-white/3 p-3 text-left transition-all duration-200",
           "hover:border-violet-core/45 hover:bg-white/6",
