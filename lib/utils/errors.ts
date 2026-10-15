@@ -35,17 +35,20 @@ export function isNoLiquidityFailure(reason: string): boolean {
 const RULES: Rule[] = [
   {
     // A wallet that accepted the request and never answered it. Distinct from a
-    // refusal: nothing was declined and nothing was sent. On mobile this is
-    // almost always the app-to-wallet channel rather than the wallet itself —
-    // the wallet opens, shows no approval, and the page waits forever.
+    // refusal: nothing was declined and nothing was sent.
+    //
+    // On Android the cause is known and it is not the user's mistake. Phantom's
+    // Mobile Wallet Adapter support never starts the local socket the protocol
+    // needs from an ordinary browser, so Phantom opens and shows nothing — no
+    // prompt, no error. That was measured on a real device and is recorded in
+    // `components/wallet/wallet-modal.tsx`. The advice therefore names the route
+    // that works, rather than a permission dialog that is not the problem.
     test: /did not answer the signing request|Wallet connection timed out/i,
-    map: (match) => ({
+    map: () => ({
       title: "Your wallet never answered",
       message:
         "The wallet opened but never came back with a signature, so nothing was sent and nothing was charged.",
-      hint: /Wallet connection timed out/i.test(match[0])
-        ? "If your wallet opened and showed no approval, try again — and if Chrome asked to find and connect to devices on your local network, choose Allow."
-        : "Try again — and if Chrome asked to find and connect to devices on your local network, choose Allow. If your wallet keeps opening with nothing to approve, connecting with WalletConnect instead avoids that channel completely.",
+      hint: "If you connected with Mobile Wallet Adapter, Phantom opens but cannot finish the request from an ordinary browser. Use the “Open in Phantom” link under the wallet list instead — it runs the whole app inside Phantom — or connect with WalletConnect.",
     }),
   },
   {

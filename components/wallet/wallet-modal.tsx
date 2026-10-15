@@ -378,7 +378,12 @@ return (
               Tap “Mobile Wallet Adapter” below
             </strong>{" "}
             if your wallet supports it — it opens the app you already have and asks
-            you to approve there.
+            you to approve there. Jupiter Mobile completes that handshake;{" "}
+            <strong className="font-medium text-foreground">Phantom does not</strong>{" "}
+            — it opens and can never finish the request from a normal browser, so
+            use{" "}
+            <strong className="font-medium text-foreground">Open in Phantom</strong>{" "}
+            below instead, which runs this whole page inside Phantom.
           </p>
         ) : null}
 

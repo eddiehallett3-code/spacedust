@@ -19,14 +19,14 @@ describe("toFriendlyError — a wallet that never answered", () => {
 
     expect(friendly.title).toBe("Your wallet never answered");
     expect(friendly.message).toMatch(/nothing was sent/i);
-    expect(friendly.hint).toMatch(/local network/i);
+    expect(friendly.hint).toMatch(/Open in Phantom/);
   });
 
   it("names the wallet SDK's association timeout, which is a different failure", () => {
     const friendly = toFriendlyError(new Error("Wallet connection timed out"));
 
     expect(friendly.title).toBe("Your wallet never answered");
-    expect(friendly.hint).toMatch(/showed no approval/i);
+    expect(friendly.message).toMatch(/never came back with a signature/i);
   });
 
   it("explains that a session can end while the app still shows an address", () => {
