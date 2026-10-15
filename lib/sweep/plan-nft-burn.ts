@@ -67,8 +67,21 @@ export type Burnability =
  * asset is owned by a different program entirely, and an unrecognised interface
  * is by definition one we do not understand. In each case the right answer is
  * to refuse rather than to send an instruction and hope.
+ *
+ * `FungibleAsset` earns its place here rather than contradicting the rule above:
+ * it is the index's word for a 0-decimal asset it could not tell from a fungible,
+ * which `lib/token-source/collectible-shape.ts` has already determined has no
+ * market and is therefore presented as a collectible. It has a token account like
+ * any uncompressed NFT and burns with exactly the same instruction. Refusing it
+ * would put something the app offers for destruction on one screen and nothing at
+ * all on the screen built for destruction.
  */
-const SPL_BURNABLE_INTERFACES = new Set(["V1_NFT", "LEGACY_NFT", "V1_PRINT"]);
+const SPL_BURNABLE_INTERFACES = new Set([
+  "V1_NFT",
+  "LEGACY_NFT",
+  "V1_PRINT",
+  "FungibleAsset",
+]);
 
 /** Plain-English names, so a reason reads as a limit of this build, not jargon. */
 const INTERFACE_LABELS: Record<string, string> = {
@@ -128,6 +141,12 @@ export function assetKind(asset: NonFungibleAsset): string {
   if (asset.compressed) return "cNFT";
   if (asset.interface === "MplCoreAsset") return "Core";
   if (asset.interface === "ProgrammableNFT") return "pNFT";
+  // A token the index called fungible, which this app calls a collectible: no
+  // market prices it, so it is presented with the collectibles and burned through
+  // the SPL route like an uncompressed NFT. Before this it would have read as
+  // "unknown", which is worse than wrong — it is unhelpful on the one screen whose
+  // job is to make destruction deliberate.
+  if (asset.interface === "FungibleAsset") return "collectible";
   if (asset.interface.startsWith("core-rpc:")) return "unidentified";
   if (SPL_BURNABLE_INTERFACES.has(asset.interface)) return "NFT";
   return "unknown";

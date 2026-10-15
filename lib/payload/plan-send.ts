@@ -187,6 +187,12 @@ export function unsendableAssetReason(asset: NonFungibleAsset): string | null {
   if (asset.interface === "ProgrammableNFT" || asset.interface === "V1_PRINT") {
     return "Programmable NFTs need Token Metadata's transfer instruction, which is not built yet.";
   }
+  if (asset.interface === "FungibleAsset") {
+    // A collectible the index typed as fungible, presented as a collectible by
+    // `lib/token-source/collectible-shape.ts`. Named in those words rather than as
+    // "FungibleAsset", which is the index's word and not a user's.
+    return "This is a collectible minted as a token, and sending one is not built yet.";
+  }
   if (asset.interface !== "V1_NFT" && asset.interface !== "LEGACY_NFT") {
     return `Sending a ${asset.interface} is not supported.`;
   }

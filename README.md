@@ -247,28 +247,50 @@ reprice both.
 | `/api/asset-proof` | 30 | 1 minute |
 | `/api/health` | 12 | 1 minute |
 
-- **Vercel:** *Firewall → Rate limiting rules* (menu names move; the rule editor is
-  under Firewall). Note that WAF rules are a paid-plan feature — on Hobby, put
-  Cloudflare in front instead, or accept the in-process limit as your only one.
-- **Cloudflare:** *Security → WAF → Rate limiting rules*, with the domain proxied
-  (the orange cloud). Proxying also fixes a second hole: without it, anyone can
-  point their own domain at your deployment and spend your keys through it.
+- **Cloudflare (free plan):** *Security → WAF → Rate limiting rules* → **Create rule**.
+  The free plan includes **one** rule and counts over **10-second** periods (the
+  wider windows are paid), so the rule below covers the whole API rather than each
+  path, and leaves the per-route numbers to `BUDGETS` above:
+
+  | Field | Value |
+  | --- | --- |
+  | When incoming requests match | `http.request.uri.path contains "/api/"` |
+  | With the same characteristics | IP address |
+  | When rate exceeds | **40** requests per **10 seconds** |
+  | Then take action | **Block** |
+
+  40 per 10 seconds is the same ceiling as `/api/rpc`'s 240 per minute — the
+  busiest budget in the table — so this rule cannot fire before the in-process
+  limiter would, and it cannot throttle a client the app itself would have served.
+  On a paid plan, replace it with one rule per path from the table, using 1-minute
+  windows.
+
+  The orange cloud matters: with the domain proxied, this rule also stops someone
+  pointing their own domain at your deployment and spending your keys through it.
+
+- **Vercel:** *Firewall → Rate limiting rules* (the rule editor is under Firewall).
+  WAF rules are a paid-plan feature, so on Hobby either put Cloudflare in front as
+  above, or accept the in-process limit as your only one.
 
 Use **429, not a challenge or a JS challenge**: this app's clients are `fetch` and
 web3.js, and neither can solve a CAPTCHA. A block would present to a user as an
 unexplained failure.
 
-**Verify it, rather than trusting it** — the edge rule should trip *before* the
-in-process one does:
+**Verify it, rather than trusting it.** Test against `/api/rpc`, not `/api/health`:
+`health`'s in-process budget is 12/min, so it would be throttled by the second
+layer first and you would learn nothing about the first.
 
 ```bash
-for i in $(seq 1 40); do
-  curl -s -o /dev/null -w '%{http_code} ' https://spacedust.cc/api/health
+# 100 requests inside a few seconds, against a 40-per-10-seconds edge rule.
+for i in $(seq 1 100); do
+  curl -s -o /dev/null -w '%{http_code} ' -X POST https://spacedust.cc/api/rpc \
+    -H 'content-type: application/json' -d '{}'
 done; echo
 ```
 
-40 requests inside a minute against a 12/min rule should show `429`s in the output.
-If every one is `200`, the rule is not matching the path.
+Non-200s partway through mean the edge rule is matching. If every one is a 400
+(a malformed body, which the app rejects *after* the limiter) then no rate limiting
+is in play at all.
 
 **2. Alert on Helius spend.** In the Helius dashboard, set usage/spend notifications
 for the account at roughly **50%** and **80%** of the plan's monthly credits. The
@@ -454,6 +476,18 @@ into one list is exactly what once made an NFT look burnable.
 | **Tokens** | every fungible with a balance, flagged by liquidity | yes — unpriced ones are pre-selected | one token-account rent per closed account |
 | **NFTs** | every uncompressed NFT, with artwork and collection | **opt-in, one tick at a time** | one token-account rent per closed account |
 | **cNFTs** | every compressed NFT | **opt-in, one tick at a time** | **none** — a cNFT is a merkle leaf, not an account |
+
+One case sits between the tabs. `decimals === 0` is the shape of an NFT *and* the
+shape of a collectible minted as a fungible — a Jupiter collectible with no symbol,
+no price and no market, which an index types as `FungibleAsset` and which nothing
+in the scan can tell from a token. **The market decides it**: a 0-decimal asset with
+a price is something people trade and stays on the token tab; one with no price is
+not, and is presented on the NFTs tab, where nothing is pre-selected and burning it
+is a deliberate act. Either way its burn is the plain SPL route an uncompressed NFT
+uses. The rule lives in one place, `lib/token-source/collectible-shape.ts`, because
+the token split in `app/api/tokens/route.ts` and the pre-tick in
+`lib/sweep/void-prompt.ts` have to agree — an asset presented as a collectible while
+still ticked for destruction would be the worst of both.
 
 Three rules hold across all of it:
 

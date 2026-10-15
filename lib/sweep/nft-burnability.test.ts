@@ -124,6 +124,23 @@ describe("nftBurnability", () => {
     expect(assetKind({ ...base, interface: "SomethingNew" })).toBe("unknown");
   });
 
+  it("names a collectible-shaped token as a collectible, not as unknown", () => {
+    // The index calls it fungible; this app calls it a collectible, because it has
+    // no decimals and no market. On a card whose whole job is to make destruction
+    // deliberate, "unknown" would be the wrong word for something the app has
+    // already decided about.
+    expect(assetKind({ ...base, interface: "FungibleAsset" })).toBe("collectible");
+  });
+
+  it("burns a collectible-shaped token through the SPL route, like an NFT", () => {
+    // It has a token account and no token record, so its burn is the plain SPL
+    // `Burn` + `CloseAccount` — the same instruction an uncompressed NFT gets.
+    expect(nftBurnability({ ...base, interface: "FungibleAsset" })).toEqual({
+      burnable: true,
+      route: "spl",
+    });
+  });
+
   it("refuses a frozen asset — the owner cannot burn it", () => {
     refusals({ frozen: true });
   });

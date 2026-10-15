@@ -4,6 +4,10 @@ import { allowRequest, rateLimitResponse } from "@/lib/api/rate-limit";
 import { MintLayout } from "@solana/spl-token";
 import { z } from "zod";
 import { scanWallet } from "@/lib/token-source/index.server";
+import {
+  looksLikeCollectible,
+  toCollectibleAsset,
+} from "@/lib/token-source/collectible-shape";
 import { fetchTokenMetadata, type TokenMetadata } from "@/lib/token-source/metadata.server";
 import { fetchPrices } from "@/lib/jupiter/server";
 import { getServerRpcUrl, MissingEnvError } from "@/lib/config/env";
@@ -212,6 +216,20 @@ export async function GET(request: Request) {
     // highest-value tokens inside the first transaction's byte budget.
     tokens.sort((a, b) => b.valueUsd - a.valueUsd);
 
+    // ── Collectible-shaped assets leave the token list ────────────────────────
+    // A 0-decimal asset with no market is a collectible the index could not tell
+    // from a fungible — the rule and the reasoning are in
+    // `lib/token-source/collectible-shape.ts`. It is not dust: no route can swap
+    // it, so the swap list could only ever offer a token the sweeper would fail
+    // on, and the Void pre-selects unpriced tokens for burning. It is presented
+    // with the collectibles instead, where nothing is ticked on the user's behalf
+    // and the burn is a deliberate act.
+    const dustTokens: DustToken[] = [];
+    const collectibleTokens: DustToken[] = [];
+    for (const token of tokens) {
+      (looksLikeCollectible(token) ? collectibleTokens : dustTokens).push(token);
+    }
+
     const solPrice = prices[OUTPUT_ASSETS.SOL.mint]?.usdPrice ?? null;
 
     /**
@@ -247,10 +265,15 @@ export async function GET(request: Request) {
 
     const payload: WalletScan = {
       owner: parsed.data.owner,
-      tokens,
-      // Passed through as-is: already sanitised by the scanner, and deliberately
-      // not priced or merged into `tokens`. These are never swept as dust.
-      nonFungibles,
+      tokens: dustTokens,
+      // The scanner's own NFTs and cNFTs, plus the collectible-shaped assets the
+      // index typed as fungible. Both are presented — and burned — the same way;
+      // the only difference is which of them arrived needing to be told apart from
+      // a token.
+      nonFungibles: [
+        ...nonFungibles,
+        ...collectibleTokens.map(toCollectibleAsset),
+      ],
       native: {
         lamports: nativeLamports,
         sol: nativeLamports / 1e9,
