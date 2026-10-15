@@ -51,9 +51,6 @@ export interface WalletConnectProvider {
   signTransaction: <T extends Transaction | VersionedTransaction>(
     transaction: T,
   ) => Promise<T>;
-  signAllTransactions?: <T extends Transaction | VersionedTransaction>(
-    transactions: T[],
-  ) => Promise<T[]>;
   signMessage?: (message: Uint8Array) => Promise<Uint8Array>;
   sendTransaction?: (
     transaction: Transaction | VersionedTransaction,
@@ -235,11 +232,14 @@ export class WalletConnectWalletAdapter extends BaseMessageSignerWalletAdapter {
   ): Promise<T[]> {
     return this.withProvider(async (provider) => {
       try {
-        if (provider.signAllTransactions) {
-          return await provider.signAllTransactions(transactions);
-        }
-        // Not every wallet offers a batch call. Signing them in turn still works,
-        // and still gives the user one approval per transaction.
+        // One request per transaction, deliberately.
+        //
+        // WalletConnect defines a multi-transaction method, and this used it. Not
+        // every wallet implements it, and a wallet that does not can simply never
+        // answer — which reaches the user as a page that waits forever and a
+        // wallet that never prompts. A single-transaction request is the one shape
+        // every wallet supports, so it is what we send. The cost is one approval
+        // per transaction, which is the honest price of being asked at all.
         const signed: T[] = [];
         for (const transaction of transactions) {
           signed.push(await provider.signTransaction(transaction));

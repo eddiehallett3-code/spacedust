@@ -35,7 +35,7 @@ const STEPS: Array<{
     phase: "awaiting-signature",
     label: "Waiting for you",
     detail:
-      "Approve the transaction in your wallet. Nothing is sent until you do.",
+      "Approve it in your wallet app, not on this page. Nothing is sent until you do — if your wallet has not come to the front, switch to it manually.",
     icon: PenLine,
   },
   {
