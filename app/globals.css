@@ -113,6 +113,18 @@
     -webkit-text-size-adjust: 100%;
   }
 
+  /* Nothing in the layout is wider than the screen, but the decoration is: two
+     blurred circles bleed deliberately past both edges, and the starfield sits in
+     a fixed layer sized to the document. Measured on a real phone, that left a
+     397px document in a 384px viewport — a page you could drag a few pixels
+     sideways, which is exactly as wrong as it sounds.
+     `clip` and not `hidden`: `hidden` creates a scroll container, which would
+     break `position: sticky` for the navbar and the Slingshot controls column. */
+  html,
+  body {
+    overflow-x: clip;
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);

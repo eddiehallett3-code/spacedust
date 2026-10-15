@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Container } from "@/components/layout/container";
 import { DustApp } from "@/components/dust-app";
-import { Hero } from "@/components/layout/hero";
+import { Hero, SlingshotHighlights } from "@/components/layout/hero";
 import { SetupNotice } from "@/components/setup-notice";
 import { HowItWorksStrip } from "@/components/layout/how-it-works-strip";
 import { SWAP_RATE, VOID_RATE } from "@/lib/config/tools";
@@ -35,6 +35,8 @@ export default function SlingshotPage() {
       <div id="slingshot" className="scroll-mt-24">
         <DustApp />
       </div>
+      {/* Below the app on purpose: see `SlingshotHighlights`. */}
+      <SlingshotHighlights />
       <HowItWorksStrip />
     </Container>
   );

@@ -64,7 +64,12 @@ export function ThresholdControl({
           </p>
         </div>
 
-        <div className="relative w-28">
+        {/* `shrink-0` matters: this sits in a flex row beside a paragraph, and a
+            flex item's default is to shrink. On a narrow screen that squeezed the
+            field until its own contents were clipped — you could not read the
+            number you had typed. Width raised with it, because 112px minus the
+            "$" gutter left very little room for four digits and a decimal point. */}
+        <div className="relative w-32 shrink-0">
           <span
             aria-hidden
             className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-subtle"

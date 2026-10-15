@@ -108,47 +108,65 @@ export function Hero() {
         </motion.div>
       </div>
 
-      {/* Value props */}
-      <motion.ul
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
-        className="mx-auto mt-14 grid max-w-4xl gap-3 sm:grid-cols-3"
-      >
-        {[
-          {
-            icon: <Layers className="size-4" aria-hidden />,
-            title: "Fewest signatures",
-            body: "Swaps are packed into as few transactions as the 1232-byte limit allows.",
-          },
-          {
-            icon: <Unplug className="size-4" aria-hidden />,
-            title: "Rent reclaimed",
-            // Derived, not hand-typed. This used to say "~0.002 SOL", which was
-            // the old rent-exempt minimum — the same stale figure that once
-            // overstated every rent label and inflated The Void's fee by 37%.
-            body: `Emptied token accounts are closed in the same flow, returning ~${(
-              TOKEN_ACCOUNT_RENT_LAMPORTS / 1e9
-            ).toFixed(4)} SOL each.`,
-          },
-          {
-            icon: <Zap className="size-4" aria-hidden />,
-            title: "Simulated first",
-            body: "Every transaction is dry-run before you are asked to approve anything.",
-          },
-        ].map((item) => (
-          <li
-            key={item.title}
-            className="glass rounded-2xl p-4 text-left transition-colors hover:border-border-strong"
-          >
-            <span className="flex size-8 items-center justify-center rounded-lg bg-violet-core/12 text-violet-glow ring-1 ring-inset ring-violet-core/20">
-              {item.icon}
-            </span>
-            <p className="mt-3 text-sm font-medium">{item.title}</p>
-            <p className="mt-1 text-xs leading-relaxed text-muted">{item.body}</p>
-          </li>
-        ))}
-      </motion.ul>
+      {/* The value props moved out of here — see `SlingshotHighlights` below.
+          On a phone they pushed the app itself a full screen down the page. */}
     </section>
+  );
+}
+
+/**
+ * Slingshot's three claims, as a block that sits *below* the app.
+ *
+ * They used to live under the hero, which on a phone meant three tall panels
+ * standing between a visitor and the tool they came to use. They are marketing
+ * copy: worth reading *after* the thing they describe, not before it.
+ *
+ * `whileInView` rather than `animate`, because this now starts below the fold —
+ * an entrance animation that has already finished by the time you scroll to it is
+ * no animation at all.
+ */
+export function SlingshotHighlights() {
+  return (
+    <motion.ul
+      initial={{ opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.3 }}
+      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+      className="mx-auto mt-10 grid max-w-4xl gap-3 sm:grid-cols-3"
+    >
+      {[
+        {
+          icon: <Layers className="size-4" aria-hidden />,
+          title: "Fewest signatures",
+          body: "Swaps are packed into as few transactions as the 1232-byte limit allows.",
+        },
+        {
+          icon: <Unplug className="size-4" aria-hidden />,
+          title: "Rent reclaimed",
+          // Derived, not hand-typed. This used to say "~0.002 SOL", which was
+          // the old rent-exempt minimum — the same stale figure that once
+          // overstated every rent label and inflated The Void's fee by 37%.
+          body: `Emptied token accounts are closed in the same flow, returning ~${(
+            TOKEN_ACCOUNT_RENT_LAMPORTS / 1e9
+          ).toFixed(4)} SOL each.`,
+        },
+        {
+          icon: <Zap className="size-4" aria-hidden />,
+          title: "Simulated first",
+          body: "Every transaction is dry-run before you are asked to approve anything.",
+        },
+      ].map((item) => (
+        <li
+          key={item.title}
+          className="glass rounded-2xl p-4 text-left transition-colors hover:border-border-strong"
+        >
+          <span className="flex size-8 items-center justify-center rounded-lg bg-violet-core/12 text-violet-glow ring-1 ring-inset ring-violet-core/20">
+            {item.icon}
+          </span>
+          <p className="mt-3 text-sm font-medium">{item.title}</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted">{item.body}</p>
+        </li>
+      ))}
+    </motion.ul>
   );
 }
