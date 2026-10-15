@@ -367,6 +367,20 @@ that allow-list it would be an open RPC relay pointed at your Helius account.
    through Jupiter's Referral Program: a claim there keeps only the account's
    on-chain `share_bps`, so part of the fee would go to the project rather than to
    the wallet that configured it.
+
+   **Setting it up** is three accounts, once:
+
+   ```bash
+   node scripts/create-fee-accounts.mjs --keypair ~/.config/solana/id.json          # dry run
+   node scripts/create-fee-accounts.mjs --keypair ~/.config/solana/id.json --send   # create
+   ```
+
+   The accounts are owned by the fee wallet, but the keypair only *pays* and is the
+   only signer — so any funded wallet works, and the fee wallet's private key is
+   never needed. `/api/health` reports the same thing with the server running, and
+   `probes/tmp-fee-wallet-ata-probe.mjs` reports it with nothing running at all.
+   The failure mode is quiet by design: a missing account is not an error anywhere,
+   it is simply a fee of zero, which is why something has to ask.
 6. **The ~150-slot blockhash window is treated as the scarce resource it is.**
    Every transaction in a batch is signed under one blockhash, so anything slow
    before a send is window that send never gets. Two margins enforce that, and
