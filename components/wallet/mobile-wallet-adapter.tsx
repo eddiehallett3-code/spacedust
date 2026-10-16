@@ -4,7 +4,6 @@ import { useEffect } from "react";
 import {
   createDefaultAuthorizationCache,
   createDefaultChainSelector,
-  createDefaultWalletNotFoundHandler,
   registerMwa,
 } from "@solana-mobile/wallet-standard-mobile";
 import { isAndroidUserAgent } from "@/lib/solana/wallet-diagnostics";
@@ -50,7 +49,23 @@ export function MobileWalletAdapter() {
       authorizationCache: createDefaultAuthorizationCache(),
       chains: ["solana:mainnet"],
       chainSelector: createDefaultChainSelector(),
-      onWalletNotFound: createDefaultWalletNotFoundHandler(),
+      /**
+       * Deliberately **not** the library's default handler.
+       *
+       * `createDefaultWalletNotFoundHandler` renders the library's own embedded
+       * modal — "We can't find a wallet." over a button that sends the whole page
+       * to solanamobile.com/wallets. It fires on *any* connect that finds no
+       * wallet, and the silent connect that runs when a page loads is one of
+       * them, so a phone arriving at this site gets a third-party popup before it
+       * has touched anything. Reported exactly that way: "before I even click
+       * connect wallet I get a popup saying can't find wallets".
+       *
+       * Doing nothing here is the fix, and it loses nothing: the library throws
+       * the same error immediately after this returns, so the picker's own
+       * failure handling reports it — in the app's words, in the panel the user is
+       * already looking at, with no navigation away from the site.
+       */
+      onWalletNotFound: async () => undefined,
     });
   }, []);
 

@@ -241,12 +241,32 @@ function WalletPickerDialog({ onClose }: { onClose: () => void }) {
    * the order they registered in.
    *
    * `sort` is stable, so the remaining rows hold their place.
+   *
+   * The same condition decides what is *listed*. On a phone outside a wallet's
+   * browser nothing is injected, so every extension adapter reports "not detected"
+   * and the column becomes rows of "Not installed" for wallets the user may well
+   * have — installed on the wrong device. Reported plainly: "phantom says open but
+   * not installed, jupiter says not installed, none of which work". They are
+   * dropped there, along with the Mobile Wallet Adapter, which is why the panel
+   * above offers the route that works for every wallet instead. WalletConnect is
+   * kept whatever it reports, because it is the way to anything this page cannot
+   * reach itself.
    */
   const orderedWallets = useMemo(() => {
-    if (!walletLinks) return wallets;
+    const visible = walletLinks
+      ? wallets.filter(
+          (entry) =>
+            entry.adapter.name === WALLET_CONNECT_ADAPTER_NAME ||
+            (entry.readyState !== WalletReadyState.NotDetected &&
+              entry.readyState !== WalletReadyState.Unsupported &&
+              entry.adapter.name !== MOBILE_WALLET_ADAPTER_NAME),
+        )
+      : wallets;
+
+    if (!walletLinks) return visible;
     const rank = (name: string) =>
       name === WALLET_CONNECT_ADAPTER_NAME ? 0 : 1;
-    return [...wallets].sort(
+    return [...visible].sort(
       (a, b) => rank(a.adapter.name) - rank(b.adapter.name),
     );
   }, [wallets, walletLinks]);
@@ -443,7 +463,7 @@ return (
             `ERR_CONNECTION_REFUSED` on `ws://localhost:<port>/solana-wallet`).
             Hiding the fallback behind "this works" would leave Phantom users with a
             row that dead-ends. */}
-        {hasMobileWalletAdapter ? (
+        {hasMobileWalletAdapter && !walletLinks ? (
           <p className="mt-3 rounded-xl border border-success/25 bg-success/8 p-3 text-[11px] leading-relaxed text-muted">
             <strong className="font-medium text-foreground">
               Tap “Mobile Wallet Adapter” below
@@ -465,17 +485,21 @@ return (
             panel answers. Opening the page inside the wallet gives it the same
             provider a desktop extension would, and everything works from there. */}
         {walletLinks ? (
-          <div className="mt-3 rounded-xl border border-border bg-white/4 p-3">
-            <p className="text-[11px] leading-relaxed text-muted">
-              Or open this page inside your wallet — this works with every wallet,
-              including Phantom:
+          <div className="mt-3 rounded-xl border border-violet-core/35 bg-violet-core/8 p-3">
+            <p className="text-xs font-medium text-foreground">
+              Open this page inside your wallet
+            </p>
+            <p className="mt-1 text-[11px] leading-relaxed text-muted">
+              The one route that works from a phone browser for every wallet,
+              Phantom included. It runs this whole page inside the wallet, so
+              there is nothing to connect afterwards.
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
               {Object.entries(walletLinks).map(([name, href]) => (
                 <a
                   key={name}
                   href={href}
-                  className="rounded-lg border border-border px-2.5 py-1.5 text-[11px] text-foreground transition-colors hover:border-violet-core/40"
+                  className="rounded-lg border border-border bg-white/4 px-3 py-2 text-xs font-medium text-foreground transition-colors hover:border-violet-core/45 hover:bg-white/8"
                 >
                   Open in {name}
                 </a>
@@ -570,7 +594,7 @@ return (
                 ) : null}
               </Fragment>
             ))}
-            {jupiterExtensionListed ? null : (
+            {jupiterExtensionListed || walletLinks ? null : (
               <WalletRow
                 key={JUPITER_FALLBACK.name}
                 name={JUPITER_FALLBACK.name}
@@ -587,7 +611,7 @@ return (
           </ul>
         )}
 
-        {detectedCount === 0 && wallets.length > 0 ? (
+        {detectedCount === 0 && wallets.length > 0 && !walletLinks ? (
           <p className="mt-3 flex items-start gap-1.5 text-[11px] leading-relaxed text-subtle">
             <AlertTriangle className="mt-px size-3 shrink-0" aria-hidden />
             None of these wallets are installed. Use the Install links, or try an
