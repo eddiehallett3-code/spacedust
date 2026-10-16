@@ -3,9 +3,12 @@
 import { useCallback, useRef, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { getConnection } from "@/lib/solana/connection";
-import { isBlockhashExpired, BLOCKHASH_APPROVAL_MARGIN_SLOTS } from "@/lib/solana/blockhash";
+import {
+  isBlockhashExpired,
+  BLOCKHASH_PROMPT_MARGIN_SLOTS,
+} from "@/lib/solana/blockhash";
 import { OUTPUT_ASSETS } from "@/lib/utils/constants";
-import { planSweep, PlanError, type PlanSweepResult } from "@/lib/sweep/plan-sweep";
+import { planSweep, PlanError, refreshBlockhash, type PlanSweepResult } from "@/lib/sweep/plan-sweep";
 import type { AuditResult } from "@/lib/security/instruction-audit";
 import { buildSummary } from "@/lib/sweep/summary";
 import { resolveAmount } from "@/lib/sweep/amounts";
@@ -248,26 +251,25 @@ export function useSweep() {
     let result = prepared.result;
 
     try {
-      // ── 0. Make sure the batch is not built on an expired blockhash ───────
-      // The blockhash is captured when the preview is built, and the whole
-      // batch is signed with it. Reading the simulation report is exactly what
-      // the app asks the user to do, so a preview can easily sit open longer
-      // than a blockhash lives — and every wallet then refuses to sign, in its
-      // own words (Phantom's is "Simulation failed … Blockhash not found").
+      // ── 0. Start the prompt with a nearly full blockhash window ───────────
+      // The blockhash is captured when the preview is built, and the whole batch
+      // is signed with it — so the window it buys is shared by every transaction
+      // *and* by however long the user takes to approve them. Reading the
+      // simulation report is exactly what the app asks the user to do, so a
+      // preview can easily sit open longer than a blockhash lives; and a phone
+      // that then needs half a minute to approve three prompts loses the tail of
+      // the batch to "blockhash expired".
       //
       // The preview's simulation cannot catch this: it runs with
       // `replaceRecentBlockhash`, so it passes no matter how stale the real
-      // blockhash is. So check the height here and quietly rebuild instead —
-      // against the *approval* margin, so the user starts signing with a
-      // window that survives them reading the prompt.
+      // blockhash is. So the window is refreshed here — in two tiers, because
+      // they cost very different things.
       if (
-        await isBlockhashExpired(
-          connection,
-          result.lastValidBlockHeight,
-          BLOCKHASH_APPROVAL_MARGIN_SLOTS,
-        )
+        await isBlockhashExpired(connection, result.lastValidBlockHeight, 0)
       ) {
-        // Honest phase: we are rebuilding, not prompting yet.
+        // The blockhash is gone, which means this plan is a minute old or more
+        // and Jupiter's quotes have moved with the market. Re-plan: new routes,
+        // new amounts, a fresh simulation, and a fresh blockhash.
         patch({ phase: "planning", error: null });
         result = await planSweep({
           connection,
@@ -278,6 +280,21 @@ export function useSweep() {
           amounts: request.amounts,
         });
         // Keep the fresh plan, so a retry starts from something valid.
+        preparedRef.current = { result, request };
+      } else if (
+        await isBlockhashExpired(
+          connection,
+          result.lastValidBlockHeight,
+          BLOCKHASH_PROMPT_MARGIN_SLOTS,
+        )
+      ) {
+        // The window is short but the plan is still current, so pack it again
+        // rather than quote it again: the same swaps, the same grouping, a new
+        // blockhash. Cheap enough to insist on nearly the whole window before
+        // anybody is asked to approve anything — which is the difference between
+        // starting the prompt with ~18 seconds of slack and with ~56.
+        patch({ phase: "planning", error: null });
+        result = await refreshBlockhash(connection, result);
         preparedRef.current = { result, request };
       }
 

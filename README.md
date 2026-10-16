@@ -1644,6 +1644,7 @@ has already been violated once:
 | `lib/solana/rent.test.ts` | The Void's fee is a rate on the rent it is given, floored, and never a constant — and a burned Core asset's one-byte husk is priced, so its rent is not claimed as returned |
 | `lib/solana/liveness.test.ts` | A missing account is not always a dead asset (a cNFT's id is a leaf, never an account) and a tiny account is not always a live one (a burned Core asset is one zero byte) — and the index's `burnt` flag is believed only when it is literally `true` |
 | `lib/sweep/plan-void.test.ts` | The SOL transfer sent on chain is 22,326 lamports — 1.5% of the rent the chain reports, and a frozen token account is refused before a burn is built for it |
+| `lib/sweep/plan-sweep.test.ts` | A stale blockhash window is refreshed by **re-packing** the batch — the same swaps, the same transactions in the same order, one new blockhash embedded — and not by re-quoting Jupiter, which would move the amounts under a preview the user had already read |
 | `lib/sweep/summary.test.ts` | Reclaimed rent comes from the plan, the fee reported is the one actually applied, and the rent on the success screen is **net** of the reclaim fee — one fee per closed account, never one per transaction |
 | `lib/sweep/void-prompt.test.ts` | "Left behind" means left behind *by this sweep*, not present in the wallet |
 | `lib/sweep/phase.test.ts` | Whatever phase a successful `prepare()` settles on is not a busy one |

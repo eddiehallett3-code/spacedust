@@ -50,6 +50,27 @@ export const BLOCKHASH_SEND_MARGIN_SLOTS = 30;
 export const BLOCKHASH_APPROVAL_MARGIN_SLOTS = 75;
 
 /**
+ * Headroom a prompt must have when the window can be refreshed *cheaply*.
+ *
+ * The other margin assumes refreshing is expensive — re-running the whole plan,
+ * which re-quotes Jupiter and re-simulates every route. That is why it settles
+ * for 75 slots: enough to send, not enough to be picky.
+ *
+ * A sweep can do better. Its refresh is a re-pack: the same instructions, the
+ * same grouping, one new blockhash, no new routes and no quote drift. So it does
+ * not have to accept a short window to avoid a re-quote, and it should not: 75
+ * slots leaves 45 between the prompt and the last send — about **18 seconds** for
+ * a human to approve and for every transaction in the batch to go out. On a phone
+ * that is not a budget, it is a race, and the *last* transaction is the one that
+ * loses it. Observed exactly that on mainnet: a four-token sweep, three
+ * transactions, and the tail one abandoned with "blockhash expired".
+ *
+ * Sized just under a full ~150-slot life, so an ordinary "open the preview, press
+ * Sign & send" changes nothing, and only a preview left sitting gets refreshed.
+ */
+export const BLOCKHASH_PROMPT_MARGIN_SLOTS = 140;
+
+/**
  * Has this blockhash aged out of the cluster's recent-blockhash window?
  *
  * `marginSlots` is the headroom demanded: pass 0 for the bare question "can

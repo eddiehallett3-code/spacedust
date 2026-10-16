@@ -1,4 +1,9 @@
-import { PublicKey, type Connection } from "@solana/web3.js";
+import {
+  PublicKey,
+  type AddressLookupTableAccount,
+  type Connection,
+  type TransactionInstruction,
+} from "@solana/web3.js";
 import { apiFetch } from "@/lib/utils/api";
 import { getPublicFeeWallet } from "@/lib/config/public-env";
 import {
@@ -22,7 +27,7 @@ import {
   composePackUnits,
   plannedCloseAccounts,
 } from "@/lib/solana/compose";
-import { packTransactions } from "@/lib/solana/pack";
+import { packTransactions, type PackUnit } from "@/lib/solana/pack";
 import { simulateAll } from "@/lib/solana/simulate";
 import { mintsWithoutRentReclaim } from "@/lib/sweep/amounts";
 import type {
@@ -60,6 +65,21 @@ export interface PlanSweepInput {
   amounts?: ReadonlyMap<string, string>;
 }
 
+/** What a packed sweep was built from, so it can be packed again later. */
+export interface RepackInput {
+  units: PackUnit[];
+  prologue: TransactionInstruction[];
+  payer: PublicKey;
+  lookupTables: AddressLookupTableAccount[];
+}
+
+/** The same batch, packed against a fresh blockhash. */
+export interface RepackedBatch {
+  packed: PackedTransaction[];
+  blockhash: string;
+  lastValidBlockHeight: number;
+}
+
 export interface PlanSweepResult {
   plan: PlanResponse;
   packed: PackedTransaction[];
@@ -82,6 +102,12 @@ export interface PlanSweepResult {
   estimatedReclaimFeeLamports: number;
   /** Rent minus that fee — what actually reaches the wallet. */
   estimatedNetRentLamports: number;
+  /**
+   * What this batch was packed from, kept so a stale blockhash window can be
+   * refreshed by packing it again: the same instructions and the same grouping
+   * against a new blockhash, with no new Jupiter quotes. See `refreshBlockhash`.
+   */
+  repackInput: RepackInput;
   /** True when at least one transaction failed to simulate. */
   hasFailures: boolean;
   /**
@@ -252,12 +278,19 @@ export async function planSweep(
   const priorityFee =
     Math.ceil((COMPUTE_UNIT_LIMIT * PRIORITY_FEE_MICRO_LAMPORTS) / 1_000_000);
 
-  const packedResult = packTransactions({
+  // Kept on the result, because this is everything a blockhash refresh would
+  // need to pack the batch again — same instructions, same grouping, new
+  // blockhash. See `refreshBlockhash`.
+  const repackInput: RepackInput = {
     units,
     prologue,
     payer: owner,
-    blockhash: blockhashInfo.blockhash,
     lookupTables,
+  };
+
+  const packedResult = packTransactions({
+    ...repackInput,
+    blockhash: blockhashInfo.blockhash,
   });
 
   if (packedResult.transactions.length === 0) {
@@ -363,6 +396,81 @@ export async function planSweep(
     hasFailures,
     audit,
     reclaimFeeLamportsPerAccount: reclaimFeePerAccount,
+    estimatedRentReclaimLamports,
+    estimatedReclaimFeeLamports,
+    estimatedNetRentLamports:
+      estimatedRentReclaimLamports - estimatedReclaimFeeLamports,
+    repackInput,
+  };
+}
+
+/**
+ * Pack the same batch against a fresh blockhash.
+ *
+ * WHY THIS IS NOT `planSweep`: every transaction in a sweep is signed with ONE
+ * blockhash, and the window it buys is shared by the whole batch *and* by however
+ * long the human takes to approve it. So a phone has to be able to start signing
+ * with a nearly full window — and re-running the plan to get one re-quotes
+ * Jupiter, which is slow, burns rate limit, and quietly changes the amounts under
+ * a preview the user has already read.
+ *
+ * None of that is what a blockhash refresh needs. The routes, the instructions,
+ * the grouping and the simulations are all blockhash-independent: the same units
+ * pack to the same transactions, and the simulations run with
+ * `replaceRecentBlockhash`, so they stay valid. So the refresh is a re-pack —
+ * milliseconds, one blockhash lookup, and a preview that still describes exactly
+ * what will be signed.
+ */
+export async function repackWithFreshBlockhash(
+  connection: Connection,
+  input: RepackInput,
+): Promise<RepackedBatch> {
+  const blockhashInfo = await connection.getLatestBlockhash("confirmed");
+  const packedResult = packTransactions({
+    ...input,
+    blockhash: blockhashInfo.blockhash,
+  });
+
+  if (packedResult.transactions.length === 0) {
+    throw new PlanError(
+      "The selected swaps are too large to send in one go.",
+      "Try sweeping fewer tokens at a time.",
+    );
+  }
+
+  return {
+    packed: packedResult.transactions,
+    blockhash: blockhashInfo.blockhash,
+    lastValidBlockHeight: blockhashInfo.lastValidBlockHeight,
+  };
+}
+
+/**
+ * The whole result, refreshed onto a new blockhash.
+ *
+ * Everything except the packed bytes is carried across, and the figures derived
+ * from the packing are recomputed from the new one — they cannot actually differ
+ * (the grouping is the same, and a blockhash is 32 bytes either way), but reading
+ * them from the new batch is what makes that a fact rather than an assumption.
+ */
+export async function refreshBlockhash(
+  connection: Connection,
+  result: PlanSweepResult,
+): Promise<PlanSweepResult> {
+  const fresh = await repackWithFreshBlockhash(connection, result.repackInput);
+  const closedMints = new Set(
+    fresh.packed.flatMap((transaction) => transaction.rentReclaimMints),
+  );
+  const estimatedRentReclaimLamports =
+    closedMints.size * result.plan.tokenAccountRentLamports;
+  const estimatedReclaimFeeLamports =
+    closedMints.size * result.reclaimFeeLamportsPerAccount;
+
+  return {
+    ...result,
+    packed: fresh.packed,
+    blockhash: fresh.blockhash,
+    lastValidBlockHeight: fresh.lastValidBlockHeight,
     estimatedRentReclaimLamports,
     estimatedReclaimFeeLamports,
     estimatedNetRentLamports:
