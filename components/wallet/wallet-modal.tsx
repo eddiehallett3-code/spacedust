@@ -274,17 +274,22 @@ function WalletPickerDialog({ onClose }: { onClose: () => void }) {
   }, [wallets, walletLinks]);
 
   /**
-   * The named wallets worth a shortcut, which is the ones the panel above cannot
-   * already open.
+   * Jupiter, for the "Open in" panel — and the one button there that is not a
+   * browse link.
    *
-   * Each wallet gets exactly one route, so there is never a row of buttons
-   * duplicating the "Open in …" ones — which on a phone leaves Jupiter, the only
-   * wallet with no verified browse link of its own. On a desktop there are no
-   * browse links at all, so the shortcut list is the full four.
+   * Jupiter publishes no link that opens an arbitrary page inside its browser.
+   * `jup.ag`'s own universal-link declaration covers `/swap/*`,
+   * `/ask-for-sol/*`, `/invite/*`, `/gift/*`, `/tokens/*`, `/radar/*`,
+   * `/portfolio/*`, its gamification paths and a referral catch-all — and nothing
+   * that takes a URL. What Jupiter does have is the WalletConnect shortcut, which
+   * opens the app directly: verified on a device, where it landed in Jupiter with
+   * no second button to press. So the panel offers four ways into a wallet, and
+   * this is the one that connects rather than browses.
    */
-  const namedWalletShortcuts = useMemo(
-    () => WALLETCONNECT_WALLETS.filter((wallet) => !walletLinks?.[wallet.label]),
-    [walletLinks],
+  const jupiterShortcut =
+    WALLETCONNECT_WALLETS.find((wallet) => wallet.id === "jupiter") ?? null;
+  const walletConnectAvailable = wallets.some(
+    (entry) => entry.adapter.name === WALLET_CONNECT_ADAPTER_NAME,
   );
 
   // Handle for the current attempt's adapter error listener, so a second pick
@@ -520,6 +525,16 @@ return (
                   Open in {name}
                 </a>
               ))}
+              {jupiterShortcut && walletConnectAvailable ? (
+                <button
+                  type="button"
+                  onClick={() => pickNamedWallet(jupiterShortcut)}
+                  disabled={Boolean(pending)}
+                  className="rounded-lg border border-border bg-white/4 px-3 py-2 text-xs font-medium text-foreground transition-colors hover:border-violet-core/45 hover:bg-white/8 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-glow disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  Open in {jupiterShortcut.label}
+                </button>
+              ) : null}
             </div>
           </div>
         ) : null}
@@ -578,8 +593,12 @@ return (
                   url={adapter.url}
                   browseHref={walletLinks?.[adapter.name] ?? null}
                   note={
+                    // With the named shortcuts gone, this row's whole job is to
+                    // open the wallet list — and its ready-state line would read
+                    // "Detected — try connecting", which is nonsense for a wallet
+                    // nothing is ever injected for.
                     adapter.name === WALLET_CONNECT_ADAPTER_NAME
-                      ? "Tap a wallet below, or search the full list"
+                      ? "Choose a wallet"
                       : null
                   }
                   readyState={readyState}
@@ -587,28 +606,6 @@ return (
                   disabled={Boolean(pending)}
                   onPick={() => handlePick({ adapter, readyState })}
                 />
-                {/* The wallets people actually want, by name, for the ones the
-                    panel above cannot reach. WalletConnect's own list is 160
-                    entries long and Phantom is rarely near the top of it; tapping
-                    one of these goes straight to the wallet. See
-                    `namedWalletShortcuts` for why the list is filtered. */}
-                {adapter.name === WALLET_CONNECT_ADAPTER_NAME &&
-                namedWalletShortcuts.length > 0 ? (
-                  <li className="flex flex-wrap gap-1.5 pl-1">
-                    {namedWalletShortcuts.map((wallet) => (
-                      <button
-                        key={wallet.id}
-                        type="button"
-                        onClick={() => pickNamedWallet(wallet)}
-                        disabled={Boolean(pending)}
-                        aria-label={`Connect with ${wallet.label}`}
-                        className="rounded-lg border border-border bg-white/3 px-2.5 py-1.5 text-[11px] font-medium text-foreground transition-colors hover:border-violet-core/45 hover:bg-white/6 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-glow disabled:cursor-not-allowed disabled:opacity-45"
-                      >
-                        {wallet.label}
-                      </button>
-                    ))}
-                  </li>
-                ) : null}
               </Fragment>
             ))}
             {jupiterExtensionListed || walletLinks ? null : (
