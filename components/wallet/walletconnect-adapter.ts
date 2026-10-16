@@ -51,6 +51,17 @@ export interface WalletConnectProvider {
   signTransaction: <T extends Transaction | VersionedTransaction>(
     transaction: T,
   ) => Promise<T>;
+  /**
+   * WalletConnect's multi-transaction request, when the provider offers one.
+   *
+   * Optional because this describes the provider's shape rather than a promise:
+   * a provider without it is still signed, one transaction at a time. What
+   * matters is that asking for a batch is what turns a mobile sweep into one
+   * approval rather than one per transaction.
+   */
+  signAllTransactions?: <T extends Transaction | VersionedTransaction>(
+    transactions: T[],
+  ) => Promise<T[]>;
   signMessage?: (message: Uint8Array) => Promise<Uint8Array>;
   sendTransaction?: (
     transaction: Transaction | VersionedTransaction,
@@ -288,14 +299,31 @@ export class WalletConnectWalletAdapter extends BaseMessageSignerWalletAdapter {
   ): Promise<T[]> {
     return this.withProvider(async (provider) => {
       try {
-        // One request per transaction, deliberately.
+        // One request for the whole batch, so a phone shows one approval instead
+        // of one per transaction. Packing a sweep into a handful of transactions
+        // buys nothing if the wallet is then asked about each of them
+        // separately, and on mobile this is the only route there is: a phone
+        // wallet is reached over WalletConnect or not at all.
         //
-        // WalletConnect defines a multi-transaction method, and this used it. Not
-        // every wallet implements it, and a wallet that does not can simply never
-        // answer — which reaches the user as a page that waits forever and a
-        // wallet that never prompts. A single-transaction request is the one shape
-        // every wallet supports, so it is what we send. The cost is one approval
-        // per transaction, which is the honest price of being asked at all.
+        // Asking for a batch is safe because the provider decides what it can do
+        // *before* it sends anything. Reown's Solana provider reads the
+        // WalletConnect session's own advertised methods, refuses to send
+        // `solana_signAllTransactions` to a wallet that never claimed it, and
+        // signs one at a time itself when that is the case. So a wallet that
+        // cannot batch still gets the per-transaction shape below.
+        //
+        // It was sent one-at-a-time for a while — see "WalletConnect signing: one
+        // request per transaction" — because a wallet asked for a batch it does
+        // not implement neither prompts nor errors, and the page waited forever.
+        // What changed is not the risk but where it is handled: that check now
+        // lives upstream, and a request that is never answered is bounded by the
+        // signing timeout in `lib/solana/submit.ts` instead of waiting for good.
+        if (provider.signAllTransactions) {
+          return await provider.signAllTransactions(transactions);
+        }
+
+        // A provider with no batch method at all: sign them in turn. Still one
+        // approval per transaction, but only where nothing better exists.
         const signed: T[] = [];
         for (const transaction of transactions) {
           signed.push(await provider.signTransaction(transaction));

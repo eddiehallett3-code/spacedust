@@ -17,9 +17,15 @@ import {
  * Both are regressions of a specific failure. The adapter this replaced read
  * AppKit's state once and then re-read that snapshot, so it decided the wallet
  * list was closed about half a second after opening it and could never connect.
- * And `signAllTransactions` used WalletConnect's multi-transaction request, which
- * not every wallet implements — a wallet that ignores it produces a page that
- * waits forever and a wallet that never prompts.
+ *
+ * The second property has been through both answers. `signAllTransactions` first
+ * used WalletConnect's multi-transaction request, then sent one request per
+ * transaction, because a wallet asked for a batch it does not implement neither
+ * prompts nor errors and the page waited forever. It asks for the batch again
+ * now, and the tests below pin the reason it is safe to: the provider consults
+ * the session's advertised methods before sending, so an unsupporting wallet is
+ * answered one at a time without this adapter having to guess — while a wallet
+ * that can batch is asked once and prompts once.
  */
 
 const ADDRESS = "So11111111111111111111111111111111111111112";
@@ -153,7 +159,36 @@ describe("WalletConnectWalletAdapter", () => {
     expect(calls).toEqual(["open", "close"]);
   });
 
-  it("sends one signing request per transaction, never a batch", async () => {
+  it("asks for the whole batch in one request when the provider offers one", async () => {
+    const batches: Transaction[][] = [];
+    const singles: Transaction[] = [];
+    const provider = {
+      signTransaction: async (transaction: Transaction) => {
+        singles.push(transaction);
+        return transaction;
+      },
+      signAllTransactions: async (transactions: Transaction[]) => {
+        batches.push(transactions);
+        return transactions;
+      },
+    } as unknown as WalletConnectProvider;
+
+    const adapter = new WalletConnectWalletAdapter(
+      bridge({ readProvider: () => provider }),
+    );
+
+    const transactions = [new Transaction(), new Transaction(), new Transaction()];
+    await expect(adapter.signAllTransactions(transactions)).resolves.toEqual(
+      transactions,
+    );
+
+    // One request carrying all three: one approval on a phone, which is the
+    // whole point of packing a sweep into a handful of transactions.
+    expect(batches).toEqual([transactions]);
+    expect(singles).toEqual([]);
+  });
+
+  it("signs one at a time only when the provider has no batch method", async () => {
     const requested: Transaction[] = [];
     const provider = {
       signTransaction: async (transaction: Transaction) => {
@@ -170,8 +205,34 @@ describe("WalletConnectWalletAdapter", () => {
     await expect(adapter.signAllTransactions(transactions)).resolves.toEqual(
       transactions,
     );
-    // Three separate requests: the shape every wallet answers.
+    // Three separate requests, because there is no batch call to make.
     expect(requested).toEqual(transactions);
+  });
+
+  it("does not re-ask one at a time when the batch is declined", async () => {
+    let singles = 0;
+    const provider = {
+      signTransaction: async (transaction: Transaction) => {
+        singles += 1;
+        return transaction;
+      },
+      signAllTransactions: async () => {
+        throw new Error("User rejected the request");
+      },
+    } as unknown as WalletConnectProvider;
+
+    const adapter = new WalletConnectWalletAdapter(
+      bridge({ readProvider: () => provider }),
+    );
+
+    const transactions = [new Transaction(), new Transaction(), new Transaction()];
+    await expect(adapter.signAllTransactions(transactions)).rejects.toThrow(
+      "User rejected the request",
+    );
+
+    // A declined batch is a decision, not a capability gap. Turning it into three
+    // fresh prompts would ask the user the same question again, and again.
+    expect(singles).toBe(0);
   });
 
   it("refuses to sign when there is no live provider, rather than hanging", async () => {
