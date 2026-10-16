@@ -140,6 +140,19 @@ export function walletBrowseLink(
     return `https://solflare.com/ul/v1/browse/${target}?ref=${ref}`;
   }
 
+  // Same shape, and not a guess: `backpack.app`'s own
+  // `apple-app-site-association` declares `/ul/*` and `/ul/v1/*`, which is the
+  // declaration iOS itself uses to decide the app may open those links.
+  //
+  // Jupiter is deliberately absent. Its site declares `/swap/*`, `/tokens/*`,
+  // `/portfolio/*` and its gamification paths — and no `/ul/*` at all — so there
+  // is no verified link that opens *this* page inside Jupiter's browser. Inventing
+  // one would fail exactly the way this panel exists to prevent, so Jupiter is
+  // reached by its WalletConnect row, which opens the app directly.
+  if (name.includes("backpack")) {
+    return `https://backpack.app/ul/v1/browse/${target}?ref=${ref}`;
+  }
+
   return null;
 }
 

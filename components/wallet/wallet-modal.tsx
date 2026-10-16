@@ -39,12 +39,18 @@ import { cn } from "@/lib/utils/cn";
 /**
  * Wallets whose own in-app browser we can open directly.
  *
- * Only wallets with a browse link that can be verified against their SDK are
- * listed — see `walletBrowseLink`. A third entry belongs here the day its link is
- * confirmed, never before: a guessed deep link fails in exactly the way this
- * panel exists to fix.
+ * Only wallets with a browse link confirmed against their own universal-link
+ * declaration are listed — see `walletBrowseLink`. A guessed deep link fails in
+ * exactly the way this panel exists to fix, so an entry is added the day its
+ * link is confirmed and not before: Backpack's `apple-app-site-association`
+ * declaring `/ul/v1/*` is what earned it a place here.
+ *
+ * Jupiter is the one gap, and it is a real one rather than an oversight: its site
+ * declares no `/ul/*` path at all, so there is no link that opens this page inside
+ * Jupiter's browser. It keeps its WalletConnect row instead, which opens the app
+ * directly — verified on a real device.
  */
-const MOBILE_BROWSE_WALLETS = ["Phantom", "Solflare"] as const;
+const MOBILE_BROWSE_WALLETS = ["Phantom", "Solflare", "Backpack"] as const;
 
 /**
  * How long to wait for a wallet before assuming the request went nowhere.
@@ -242,24 +248,20 @@ function WalletPickerDialog({ onClose }: { onClose: () => void }) {
    *
    * `sort` is stable, so the remaining rows hold their place.
    *
-   * The same condition decides what is *listed*. On a phone outside a wallet's
-   * browser nothing is injected, so every extension adapter reports "not detected"
-   * and the column becomes rows of "Not installed" for wallets the user may well
-   * have — installed on the wrong device. Reported plainly: "phantom says open but
-   * not installed, jupiter says not installed, none of which work". They are
-   * dropped there, along with the Mobile Wallet Adapter, which is why the panel
-   * above offers the route that works for every wallet instead. WalletConnect is
-   * kept whatever it reports, because it is the way to anything this page cannot
-   * reach itself.
+   * The same condition decides what is *listed*, and there it is all-or-nothing:
+   * on a phone outside a wallet's own browser, WalletConnect is the list. Every
+   * other entry is an extension adapter or the Mobile Wallet Adapter, neither of
+   * which can complete from a plain mobile browser — and one of them reporting
+   * "Detected — try connecting" is worse than useless, because it reads as a
+   * promise and then dead-ends. Reported exactly that way, on Solflare.
+   *
+   * So the panel above is the whole story on a phone: open this page inside the
+   * wallet, or reach it over WalletConnect.
    */
   const orderedWallets = useMemo(() => {
     const visible = walletLinks
       ? wallets.filter(
-          (entry) =>
-            entry.adapter.name === WALLET_CONNECT_ADAPTER_NAME ||
-            (entry.readyState !== WalletReadyState.NotDetected &&
-              entry.readyState !== WalletReadyState.Unsupported &&
-              entry.adapter.name !== MOBILE_WALLET_ADAPTER_NAME),
+          (entry) => entry.adapter.name === WALLET_CONNECT_ADAPTER_NAME,
         )
       : wallets;
 
@@ -270,6 +272,20 @@ function WalletPickerDialog({ onClose }: { onClose: () => void }) {
       (a, b) => rank(a.adapter.name) - rank(b.adapter.name),
     );
   }, [wallets, walletLinks]);
+
+  /**
+   * The named wallets worth a shortcut, which is the ones the panel above cannot
+   * already open.
+   *
+   * Each wallet gets exactly one route, so there is never a row of buttons
+   * duplicating the "Open in …" ones — which on a phone leaves Jupiter, the only
+   * wallet with no verified browse link of its own. On a desktop there are no
+   * browse links at all, so the shortcut list is the full four.
+   */
+  const namedWalletShortcuts = useMemo(
+    () => WALLETCONNECT_WALLETS.filter((wallet) => !walletLinks?.[wallet.label]),
+    [walletLinks],
+  );
 
   // Handle for the current attempt's adapter error listener, so a second pick
   // (or unmount) never leaves a stale subscription behind.
@@ -571,14 +587,15 @@ return (
                   disabled={Boolean(pending)}
                   onPick={() => handlePick({ adapter, readyState })}
                 />
-                {/* The wallets people actually want, by name. WalletConnect's own
-                    list is 160 entries long and Phantom is rarely near the top of
-                    it; these four are what a Solana dust sweep meets, and tapping
-                    one goes straight to the wallet. The row above stays as the
-                    way to anything else. */}
-                {adapter.name === WALLET_CONNECT_ADAPTER_NAME ? (
+                {/* The wallets people actually want, by name, for the ones the
+                    panel above cannot reach. WalletConnect's own list is 160
+                    entries long and Phantom is rarely near the top of it; tapping
+                    one of these goes straight to the wallet. See
+                    `namedWalletShortcuts` for why the list is filtered. */}
+                {adapter.name === WALLET_CONNECT_ADAPTER_NAME &&
+                namedWalletShortcuts.length > 0 ? (
                   <li className="flex flex-wrap gap-1.5 pl-1">
-                    {WALLETCONNECT_WALLETS.map((wallet) => (
+                    {namedWalletShortcuts.map((wallet) => (
                       <button
                         key={wallet.id}
                         type="button"

@@ -30,6 +30,17 @@ describe("walletBrowseLink", () => {
     );
   });
 
+  it("builds Backpack's browse link", () => {
+    // Not a guess, and worth spelling out because this test used to assert the
+    // opposite: `backpack.app`'s own `apple-app-site-association` declares
+    // `/ul/*` and `/ul/v1/*` — the same declaration iOS reads to decide the app
+    // may open a link — so the browse link exists and follows the same shape as
+    // Phantom's and Solflare's.
+    expect(walletBrowseLink("Backpack", PAGE, ORIGIN)).toBe(
+      `https://backpack.app/ul/v1/browse/${encodeURIComponent(PAGE)}?ref=${encodeURIComponent(ORIGIN)}`,
+    );
+  });
+
   it("encodes the page URL so its own query string survives", () => {
     const link = walletBrowseLink("Phantom", PAGE, ORIGIN);
 
@@ -42,12 +53,15 @@ describe("walletBrowseLink", () => {
   it("matches the wallet name loosely enough for suffixed adapter names", () => {
     expect(walletBrowseLink("Phantom (Legacy)", PAGE, ORIGIN)).toContain("phantom.app");
     expect(walletBrowseLink("Solflare (Legacy)", PAGE, ORIGIN)).toContain("solflare.com");
+    expect(walletBrowseLink("Backpack (Legacy)", PAGE, ORIGIN)).toContain("backpack.app");
   });
 
-  it("returns null rather than guessing a link for an unknown wallet", () => {
-    // Backpack and Jupiter publish no browse link we can verify, and a guessed URL
-    // is worse than no button: it does nothing, silently.
-    expect(walletBrowseLink("Backpack", PAGE, ORIGIN)).toBeNull();
+  it("returns null rather than guessing a link for a wallet that has none", () => {
+    // Jupiter publishes no browse link: jup.ag's own universal-link declaration
+    // lists /swap/*, /tokens/*, /portfolio/* and its gamification paths, and no
+    // /ul/* at all. A guessed URL is worse than no button — it does nothing,
+    // silently — so Jupiter is reached through WalletConnect instead, which opens
+    // the app directly.
     expect(walletBrowseLink("Jupiter", PAGE, ORIGIN)).toBeNull();
   });
 });
