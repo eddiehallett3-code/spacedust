@@ -310,8 +310,8 @@ export function NftBurnPanel({
         <p className="text-xs text-subtle">
           {pluralize(assets.length, noun)} ·{" "}
           {burnable.length === assets.length
-            ? "all burnable"
-            : `${burnable.length} burnable`}
+            ? "all sendable"
+            : `${burnable.length} sendable`}
         </p>
         <div className="flex items-center gap-1.5">
           <Button
@@ -326,7 +326,7 @@ export function NftBurnPanel({
             }
             disabled={burnable.length === 0 || isBusy}
           >
-            Select all burnable
+            Select all sendable
           </Button>
           <Button
             variant="ghost"
@@ -351,7 +351,7 @@ export function NftBurnPanel({
           <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
           <div className="min-w-0">
             <p className="text-sm font-medium">
-              Nothing on this tab can be burned in this build
+              Nothing on this tab can be sent into The Void in this build
             </p>
             <ul className="mt-1 space-y-0.5 text-[11px] leading-relaxed text-muted">
               {refusals.map(([reason, count]) => (
@@ -536,7 +536,7 @@ export function NftBurnPanel({
             packed={packed}
             simulations={simulations}
             okCount={okCount}
-            unitLabel={`${noun} burn`}
+            unitLabel={`${noun} send`}
           />
           <WarningsList warnings={warnings} />
         </div>
@@ -545,8 +545,10 @@ export function NftBurnPanel({
       <p className="flex items-start gap-1.5 rounded-lg border border-danger/25 bg-danger/8 px-2.5 py-2 text-[11px] leading-relaxed text-danger">
         <AlertTriangle className="mt-px size-3.5 shrink-0" aria-hidden />
         <span>
-          <strong className="font-semibold">Burning is irreversible.</strong> A{" "}
-          {noun} destroyed here cannot be recovered. Nothing is selected for you —
+          <strong className="font-semibold">
+            Sending into The Void is irreversible.
+          </strong>{" "}
+          A {noun} sent here cannot be recovered. Nothing is selected for you —
           check every item before signing.
         </span>
       </p>
@@ -556,30 +558,30 @@ export function NftBurnPanel({
         <span>
           {isCnft ? (
             <>
-              Burning a cNFT destroys a leaf in its merkle tree. Nothing is
-              returned for it: a leaf is not an account, so there is no rent
-              locked in it. The burn is proven against the tree root as it
-              stands when you sign, so in a busy tree the preview may need
-              running again. No Spacedust fee is charged.
+              Sending a cNFT into The Void destroys a leaf in its merkle tree.
+              Nothing is returned for it: a leaf is not an account, so there is no
+              rent locked in it. The proof is checked against the tree root as it
+              stands when you sign, so in a busy tree the preview may need running
+              again. No Spacedust fee is charged.
             </>
           ) : hasCoreSelection ? (
             <>
-              Burning returns most of the rent, but a Core asset is not closed:
+              Sending returns most of the rent, but a Core asset is not closed:
               the program leaves its account as a single zero byte, so a residue —
               about 0.0007 SOL — stays locked in it, and Core exposes no
               instruction that would close it. Because the account survives, the
-              asset stays attributed to your wallet, and a wallet that does not
-              check the burned flag may keep listing it after it is gone from
-              here. No Spacedust fee is charged.
+              asset stays attributed to your wallet, and a wallet that still sees
+              it in the index may keep listing it after it is gone from here. No
+              Spacedust fee is charged.
             </>
           ) : (
             <>
-              Burning goes through Token Metadata, which closes the token account,
+              Sending goes through Token Metadata, which closes the token account,
               the metadata account and the master edition together, and returns
               the rent locked in all three — about three times what closing the
               token account alone would return. The mint account survives, because
               only its mint authority can close it and that is given up when an
-              NFT is minted. No Spacedust fee is charged on an NFT burn.
+              NFT is minted. No Spacedust fee is charged on an NFT sent here.
             </>
           )}
         </span>
@@ -607,7 +609,7 @@ export function NftBurnPanel({
             className="w-full"
           >
             <Flame className="size-4" aria-hidden />
-            Burn {burnSubject}
+            Send {burnSubject} into The Void
           </Button>
         ) : (
           <Button
@@ -615,7 +617,7 @@ export function NftBurnPanel({
             onClick={() => void handlePreview()}
             disabled={selectedAssets.length === 0 || isBusy}
             loading={phase === "planning"}
-            loadingText="Building burns…"
+            loadingText="Preparing the send…"
             className="w-full"
           >
             Preview &amp; simulate
@@ -780,7 +782,7 @@ function BurnResult({
                 <strong className="font-medium text-muted">
                   {nameFor(entry.id, entry.name)}
                 </strong>
-                {` — not burned: ${entry.reason}`}
+                {` — not sent: ${entry.reason}`}
               </span>
             </li>
           ))}

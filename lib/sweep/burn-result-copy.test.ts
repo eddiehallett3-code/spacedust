@@ -36,7 +36,7 @@ describe("burnResultCopy", () => {
       rentLamports: 8_264_760,
     });
 
-    expect(copy.headline).toBe("1 NFT and 1 cNFT burned");
+    expect(copy.headline).toBe("1 NFT and 1 cNFT sent into The Void");
     // The rent line has to carry both halves: one returned rent, one could not.
     expect(copy.detail).toContain("SOL of rent reclaimed");
     expect(copy.detail).toContain("a compressed NFT returns nothing");
@@ -47,14 +47,14 @@ describe("burnResultCopy", () => {
       failed: 0,
       rentLamports: 0,
     });
-    expect(cnfTs.headline).toBe("2 cNFTs burned");
+    expect(cnfTs.headline).toBe("2 cNFTs sent into The Void");
     expect(cnfTs.detail).toBe("Nothing returned — a compressed NFT holds no rent");
 
     const nfts = burnResultCopy(countBurned([burned(), burned()]), {
       failed: 0,
       rentLamports: 16_529_520,
     });
-    expect(nfts.headline).toBe("2 NFTs burned");
+    expect(nfts.headline).toBe("2 NFTs sent into The Void");
     expect(nfts.detail).not.toContain("compressed");
   });
 
@@ -64,7 +64,7 @@ describe("burnResultCopy", () => {
       rentLamports: 1_132_840,
     });
 
-    expect(copy.headline).toBe("1 NFT burned");
+    expect(copy.headline).toBe("1 NFT sent into The Void");
     expect(copy.note).toContain("one-byte husk");
     // The SPL sentence would be a lie for a Core asset: nothing was closed.
     expect(copy.note).not.toContain("token account is closed");
@@ -76,7 +76,7 @@ describe("burnResultCopy", () => {
       rentLamports: 9_397_600,
     });
 
-    expect(copy.headline).toBe("2 NFTs and 1 cNFT burned");
+    expect(copy.headline).toBe("2 NFTs and 1 cNFT sent into The Void");
     expect(copy.detail).toContain("of rent reclaimed");
     expect(copy.note).toContain("token account is closed");
     expect(copy.note).toContain("one-byte husk");
@@ -89,7 +89,7 @@ describe("burnResultCopy", () => {
       { failed: 1, rentLamports: 2_039_280 },
     );
 
-    expect(copy.headline).toBe("1 NFT burned · 1 asset did not burn");
+    expect(copy.headline).toBe("1 NFT sent into The Void · 1 asset did not go");
     expect(copy.note).not.toContain("leaves nothing behind");
   });
 

@@ -62,16 +62,16 @@ export function burnResultCopy(
   const { nfts, core, cnfTs } = counts;
   const accountLike = nfts + core;
   const failedSuffix =
-    options.failed > 0 ? ` · ${pluralize(options.failed, "asset")} did not burn` : "";
+    options.failed > 0 ? ` · ${pluralize(options.failed, "asset")} did not go` : "";
 
   // ── Headline: name the mixture, not the tab ───────────────────────────────
   let headline: string;
   if (accountLike > 0 && cnfTs > 0) {
-    headline = `${pluralize(accountLike, "NFT")} and ${pluralize(cnfTs, "cNFT")} burned`;
+    headline = `${pluralize(accountLike, "NFT")} and ${pluralize(cnfTs, "cNFT")} sent into The Void`;
   } else if (cnfTs > 0) {
-    headline = `${pluralize(cnfTs, "cNFT")} burned`;
+    headline = `${pluralize(cnfTs, "cNFT")} sent into The Void`;
   } else {
-    headline = `${pluralize(accountLike, "NFT")} burned`;
+    headline = `${pluralize(accountLike, "NFT")} sent into The Void`;
   }
 
   // ── Detail: the rent story, which differs per class ───────────────────────
@@ -95,7 +95,7 @@ export function burnResultCopy(
   }
   if (core > 0) {
     parts.push(
-      "A Core asset is not closed: the program leaves its account as a one-byte husk, so a wallet that does not check the burned flag may keep listing it.",
+      "A Core asset is not closed: the program leaves its account as a one-byte husk, so a wallet that still sees it in the index may keep listing it.",
     );
   }
   if (cnfTs > 0) {

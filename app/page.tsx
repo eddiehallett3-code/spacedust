@@ -31,7 +31,7 @@ export const metadata: Metadata = {
   // the *.vercel.app one — and a crawler finding both is free to choose either.
   alternates: { canonical: "/" },
   description:
-    "Six non-custodial tools for a Solana wallet: batch swap, send and burn (tokens, NFTs and cNFTs), reclaim rent, revoke approvals, and scan any address read-only.",
+    "Six non-custodial tools for a Solana wallet: batch swap, send, and send unwanted tokens, NFTs and cNFTs into The Void; reclaim rent; revoke approvals; and scan any address read-only.",
 };
 
 /** True of every tool, which is why it is said once, here. */

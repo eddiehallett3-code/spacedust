@@ -49,7 +49,8 @@ export function Footer() {
             <p className="text-sm font-semibold tracking-tight">{APP_NAME}</p>
             <p className="text-sm leading-relaxed text-muted">
               Non-custodial tools for maintaining a Solana wallet — batch swap,
-              batch send, batch burn, and clear away what you are done with.
+              batch send, send the rest into The Void, and clear away what you are
+              done with.
             </p>
             <p className="flex items-start gap-1.5 text-xs text-muted">
               <ShieldCheck
@@ -59,7 +60,7 @@ export function Footer() {
               <span>
                 {(SWAP_FEE_BPS / 100).toFixed(1)}% on swaps, and{" "}
                 {(RECLAIM_FEE_BPS / 100).toFixed(1)}% of the rent any flow returns —
-                Void burns, account closes, Payload sends, domain deletes. All shown
+                Void sends, account closes, Payload sends, domain deletes. All shown
                 before you sign, and you sign every transaction.
               </span>
             </p>

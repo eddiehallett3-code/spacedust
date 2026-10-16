@@ -39,7 +39,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/how-it-works" },
   title: "How it works — what each of the six tools actually does",
   description:
-    "Exactly what each of the six tools does: how a sweep finds dust, sells part of a balance and packs twenty swaps into one transaction, how The Void burns tokens, NFTs and cNFTs you no longer want, how a batch send proves its destination, what deleting an unused .sol name really does, how approvals are read and revoked, and what the read-only scan counts and refuses.",
+    "Exactly what each of the six tools does: how a sweep finds dust, sells part of a balance and packs twenty swaps into one transaction, how The Void takes the tokens, NFTs and cNFTs you no longer want, how a batch send proves its destination, what deleting an unused .sol name really does, how approvals are read and revoked, and what the read-only scan counts and refuses.",
 };
 
 /**
@@ -200,8 +200,8 @@ export default function HowItWorksPage() {
         <ul>
           <li>
             An empty account closes, <strong>frozen or not</strong>. Freezing
-            blocks a transfer, a burn and a revoke — but not a close, which is the
-            opposite of the rule that governs burning one.
+            blocks a transfer, a Void send and a revoke — but not a close, which is
+            the opposite of the rule that governs sending one.
           </li>
           <li>
             An empty account with a live <strong>delegate</strong> closes as well.
@@ -293,10 +293,10 @@ export default function HowItWorksPage() {
           <Link href="/void" className="text-violet-glow hover:underline">
             into The Void
           </Link>{" "}
-          instead: the balance is burned and the token account closed, so the rent
-          that account was holding comes back to you. The Void never shares a
-          transaction with a swap — sweeps run first, burns second, each with its
-          own preview and its own signature.
+          instead: the balance is destroyed and the token account closed, so the
+          rent that account was holding comes back to you. The Void never shares a
+          transaction with a swap — sweeps run first, Void sends second, each with
+          its own preview and its own signature.
         </p>
         <p>
           Swaps can also fail between preview and execution if the market moves.
@@ -308,9 +308,9 @@ export default function HowItWorksPage() {
       <ToolSection
         tool="void"
         name="The Void"
-        lede="The burner. It destroys the things a swap cannot help with: a token with no route to any market, and unwanted NFTs and cNFTs. For a token, burning is what empties the account, so the rent it was holding can come back."
+        lede="Where the unsellable goes. It takes the things a swap cannot help with: a token with no route to any market, and unwanted NFTs and cNFTs. For a token, sending it into The Void is what empties the account, so the rent it was holding can come back — the asset itself does not."
       >
-        <h3>1. Why a burn exists at all</h3>
+        <h3>1. Why The Void exists at all</h3>
         <p>
           A swap needs a route. A token nobody will route — no price, no
           liquidity, frequently airdropped to thousands of wallets at once —
@@ -327,17 +327,17 @@ export default function HowItWorksPage() {
         </p>
         <p>
           It is also where a sweep points when it finishes. If a sweep attempted a
-          token and could not land it, Spacedust offers it for a burn — and only
-          then. A token that <em>could</em> be sold is never nudged toward a burn,
-          because destroying something sellable is the one outcome this app exists
-          to prevent.
+          token and could not land it, Spacedust offers it to The Void — and only
+          then. A token that <em>could</em> be sold is never nudged toward the
+          void, because destroying something sellable is the one outcome this app
+          exists to prevent.
         </p>
 
         <h3>2. Three tabs, because three kinds of holding are not one list</h3>
         <p>
           What a wallet cannot swap is not interchangeable, and merging it into a
           single list is precisely how an NFT ends up sitting next to a spam token
-          looking equally burnable. So there are three:
+          looking equally sendable. So there are three:
         </p>
         <ul>
           <li>
@@ -348,7 +348,7 @@ export default function HowItWorksPage() {
           <li>
             <strong>NFTs.</strong> Every uncompressed NFT, with its artwork and
             collection. Opt-in, one tick at a time. One token-account rent comes
-            back per burn.
+            back per send.
           </li>
           <li>
             <strong>cNFTs.</strong> Every compressed NFT. Opt-in, one tick at a
@@ -360,7 +360,7 @@ export default function HowItWorksPage() {
         <h3>3. Nothing on an NFT tab is pre-selected</h3>
         <p>
           An unpriced fungible is a safe default to tick: no route means no value,
-          so burning it costs you nothing you could have had.
+          so sending it costs you nothing you could have had.
         </p>
         <p>
           An NFT is the opposite. It has no price to read, and its value cannot be
@@ -371,7 +371,7 @@ export default function HowItWorksPage() {
 
         <h3>4. Refused, with the reason on the row</h3>
         <p>
-          Anything Spacedust cannot build a <em>correct</em> burn for is refused
+          Anything Spacedust cannot build a <em>correct</em> send for is refused
           rather than guessed at, and the reason is shown on the row so nothing
           appears to vanish:
         </p>
@@ -391,28 +391,28 @@ export default function HowItWorksPage() {
           <li>
             A <strong>pNFT</strong> that is locked by an escrow or listed for
             sale. Both leave the asset in your own wallet while only the delegate
-            may move it, and Token Metadata refuses the burn.
+            may move it, and Token Metadata refuses it.
           </li>
           <li>
             An asset <strong>delegated</strong> to another program — staking,
             escrow, or a listing that never moved the asset.
           </li>
           <li>
-            A printed <strong>edition</strong> (token standard 5): burning one
-            needs its master edition&apos;s accounts, which this build does not
-            derive. Unlike the refusals above, that one is honestly unverified — no
-            real print could be found to test it against.
+            A printed <strong>edition</strong> (token standard 5): sending one
+            into The Void needs its master edition&apos;s accounts, which this
+            build does not derive. Unlike the refusals above, that one is honestly
+            unverified — no real print could be found to test it against.
           </li>
         </ul>
         <p>
-          On the token tab a frozen account is refused <em>before</em> the burn is
+          On the token tab a frozen account is refused <em>before</em> the send is
           built, and it is asked of the chain in one batched call rather than read
           from the scan, because the two scanners disagree about account state. An
           unknown answer counts as <strong>not</strong> frozen: the simulation is
           the backstop, and refusing something that is actually fine is the worse
           mistake.
         </p>
-        <h3>5. Four burn routes, because there are four kinds of asset</h3>
+        <h3>5. Four routes, because there are four kinds of asset</h3>
         <ul>
           <li>
             <strong>SPL NFTs</strong> (<code>V1_NFT</code>,{" "}
@@ -422,9 +422,9 @@ export default function HowItWorksPage() {
           </li>
           <li>
             <strong>Programmable NFTs</strong> go through Token Metadata&apos;s{" "}
-            <code>burnV1</code>, because the asset carries a token record that a
-            plain SPL burn would leave behind. Rent comes back exactly as for an
-            SPL NFT — a pNFT is an SPL token underneath.
+            <code>burnV1</code>, because the asset carries a token record that the
+            plain token-program route would leave behind. Rent comes back exactly
+            as for an SPL NFT — a pNFT is an SPL token underneath.
           </li>
           <li>
             <strong>Core assets</strong> are a single account with no token
@@ -442,25 +442,25 @@ export default function HowItWorksPage() {
         </ul>
         <p>
           The Metaplex packages are imported dynamically: a wallet that never
-          burns a Core asset or a compressed NFT never downloads them.
+          sends a Core asset or a compressed NFT never downloads them.
         </p>
 
-        <h3>6. Two things about Core and compressed burns</h3>
+        <h3>6. Two things about sending Core and compressed assets</h3>
         <p>
-          <strong>A Core burn leaves a husk.</strong> Measured on mainnet: it does
+          <strong>A Core send leaves a husk.</strong> Measured on mainnet: it does
           not close the asset account. It empties it and shrinks it to a single
           zero byte, which keeps 655,320 lamports of the rent and leaves behind an
           account that every index still describes with the old owner. So the rent
           figure subtracts that byte, and the scan drops any asset whose account is
-          missing or husked — otherwise a burned NFT reappears in the grid and
-          reads exactly like a burn that never happened. That check has a trap in
+          missing or husked — otherwise a sent NFT reappears in the grid and
+          reads exactly like a send that never happened. That check has a trap in
           it, and it caught one: a compressed NFT&apos;s id is a merkle leaf, so no
           account exists there <em>ever</em>, and reading a missing account as
           &quot;destroyed&quot; deleted every live cNFT from the scan. The rule now
           only counts a death it can prove.
         </p>
         <p>
-          <strong>A compressed burn grows with its proof.</strong> Each proof node
+          <strong>A compressed send grows with its proof.</strong> Each proof node
           is one account, about 33 bytes: measured, 1052 bytes at 14 nodes, 1151 at
           17, and 1250 at 20 — against the same 1232-byte limit every transaction
           here lives under. A tree&apos;s proof is <code>depth − canopy</code>, so
@@ -477,7 +477,7 @@ export default function HowItWorksPage() {
           &quot;no floor found&quot; reads as &quot;worthless&quot; precisely when
           it means &quot;we could not see a market&quot;. In an app whose one
           promise is that it never destroys value on your behalf, a signal that can
-          <em>cause</em> a bad burn is worse than no signal at all.
+          <em>cause</em> a bad send is worse than no signal at all.
         </p>
         <p>
           It would also be the most fragile dependency here: a third provider and
@@ -487,14 +487,14 @@ export default function HowItWorksPage() {
 
         <h3>8. What it costs, and what it never touches</h3>
         <p>
-          The Void charges {VOID_RATE} of the rent it reclaims on a token burn,
-          taken as a plain SOL transfer from the rent that was just returned to
-          you. Nothing is charged on an NFT burn: extending the fee to NFTs is a
-          pricing decision, not an implementation detail, so it is not made
-          silently.
+          The Void charges {VOID_RATE} of the rent it reclaims on a token sent
+          into it, taken as a plain SOL transfer from the rent that was just
+          returned to you. Nothing is charged on an NFT send: extending the fee to
+          NFTs is a pricing decision, not an implementation detail, so it is not
+          made silently.
         </p>
         <p>
-          A burn and a swap never share a transaction — separate selections,
+          A Void send and a swap never share a transaction — separate selections,
           separate previews, separate signatures. A token The Void has claimed
           cannot also be swapped either: a token Jupiter refused to route has no
           business in a swap preview, and the swap that could have sold it does
@@ -505,7 +505,7 @@ export default function HowItWorksPage() {
       <ToolSection
         tool="payload"
         name="Payload"
-        lede="The send tool. A sweep sells what you do not want and The Void burns what nobody wants at all — neither moves things you are keeping. Payload is for the third case: forty tokens and a handful of NFTs, all going to one address, in as few transactions as the chain will allow."
+        lede="The send tool. A sweep sells what you do not want and The Void takes what nobody wants at all — neither moves things you are keeping. Payload is for the third case: forty tokens and a handful of NFTs, all going to one address, in as few transactions as the chain will allow."
       >
         <h3>1. Why a batch send needs its own tool</h3>
         <p>
@@ -799,7 +799,7 @@ export default function HowItWorksPage() {
           unused name is a decision rather than a mess, so the tool asks instead
           of assuming. And one case is refused outright rather than attempted: a
           name that is <strong>wrapped as an NFT</strong>. Whether that
-          NFT has to be burned before the name can be deleted has not been
+          NFT has to be destroyed before the name can be deleted has not been
           settled against mainnet, so those domains are listed with that reason.
           A tool that guesses at an irreversible action is a worse tool than one
           that says it does not know.
@@ -831,7 +831,7 @@ export default function HowItWorksPage() {
         <h3>1. What a delegate is, and how you end up with one</h3>
         <p>
           An SPL token account carries an optional <code>delegate</code>: a third
-          party permitted to transfer — or burn — up to{" "}
+          party permitted to transfer — or destroy — up to{" "}
           <code>delegatedAmount</code> from it, without another signature from you.
           Two everyday things create one:
         </p>
@@ -930,7 +930,7 @@ export default function HowItWorksPage() {
           <li>
             <strong>An unpriced token contributes its rent and nothing
             else.</strong> Not a rounding choice: it has no USD value, and The
-            Void can still burn it for the rent, which is precisely the
+            Void can still take it for the rent, which is precisely the
             recoverable part.
           </li>
         </ul>
@@ -987,7 +987,7 @@ export default function HowItWorksPage() {
           <ul>
             <li>
               <strong>Nothing is signed before you have seen it.</strong> A
-              sweep, a burn, a send, a reclaim, a revoke and a set of account
+              sweep, a Void send, a send, a reclaim, a revoke and a set of account
               closes all run the same pipeline: read the chain, build the
               instructions locally, pack them byte-exactly, simulate against the
               cluster, then ask for one signature. There is no separate preview

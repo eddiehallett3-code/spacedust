@@ -82,7 +82,7 @@ export const TOOLS: Tool[] = [
     name: "The Void",
     href: "/void",
     tagline:
-      "Burn the tokens, NFTs and cNFTs you don't want, and get the rent back.",
+      "Send the tokens, NFTs and cNFTs you don't want into The Void, and get the rent back.",
     cta: "Enter The Void",
   },
   {

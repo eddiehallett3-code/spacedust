@@ -326,7 +326,7 @@ export function WalletInsights({
           <CardHeader>
             <SectionTitle
               title="Non-fungibles"
-              description="Never swept as dust: burning one is an explicit choice."
+              description="Never swept as dust: sending one into The Void is an explicit choice."
             />
           </CardHeader>
           <CardContent className="flex flex-col gap-4">

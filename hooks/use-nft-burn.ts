@@ -116,7 +116,7 @@ export function useNftBurn() {
         patch({
           error: {
             title: "Wallet not connected",
-            message: "Connect your wallet before burning anything.",
+            message: "Connect your wallet before sending anything into The Void.",
           },
         });
         return 0;
@@ -125,7 +125,7 @@ export function useNftBurn() {
         patch({
           error: {
             title: "Nothing selected",
-            message: "Select at least one NFT to burn.",
+            message: "Select at least one NFT to send.",
           },
         });
         return 0;
@@ -183,7 +183,7 @@ export function useNftBurn() {
     if (!prepared) {
       patch({
         error: {
-          title: "Nothing to burn",
+          title: "Nothing to send",
           message: "Run the preview first so you can see what will be signed.",
         },
       });

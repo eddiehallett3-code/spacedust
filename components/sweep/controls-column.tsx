@@ -224,8 +224,8 @@ function VoidPrompt({ count }: { count: number }) {
       <p className="mt-2 text-xs leading-relaxed text-muted">
         A route was asked for and refused, so{" "}
         {count === 1 ? "it cannot" : "they cannot"} be sold through Spacedust.
-        Sending {count === 1 ? "it" : "them"} into The Void burns the balance and
-        closes the account, returning whatever rent it was holding.
+        Sending {count === 1 ? "it" : "them"} into The Void destroys the balance
+        and closes the account, returning whatever rent it was holding.
       </p>
       <p className="mt-1.5 text-[11px] leading-relaxed text-subtle">
         The Void lists everything you hold — including anything Jupiter has no price

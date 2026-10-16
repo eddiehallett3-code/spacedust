@@ -153,7 +153,7 @@ export function VoidPanel({
         <SectionTitle
           icon={<Orbit className="size-4.5" aria-hidden />}
           title="The Void"
-          description="Every token with a balance is listed. Tokens flagged as having liquidity can be swapped — burning one destroys value Slingshot could have recovered, so those are never selected for you."
+          description="Every token with a balance is listed. Tokens flagged as having liquidity can be swapped — sending one into The Void destroys value Slingshot could have recovered, so those are never selected for you."
         />
       </CardHeader>
 
@@ -334,7 +334,9 @@ export function VoidPanel({
             <p className="flex items-start gap-1.5 rounded-lg border border-warning/25 bg-warning/8 px-2.5 py-2 text-[11px] leading-relaxed text-warning">
               <AlertTriangle className="mt-px size-3.5 shrink-0" aria-hidden />
               <span>
-                <strong className="font-semibold">Burns are irreversible.</strong>{" "}
+                <strong className="font-semibold">
+                  Sending into The Void is irreversible.
+                </strong>{" "}
                 These tokens are destroyed and cannot be recovered. Make sure
                 you never hold (or plan to buy) any of these assets before
                 signing.
