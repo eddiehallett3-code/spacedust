@@ -275,12 +275,20 @@ reprice both.
   above, or accept the in-process limit as your only one.
 
 **If your plan has no rate limiting rules**, the shared counter is the equivalent
-that costs nothing: set `RATE_LIMIT_REDIS_URL` and `RATE_LIMIT_REDIS_TOKEN` (any
-Redis-compatible HTTP store — Upstash's free tier is the usual choice, and it speaks
-HTTP, which is what a serverless function needs) and `middleware.ts` applies the same
-`BUDGETS` through a counter *every instance shares*, which is the gap the edge rule
-would otherwise close. Unset it and it does nothing at all; unreachable, it fails
-open, because a counter store that hiccups must not take the API down with it.
+that costs nothing: add Upstash (free tier) or Vercel's Redis integration and let it
+set its own variables. `UPSTASH_REDIS_REST_URL`/`_TOKEN` and
+`KV_REST_API_URL`/`_TOKEN` are read as-is; the app's own
+`RATE_LIMIT_REDIS_URL`/`RATE_LIMIT_REDIS_TOKEN` work too, and win when both are set.
+`middleware.ts` then applies the same `BUDGETS` through a counter *every instance
+shares*, which is the gap the edge rule would otherwise close. Unset it, and it does
+nothing at all; unreachable, it fails open, because a counter store that hiccups
+must not take the API down with it.
+
+**Check it; do not assume it.** `GET /api/health` reports a `ratelimit` check that
+separates *not configured* from *configured but not answering*, and proves the store
+with a real round trip rather than trusting that a variable exists. The distinction
+is not academic — this deployment's first days returned `ok: true` with no store at
+all, quietly enforcing every budget per instance, which is why the check exists.
 
 Use **429, not a challenge or a JS challenge**: this app's clients are `fetch` and
 web3.js, and neither can solve a CAPTCHA. A block would present to a user as an

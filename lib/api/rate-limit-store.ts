@@ -33,10 +33,94 @@ const TIMEOUT_MS = 1_500;
 /** Must match the in-process window, or the two layers disagree about "now". */
 const WINDOW_SECONDS = 60;
 
-function store(): { url: string; token: string } | null {
-  const url = process.env.RATE_LIMIT_REDIS_URL?.trim().replace(/\/+$/, "");
-  const token = process.env.RATE_LIMIT_REDIS_TOKEN?.trim();
-  return url && token ? { url, token } : null;
+function store(): { url: string; token: string; source: string } | null {
+  for (const convention of STORE_CONVENTIONS) {
+    const url = process.env[convention.url]?.trim().replace(/\/+$/, "");
+    const token = process.env[convention.token]?.trim();
+    if (url && token) {
+      return { url, token, source: convention.source };
+    }
+  }
+  return null;
+}
+
+/**
+ * The environment conventions this accepts, in precedence order.
+ *
+ * Three, because that is how many the platforms actually use — and a deployment
+ * that has to rename what its integration just created is a deployment that ends
+ * up not configuring this at all. That is not hypothetical: production ran with no
+ * store for days because the only names this read were ones nothing had set.
+ *
+ *   RATE_LIMIT_REDIS_*      this app's own names, first so they can override
+ *   UPSTASH_REDIS_REST_*    what Upstash's dashboard gives you
+ *   KV_REST_API_*           what Vercel's Redis integration gives you
+ */
+const STORE_CONVENTIONS = [
+  {
+    source: "RATE_LIMIT_REDIS_URL",
+    url: "RATE_LIMIT_REDIS_URL",
+    token: "RATE_LIMIT_REDIS_TOKEN",
+  },
+  {
+    source: "UPSTASH_REDIS_REST_URL",
+    url: "UPSTASH_REDIS_REST_URL",
+    token: "UPSTASH_REDIS_REST_TOKEN",
+  },
+  {
+    source: "KV_REST_API_URL",
+    url: "KV_REST_API_URL",
+    token: "KV_REST_API_TOKEN",
+  },
+] as const;
+
+/**
+ * Whether the shared counter is actually in play, for `/api/health`.
+ *
+ * "Configured" is not the useful fact — a wrong token or a paused database looks
+ * configured — so this round-trips the store the way the provider checks do. It
+ * exists because the failure it reports was invisible: the store was unset in
+ * production, every check passed, and the deployment quietly served on the
+ * per-instance budgets alone.
+ */
+export async function sharedLimiterStatus(): Promise<{
+  configured: boolean;
+  source: string | null;
+  working: boolean;
+  detail: string;
+}> {
+  const endpoint = store();
+  if (!endpoint) {
+    return {
+      configured: false,
+      source: null,
+      working: false,
+      detail:
+        "No shared counter store, so the API budgets are per-instance — on serverless the real ceiling is the budget multiplied by however many instances are running. Add Upstash or Vercel Redis (their own variable names work), or set RATE_LIMIT_REDIS_URL and RATE_LIMIT_REDIS_TOKEN.",
+    };
+  }
+
+  try {
+    const [count] = await runPipeline(endpoint, [
+      ["INCR", "rl:health:probe"],
+      ["EXPIRE", "rl:health:probe", WINDOW_SECONDS, "NX"],
+    ]);
+    return {
+      configured: true,
+      source: endpoint.source,
+      working: typeof count === "number",
+      detail: `Counting through ${endpoint.source} — budgets hold across instances, not just per instance.`,
+    };
+  } catch (error) {
+    return {
+      configured: true,
+      source: endpoint.source,
+      working: false,
+      detail: `Set from ${endpoint.source} but not answering (${
+        error instanceof Error ? error.message.slice(0, 120) : "unknown error"
+      }). Requests fail open, so only the per-instance budgets apply.`,
+    };
+  }
 }
 
 /** One round trip for both counters, whichever way the answer goes. */

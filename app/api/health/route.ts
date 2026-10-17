@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { Connection } from "@solana/web3.js";
 import { allowRequest, rateLimitResponse } from "@/lib/api/rate-limit";
+import { sharedLimiterStatus } from "@/lib/api/rate-limit-store";
 import {
   getHeliusApiKey,
   getJupiterApiKey,
@@ -51,6 +52,7 @@ export async function GET(request: Request) {
     helius: Check;
     jupiter: Check;
     fees: Check;
+    ratelimit: Check;
   } = {
     helius: {
       configured: Boolean(getHeliusApiKey()),
@@ -64,6 +66,11 @@ export async function GET(request: Request) {
     },
     fees: {
       configured: Boolean(getPublicFeeWallet()),
+      working: false,
+      detail: "",
+    },
+    ratelimit: {
+      configured: false,
       working: false,
       detail: "",
     },
@@ -169,6 +176,19 @@ export async function GET(request: Request) {
         : `${rate}% fee CANNOT be collected for ${missing.map((m) => m.symbol).join(", ")}: ${short(feeWallet)} has no usable token account for those assets, so swaps into them run fee-free. Missing: ${missing.map((m) => `${m.symbol} → ${m.account}`).join(" | ")}. Ready: ${ready.map((r) => r.symbol).join(", ") || "none"}.`;
   }
 
+  // ── Rate limiting ────────────────────────────────────────────────────────
+  // Not a provider, but the same question: is the thing protecting these keys
+  // actually in play? It was not, for days — the shared counter is optional by
+  // design, so an unset variable let every check pass while the deployment ran on
+  // per-instance budgets alone. Advisory rather than blocking: the app works
+  // either way, so this never turns `ok` false.
+  const limiters = await sharedLimiterStatus();
+  checks.ratelimit = {
+    configured: limiters.configured,
+    working: limiters.working,
+    detail: limiters.detail,
+  };
+
   const anyBlockingIssue =
     !checks.helius.working || !checks.jupiter.working;
 
@@ -205,7 +225,7 @@ export async function GET(request: Request) {
 
 /** Turn the results into instructions a human can act on. */
 function buildNextSteps(
-  checks: { helius: Check; jupiter: Check; fees: Check },
+  checks: { helius: Check; jupiter: Check; fees: Check; ratelimit: Check },
   feeAccounts: FeeAccountReport[],
   /**
    * Live rent-exempt minimum for one token account, in lamports, or null when
@@ -265,6 +285,24 @@ function buildNextSteps(
     }
     steps.push(
       "Until an account exists, swaps into that asset run fee-free rather than failing — a fee is only ever asked for once its destination is confirmed usable.",
+    );
+  }
+
+  // Advisory, not a setup blocker: without a store the app still works, it just
+  // enforces each budget per instance instead of across the deployment. The cost
+  // lands on Helius credits, which is why it is worth saying even though nothing
+  // is broken.
+  if (checks.ratelimit.working) {
+    steps.push(
+      "API budgets are counted in a shared store, so the limits hold across instances.",
+    );
+  } else if (checks.ratelimit.configured) {
+    steps.push(
+      "The counter store is set but not answering — check the URL and token, and that the database is not paused. Requests fail open meanwhile, so only the per-instance budgets apply.",
+    );
+  } else {
+    steps.push(
+      "Optional, and worth doing before this is public: the API budgets are per-instance until a shared counter exists, so anyone reaching the app can spend Helius credits up to the budget times however many instances run. Add Upstash or Vercel Redis — their own variable names are read as-is — or set RATE_LIMIT_REDIS_URL and RATE_LIMIT_REDIS_TOKEN.",
     );
   }
 

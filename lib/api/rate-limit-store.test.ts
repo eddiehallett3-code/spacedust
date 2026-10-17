@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { checkSharedLimit } from "./rate-limit-store";
+import { checkSharedLimit, sharedLimiterStatus } from "./rate-limit-store";
 
 /**
  * The shared counter, and the ways it must not break the app.
@@ -141,3 +141,138 @@ describe("checkSharedLimit", () => {
     vi.unstubAllGlobals();
   });
 });
+
+/**
+ * Which environment names count as "configured".
+ *
+ * The names matter as much as the arithmetic. Production sat unconfigured for
+ * days because the only names this read were ones nothing had set, while every
+ * Redis integration people actually add supplies different ones — so accepting
+ * those as they come is the difference between a working limiter and a file of
+ * good intentions.
+ */
+const STORE_ENV = [
+  "RATE_LIMIT_REDIS_URL",
+  "RATE_LIMIT_REDIS_TOKEN",
+  "UPSTASH_REDIS_REST_URL",
+  "UPSTASH_REDIS_REST_TOKEN",
+  "KV_REST_API_URL",
+  "KV_REST_API_TOKEN",
+];
+
+function clearStoreEnv(): void {
+  for (const name of STORE_ENV) delete process.env[name];
+}
+
+describe("store configuration", () => {
+  beforeEach(clearStoreEnv);
+  afterEach(() => {
+    clearStoreEnv();
+    vi.unstubAllGlobals();
+  });
+
+  /** The URL a single allowed request went to, or null if nothing was called. */
+  async function endpointUsed(): Promise<string | null> {
+    const fetchSpy = vi.fn(async () => reply([1, 1, 60, 1, 1, 60]));
+    vi.stubGlobal("fetch", fetchSpy);
+    await checkSharedLimit(request(), "tokens");
+    const first = fetchSpy.mock.calls[0] as unknown as [string] | undefined;
+    return first?.[0] ?? null;
+  }
+
+  it("reads Upstash's own variable names, slashes and all", async () => {
+    process.env.UPSTASH_REDIS_REST_URL = "https://upstash.example/";
+    process.env.UPSTASH_REDIS_REST_TOKEN = "upstash-token";
+
+    await expect(endpointUsed()).resolves.toBe("https://upstash.example/pipeline");
+  });
+
+  it("reads Vercel's Redis integration's names", async () => {
+    process.env.KV_REST_API_URL = "https://vercel-redis.example";
+    process.env.KV_REST_API_TOKEN = "vercel-token";
+
+    await expect(endpointUsed()).resolves.toBe("https://vercel-redis.example/pipeline");
+  });
+
+  it("prefers the app's own names over an integration's", async () => {
+    process.env.RATE_LIMIT_REDIS_URL = "https://explicit.example";
+    process.env.RATE_LIMIT_REDIS_TOKEN = "explicit-token";
+    process.env.UPSTASH_REDIS_REST_URL = "https://upstash.example";
+    process.env.UPSTASH_REDIS_REST_TOKEN = "upstash-token";
+
+    await expect(endpointUsed()).resolves.toBe("https://explicit.example/pipeline");
+  });
+
+  it("needs both halves, so a URL with no token is still unconfigured", async () => {
+    process.env.KV_REST_API_URL = "https://vercel-redis.example";
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+
+    await expect(checkSharedLimit(request(), "tokens")).resolves.toEqual({
+      allowed: true,
+      retryAfterSeconds: 0,
+    });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The half `/api/health` reports. Its whole reason to exist is that "configured
+ * but not working" is a distinct state from "not configured", and both look the
+ * same from the outside: requests succeed either way, because this fails open.
+ */
+describe("sharedLimiterStatus", () => {
+  beforeEach(clearStoreEnv);
+  afterEach(() => {
+    clearStoreEnv();
+    vi.unstubAllGlobals();
+  });
+
+  it("says the limits are per-instance when nothing is set, without calling out", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const status = await sharedLimiterStatus();
+
+    expect(status.configured).toBe(false);
+    expect(status.working).toBe(false);
+    expect(status.detail).toContain("per-instance");
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("proves the store answers, and names the variables it came from", async () => {
+    process.env.UPSTASH_REDIS_REST_URL = "https://upstash.example";
+    process.env.UPSTASH_REDIS_REST_TOKEN = "upstash-token";
+    const fetchSpy = vi.fn(async () => reply([7, 1]));
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const status = await sharedLimiterStatus();
+
+    expect(status.configured).toBe(true);
+    expect(status.working).toBe(true);
+    expect(status.source).toBe("UPSTASH_REDIS_REST_URL");
+
+    // The probe increments a key, so it must also give that key an expiry —
+    // otherwise checking health would leave litter in the database for ever.
+    const [, init] = fetchSpy.mock.calls[0] as unknown as [string, RequestInit];
+    expect(String(init.body)).toContain("EXPIRE");
+  });
+
+  it("reports a store that is set but silent, rather than claiming it works", async () => {
+    process.env.RATE_LIMIT_REDIS_URL = "https://counters.example";
+    process.env.RATE_LIMIT_REDIS_TOKEN = "a-token";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("network down");
+      }),
+    );
+
+    const status = await sharedLimiterStatus();
+
+    expect(status.configured).toBe(true);
+    expect(status.working).toBe(false);
+    expect(status.detail).toContain("fail open");
+  });
+});
+
