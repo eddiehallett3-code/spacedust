@@ -104,6 +104,27 @@ export function DustApp() {
   }, []);
 
   /**
+   * Whether the list offers a per-token amount at all.
+   *
+   * Off means every selected token goes in full, which is what a sweep is for
+   * almost always. On, a row can sell a fraction — and that account then keeps a
+   * balance, so its rent is not reclaimed.
+   */
+  const [customAmounts, setCustomAmounts] = useState(false);
+
+  /**
+   * Turning custom amounts off clears them rather than hiding them.
+   *
+   * A hidden 10% would still be what got signed, which is exactly the kind of
+   * quiet mismatch this app exists to avoid. Clearing also invalidates any
+   * preview, because the plan key includes the amounts.
+   */
+  const handleCustomAmountsChange = useCallback((next: boolean): void => {
+    setCustomAmounts(next);
+    if (!next) setAmountsByMint(new Map());
+  }, []);
+
+  /**
    * Holdings the sweeper will not list, and why.
    *
    * `isSweepableToken` keeps four kinds out of the list: a staking token, a
@@ -423,14 +444,28 @@ export function DustApp() {
   );
 
   // ── Actions ──────────────────────────────────────────────────────────────
+
+  /**
+   * Whether the plan in flight is a retry of a partial sweep.
+   *
+   * Read when the run lands, to keep one sweep from being counted twice in the
+   * site tally: a retry is the same sweep finishing, and its dollars are already
+   * the only dollars it adds.
+   */
+  const retryingRef = useRef(false);
+
   const handlePreview = useCallback(async (): Promise<void> => {
+    retryingRef.current = false;
     const ok = await sweep.prepare({
       tokens: selectedTokens,
       outputAsset,
       // The per-token amounts ride alongside the tokens rather than replacing
       // their balances — the plan still needs the full balance to know whether a
       // swap empties the account and its rent can be reclaimed.
-      amounts: amountsByMint,
+      //
+      // Undefined when custom amounts are off, so "100%" is what the request
+      // says rather than an empty map that happens to mean the same thing.
+      amounts: customAmounts ? amountsByMint : undefined,
     });
     if (ok) {
       toast.success("Preview ready", {
@@ -439,7 +474,7 @@ export function DustApp() {
           " built and simulated. Review before signing.",
       });
     }
-  }, [amountsByMint, outputAsset, selectedTokens, sweep]);
+  }, [amountsByMint, customAmounts, outputAsset, selectedTokens, sweep]);
 
   const handleSweep = useCallback(async (): Promise<void> => {
     await sweep.execute();
@@ -467,6 +502,7 @@ export function DustApp() {
     });
     if (!plan) return;
 
+    retryingRef.current = true;
     const ok = await sweep.prepare({
       tokens: plan.tokens,
       outputAsset,
@@ -493,7 +529,14 @@ export function DustApp() {
     if (recordedPlanRef.current === plan.createdAt) return;
     recordedPlanRef.current = plan.createdAt;
 
-    applySweepTally(setSweptWallets, setSweptUsd, 1, summary.totalValueUsd);
+    // A retry is the same sweep finishing, not a second one. The dollars it adds
+    // are its own; the count would be a duplicate, and it is on screen.
+    applySweepTally(
+      setSweptWallets,
+      setSweptUsd,
+      retryingRef.current ? 0 : 1,
+      summary.totalValueUsd,
+    );
     addEntry(
       makeHistoryEntry(
         {
@@ -520,6 +563,7 @@ export function DustApp() {
   const handleRescan = useCallback(async (): Promise<void> => {
     deselectAll();
     sweep.reset();
+    retryingRef.current = false;
     // Fresh scan, fresh verdict: Jupiter gets to say again which tokens have
     // no route, so stale "no route" marks from the previous plan are dropped.
     setNoRouteMints(new Set());
@@ -597,6 +641,8 @@ export function DustApp() {
                   className="-mx-5 rounded-b-2xl border-t border-border/60 sm:-mx-6"
                   amounts={amountsByMint}
                   onAmountChange={onAmountChange}
+                  showAmounts={customAmounts}
+                  onShowAmountsChange={handleCustomAmountsChange}
                 />
                 {/* A holding this list refuses is still a holding the wallet has,
                     so its absence is stated rather than left to be noticed. */}

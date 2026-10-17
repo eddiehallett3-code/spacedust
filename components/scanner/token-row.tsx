@@ -38,6 +38,7 @@ export const TokenRow = memo(function TokenRow({
   onToggle,
   amountRaw,
   onAmountChange,
+  showAmountEditor,
 }: {
   token: DustToken;
   selected: boolean;
@@ -47,6 +48,8 @@ export const TokenRow = memo(function TokenRow({
   /** Base units to swap. Equals the balance when the user has not chosen less. */
   amountRaw: string;
   onAmountChange: (mint: string, raw: string) => void;
+  /** Whether this row offers a partial amount. Off means "swap it all". */
+  showAmountEditor: boolean;
 }) {
   // The row itself is the checkbox.
   //
@@ -222,8 +225,9 @@ export const TokenRow = memo(function TokenRow({
           is a checkbox that toggles on any click, so an input inside it would
           flip the selection every time somebody clicked in to edit. Shown only
           once a token is selected — there is no amount to choose for one that is
-          not going anywhere. */}
-      {selected ? (
+          not going anywhere — and only when the list's switch is on, because a
+          sweep means "all of it" unless the user says otherwise. */}
+      {selected && showAmountEditor ? (
         <div className="px-3 pb-3 sm:px-4">
           <div className="flex items-center gap-2">
             <label

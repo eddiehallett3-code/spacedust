@@ -1,9 +1,10 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Sparkles, Wand2 } from "lucide-react";
+import { Sparkles, Wand2, Coins } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/input";
 import { TokenRow } from "./token-row";
 import { pluralize } from "@/lib/utils/format";
@@ -28,6 +29,8 @@ export function TokenList({
   className,
   amounts,
   onAmountChange,
+  showAmounts,
+  onShowAmountsChange,
 }: {
   tokens: DustToken[];
   selectedMints: Set<string>;
@@ -41,6 +44,16 @@ export function TokenList({
   /** mint → chosen base-unit amount. A mint with no entry swaps in full. */
   amounts: ReadonlyMap<string, string>;
   onAmountChange: (mint: string, raw: string) => void;
+  /**
+   * Whether the per-row amount editor is shown at all.
+   *
+   * Off by default. A sweep means "everything I selected", so an input under
+   * every ticked row is a wall of fields for a decision most people never make.
+   * On, a row can sell a fraction — and a partial sale leaves a balance behind,
+   * which is why that account's rent is no longer reclaimed.
+   */
+  showAmounts: boolean;
+  onShowAmountsChange: (next: boolean) => void;
 }) {
   const selectableTokens = tokens.filter((token) => !token.hasTransferHook);
   const selectedVisible = selectableTokens.filter((token) =>
@@ -82,6 +95,33 @@ export function TokenList({
         </Button>
       </div>
 
+      {/* Amounts are all-or-nothing until somebody asks otherwise.
+          The header states what the default does in words, so "100%" is a fact
+          the user can read rather than an assumption. Turning the switch on
+          costs something real — a partial sale leaves a balance behind, and that
+          account can no longer be closed for its rent — so it says so before the
+          editors appear rather than after. */}
+      {selectedVisible > 0 ? (
+        <div className="flex items-center justify-between gap-3 border-b border-border/50 bg-white/2 px-3 py-1.5 sm:px-4">
+          <span className="flex min-w-0 items-center gap-1.5 text-[11px] text-subtle">
+            <Coins className="size-3 shrink-0" aria-hidden />
+            <span className="truncate">
+              {showAmounts
+                ? "Selling less than the whole balance keeps its rent locked"
+                : "Swapping 100% of each selected token"}
+            </span>
+          </span>
+          <label className="flex shrink-0 cursor-pointer items-center gap-2 text-[11px] text-muted">
+            Custom
+            <Switch
+              checked={showAmounts}
+              onCheckedChange={onShowAmountsChange}
+              aria-label="Choose a custom amount for each token instead of swapping everything"
+            />
+          </label>
+        </div>
+      ) : null}
+
       {hiddenLabel ? (
         <p className="flex items-center gap-1.5 border-b border-border/50 bg-white/2 px-3 py-1.5 text-[11px] text-subtle sm:px-4">
           <Wand2 className="size-3 shrink-0" aria-hidden />
@@ -107,6 +147,7 @@ export function TokenList({
                 onToggle={onToggle}
                 amountRaw={amounts.get(token.mint) ?? token.rawAmount}
                 onAmountChange={onAmountChange}
+                showAmountEditor={showAmounts}
               />
             ))}
           </AnimatePresence>

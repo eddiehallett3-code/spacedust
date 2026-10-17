@@ -14,7 +14,8 @@ import type { FriendlyError } from "@/lib/utils/errors";
 import type { EmptyTokenAccount } from "@/types/token";
 import type { useSweep } from "@/hooks/use-sweep";
 import { SweepHistoryPanel } from "@/components/sweep/sweep-history-panel";
-import { TOKEN_ACCOUNT_RENT_LAMPORTS } from "@/lib/utils/constants";
+import { OUTPUT_ASSETS, TOKEN_ACCOUNT_RENT_LAMPORTS } from "@/lib/utils/constants";
+import { baseAmountToNumber, parseBaseAmount } from "@/lib/utils/sanitize";
 import { pluralize } from "@/lib/utils/format";
 
 type SweepApi = ReturnType<typeof useSweep>;
@@ -88,6 +89,16 @@ export function ControlsColumn({
   const panelValueUsd = hasPlan
     ? (sweep.plan?.totalInValueUsd ?? selectedValueUsd)
     : selectedValueUsd;
+  // What the swaps pay out, in the output asset's own units — the panel's
+  // headline. Summed as BigInt because a u64 of a meme coin overflows a double,
+  // and parsed through `parseBaseAmount` so a malformed quote from a provider
+  // contributes nothing instead of throwing inside render.
+  const expectedOutBase = (sweep.plan?.builds ?? []).reduce(
+    (sum, build) => sum + (parseBaseAmount(build.outAmount) ?? 0n),
+    0n,
+  );
+  const expectedOutput =
+    baseAmountToNumber(expectedOutBase, OUTPUT_ASSETS[outputAsset].decimals) ?? 0;
 
   return (
     // `max-h` + `overflow-y-auto` at the same breakpoint as `sticky`, and they are
@@ -114,8 +125,10 @@ export function ControlsColumn({
 
           <SweepPanel
             phase={sweep.phase}
+            outputAsset={outputAsset}
             selectedTokens={panelTokens}
             totalValueUsd={panelValueUsd}
+            expectedOutput={expectedOutput}
             packed={sweep.packed}
             simulations={sweep.simulations}
             audit={sweep.audit}

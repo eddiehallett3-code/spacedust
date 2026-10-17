@@ -1,15 +1,8 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import {
-  ArrowRight,
-  Coins,
-  Gauge,
-  Info,
-  ShieldCheck,
-  Wallet,
-  Zap,
-} from "lucide-react";
+import { ArrowRight, ChevronDown, Info, ShieldCheck } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
 import { SimulationReport } from "./simulation-report";
@@ -17,9 +10,13 @@ import { InstructionAuditPanel } from "@/components/security/instruction-audit-p
 import { WarningsList } from "./warnings-list";
 import { getPublicFeeWallet } from "@/lib/config/public-env";
 import { RECLAIM_RATE } from "@/lib/config/tools";
-import { formatSol, formatUsd, pluralize } from "@/lib/utils/format";
+import { receiveFigures } from "@/lib/sweep/receive";
+import { OUTPUT_ASSETS } from "@/lib/utils/constants";
+import { cn } from "@/lib/utils/cn";
+import { formatAmount, formatSol, formatUsd, pluralize } from "@/lib/utils/format";
 import type { AuditResult } from "@/lib/security/instruction-audit";
 import type {
+  OutputAsset,
   PackedTransaction,
   SimulationOutcome,
   SweepPhase,
@@ -34,8 +31,10 @@ import type {
  */
 export function SweepPanel({
   phase,
+  outputAsset,
   selectedTokens,
   totalValueUsd,
+  expectedOutput,
   packed,
   simulations,
   audit,
@@ -52,8 +51,16 @@ export function SweepPanel({
   onRescan,
 }: {
   phase: SweepPhase;
+  /** Which asset the swaps pay out in: the hero's unit, and whether rent joins it. */
+  outputAsset: OutputAsset;
   selectedTokens: number;
   totalValueUsd: number;
+  /**
+   * Expected swap output across the plan's builds, in whole units of
+   * `outputAsset`. Zero until a preview exists — which is what makes the hero
+   * show what is selected instead of what will arrive.
+   */
+  expectedOutput: number;
   packed: PackedTransaction[];
   simulations: SimulationOutcome[];
   /** The result of the instruction audit, shown beside the simulation report. */
@@ -98,78 +105,93 @@ export function SweepPanel({
   );
   const okCount = simulations.filter((s) => s.ok).length;
 
+  // The hero's figures. See `lib/sweep/receive.ts` for why the swap amount is net
+  // of the fee and why rent only joins the headline when the payout is in SOL.
+  const output = OUTPUT_ASSETS[outputAsset];
+  const { netSwapOutput, headline } = receiveFigures({
+    expectedOutput,
+    feeBps,
+    rentLamports,
+    outputAsset,
+  });
+
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <Stat
-          icon={<Coins className="size-3.5" aria-hidden />}
-          label="Dust selected"
-          value={formatUsd(totalValueUsd)}
-          accent
-        />
-        <Stat
-          icon={<Gauge className="size-3.5" aria-hidden />}
-          label="Rent reclaimable"
-          value={hasPreview ? formatSol(rentLamports) : "—"}
-          hint={
-            hasPreview
-              ? reclaimFeeLamports > 0
-                ? `after ${RECLAIM_RATE} fee, from ${pluralize(rentMints.size, "account")}`
-                : `from ${pluralize(rentMints.size, "account")}`
-              : "run preview"
-          }
-          accent={rentLamports > 0}
-        />
-        <Stat
-          icon={<Zap className="size-3.5" aria-hidden />}
-          label="Transactions"
-          value={hasPreview ? String(packed.length) : "—"}
-          hint={
-            hasPreview
-              ? packed.length === 1
-                ? "single approval"
-                : pluralize(packed.length, "approval")
-              : undefined
-          }
-          accent={hasPreview && packed.length === 1}
-        />
-        <Stat
-          icon={<Wallet className="size-3.5" aria-hidden />}
-          label="Network fee"
-          value={hasPreview ? formatSol(feeLamports) : "—"}
-          hint={hasPreview ? "estimated" : undefined}
-        />
+      {/* The one number that matters.
+          Before a preview it is what is selected; after one it is what lands,
+          rent included — because rent is SOL whether or not the swaps were into
+          SOL. Everything below it is a smaller fact about it. The four tiles
+          that used to sit here gave it equal billing with three dashes and a
+          fee table, which left the reader to work out what to care about. */}
+      <div
+        className={cn(
+          "rounded-xl border p-3.5",
+          hasPreview
+            ? "border-violet-core/35 bg-violet-core/8"
+            : "border-border bg-white/2",
+        )}
+      >
+        <p className="text-[10px] uppercase tracking-wide text-subtle">
+          {hasPreview ? "You'll receive" : "Dust selected"}
+        </p>
+        <p className="mt-1 flex items-baseline gap-1.5 font-mono tabular-nums">
+          <span className="text-2xl text-foreground">
+            {hasPreview ? `≈ ${formatAmount(headline, 5)}` : formatUsd(totalValueUsd)}
+          </span>
+          {hasPreview ? (
+            <span className="text-sm text-muted">{output.symbol}</span>
+          ) : null}
+        </p>
+        <p className="mt-1 text-[11px] leading-relaxed text-muted">
+          {hasPreview
+            ? outputAsset === "SOL"
+              ? `${formatAmount(netSwapOutput, 5)} from swaps · ${formatSol(rentLamports)} rent back, after fees`
+              : `≈ ${formatAmount(netSwapOutput, 5)} ${output.symbol} from swaps, plus ${formatSol(rentLamports)} SOL rent back`
+            : `${pluralize(selectedTokens, "token")} selected · preview to see what comes back`}
+        </p>
       </div>
 
-      {/* The integrator fee is charged inside the swap instruction, in the
-          output asset, so it is not part of the network fee above. Stated up
-          front rather than buried in the summary. */}
-      {feeBps > 0 ? (
-        <p className="text-[11px] leading-relaxed text-subtle">
-          Includes a {(feeBps / 100).toFixed(1)}% Spacedust fee, taken from the
-          swapped output — not from your network fee.
+      {hasPreview ? (
+        <p className="flex flex-wrap items-center gap-x-1.5 text-[11px] text-subtle">
+          <span>{pluralize(selectedTokens, "token")}</span>
+          <span aria-hidden>·</span>
+          <span>{pluralize(packed.length, "approval")}</span>
+          <span aria-hidden>·</span>
+          <span>{formatSol(feeLamports)} network fee</span>
         </p>
       ) : null}
 
-      <AnimatePresence mode="wait">
-        {hasPreview ? (
-          <motion.div
-            key="sim"
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-            className="overflow-hidden"
-          >
+      {/* The evidence stays, folded away.
+          The simulation output and the instruction audit are what make this app
+          trustworthy, and neither is what somebody needs in order to decide. One
+          click away rather than removed — and the verdict stays on the summary
+          line, so a failure is never hidden behind a disclosure. */}
+      {hasPreview && simulations.length > 0 ? (
+        <details className="group rounded-xl border border-border bg-white/2">
+          <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 text-xs font-medium [&::-webkit-details-marker]:hidden">
+            <ShieldCheck className="size-3.5 shrink-0 text-success" aria-hidden />
+            <span className="flex-1">Simulation &amp; what you&apos;ll sign</span>
+            <Badge
+              variant={okCount === simulations.length ? "success" : "warning"}
+              size="sm"
+            >
+              {okCount}/{simulations.length} passed
+            </Badge>
+            <ChevronDown
+              className="size-3.5 shrink-0 text-subtle transition-transform group-open:rotate-180"
+              aria-hidden
+            />
+          </summary>
+          <div className="flex flex-col gap-2 border-t border-border/60 p-2">
             <SimulationReport
               packed={packed}
               simulations={simulations}
               okCount={okCount}
             />
             {audit ? <InstructionAuditPanel audit={audit} /> : null}
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+          </div>
+        </details>
+      ) : null}
 
       <AnimatePresence>
         {warnings.length > 0 ? (
@@ -187,9 +209,8 @@ export function SweepPanel({
       <p className="flex items-start gap-2 rounded-xl border border-success/20 bg-success/6 px-3 py-2.5 text-[11px] leading-relaxed text-emerald-200/90">
         <ShieldCheck className="mt-px size-3.5 shrink-0" aria-hidden />
         <span>
-          This is <strong>non-custodial</strong>. You sign every transaction in
-          your own wallet. Spacedust never sees your private key and can never
-          move your funds on its own.
+          Non-custodial — you sign every transaction in your own wallet, and
+          Spacedust can never move your funds.
         </span>
       </p>
 <div className="flex flex-col gap-2">
@@ -267,39 +288,6 @@ export function SweepPanel({
           )}
         </span>
       </p>
-    </div>
-  );
-}
-
-function Stat({
-  icon,
-  label,
-  value,
-  hint,
-  accent,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  hint?: string;
-  accent?: boolean;
-}) {
-  return (
-    <div className="rounded-xl border border-border bg-white/2 p-2.5">
-      <p className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-subtle">
-        <span className={accent ? "text-violet-glow" : undefined}>{icon}</span>
-        <span className="truncate">{label}</span>
-      </p>
-      <p
-        className={
-          accent
-            ? "mt-1 font-mono text-sm tabular-nums"
-            : "mt-1 font-mono text-sm tabular-nums text-muted"
-        }
-      >
-        {value}
-      </p>
-      {hint ? <p className="truncate text-[10px] text-subtle">{hint}</p> : null}
     </div>
   );
 }
