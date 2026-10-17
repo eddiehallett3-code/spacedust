@@ -30,7 +30,7 @@ import {
  * THE GAP THIS CLOSES
  *
  * Every instruction in a transaction this app builds comes from one of three
- * places: our own code, the server routes (`/api/plan` and `/api/domains`), or a
+ * places: our own code, the server route that asks Jupiter for routes, or a
  * Metaplex builder. The simulation gate that already exists proves a transaction
  * will not *fail* — and a `SystemProgram.transfer` sending the whole balance to
  * an attacker simulates perfectly. Nothing else in the pipeline asks whether the
