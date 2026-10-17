@@ -261,6 +261,19 @@ export const PAYLOAD_FEE_BPS = 150; // 1.5%
  */
 export const SEND_COMPUTE_UNITS_PER_UNIT = 16_000;
 
+/**
+ * Extra compute for sending one compressed NFT.
+ *
+ * A Bubblegum transfer is not a token transfer: before it rewrites anything it
+ * verifies the leaf's merkle proof and walks the tree's root, which measured in
+ * the tens of thousands of CU rather than the low thousands a token transfer
+ * uses. Added on top of `SEND_COMPUTE_UNITS_PER_UNIT` per cNFT rather than
+ * replacing it, because the unit still packs, pays and checks like any other —
+ * and the priority fee is billed on the budget *requested*, so under-asking is a
+ * failed transaction while over-asking is a fraction of a lamport.
+ */
+export const CNFT_TRANSFER_COMPUTE_UNITS = 60_000;
+
 /** Solana's own ceiling on one transaction's compute budget. */
 export const MAX_COMPUTE_UNIT_LIMIT = 1_400_000;
 

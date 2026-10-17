@@ -131,6 +131,12 @@ export const FLOW_PROGRAMS: Record<AuditFlowName, readonly string[]> = {
     TOKEN_2022_PROGRAM_ID,
     ASSOCIATED_TOKEN_PROGRAM_ID,
     SYSTEM_PROGRAM_ID,
+    // A cNFT is a leaf in a merkle tree, so sending one is a Bubblegum transfer
+    // verified against the tree's root. Its two helpers move nothing: Bubblegum
+    // verifies the leaf, the compression program checks the root.
+    BUBBLEGUM_PROGRAM_ID,
+    ACCOUNT_COMPRESSION_PROGRAM_ID,
+    NOOP_PROGRAM_ID,
   ],
   approvals: [
     COMPUTE_BUDGET_PROGRAM_ID,

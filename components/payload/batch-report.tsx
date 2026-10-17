@@ -12,12 +12,13 @@ import type { usePayload } from "@/hooks/use-payload";
  * One row per item, before and after the signature. Two things are deliberate:
  *
  *  - **A refused row keeps its reason.** Nothing disappears silently, and a
- *    refusal the planner made — a frozen account, a cNFT whose transfer is not
- *    built — is the most useful sentence on the screen.
+ *    refusal the planner made — a frozen account, a leaf whose proof could not be
+ *    fetched — is the most useful sentence on the screen.
  *  - **Rent is attributed per item, not totalled.** Whether a row freed its rent
  *    depends on its own account being emptied and closed, and whether it cost
  *    anything depends on the recipient already having an account for that mint.
- *    One NFT can cost more in deposit than it frees.
+ *    One NFT can cost more in deposit than it frees. A cNFT has neither side of
+ *    that: it is a leaf, not an account, so its row is rent-free either way.
  */
 export function BatchReport({
   payload,

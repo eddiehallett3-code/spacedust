@@ -1,6 +1,7 @@
 import { PublicKey, SystemProgram, type Connection } from "@solana/web3.js";
 import {
   BASE_FEE_LAMPORTS,
+  CNFT_TRANSFER_COMPUTE_UNITS,
   MAX_COMPUTE_UNIT_LIMIT,
   PAYLOAD_FEE_BPS,
   PRIORITY_FEE_MICRO_LAMPORTS,
@@ -12,6 +13,8 @@ import {
   createComputeBudgetInstructions,
   tokenProgramFor,
 } from "@/lib/solana/instructions";
+import { buildCnftTransferInstruction } from "@/lib/solana/cnft-transfer";
+import { fetchCnftProofs } from "@/lib/sweep/asset-proof";
 import { feeFromRentLamports, fetchRentMinimums } from "@/lib/solana/rent";
 import { packTransactions, type PackUnit } from "@/lib/solana/pack";
 import { simulateAll } from "@/lib/solana/simulate";
@@ -80,7 +83,7 @@ export interface PlanSendInput {
 export interface SendOutcome {
   /** Mint for a token, or the asset id: the same string the row is keyed by. */
   mint: string;
-  kind: "token" | "nft";
+  kind: "token" | "nft" | "cnft";
   /** What the row is labelled with. */
   label: string;
   /** False when this item was refused. */
@@ -157,12 +160,18 @@ export class SendError extends Error {
  * sweep's 800,000 CU for a batch that measures 15,243 CU per unit would overpay
  * by a factor of several on an action whose only return is rent.
  *
+ * A compressed NFT costs more than one unit of this: Bubblegum verifies a merkle
+ * proof (and hashes up the tree) before it moves anything, so `cnftUnits` adds
+ * its own measured allowance on top rather than sharing the token transfer's.
+ *
  * Rounded up to the next 10,000 so the figure reads as a budget rather than a
  * measurement, floored at 50,000 for a single unit, and capped at Solana's own
  * ceiling.
  */
-export function computeBudgetForUnits(units: number): number {
-  const measured = Math.max(units, 1) * SEND_COMPUTE_UNITS_PER_UNIT;
+export function computeBudgetForUnits(units: number, cnftUnits = 0): number {
+  const measured =
+    Math.max(units, 1) * SEND_COMPUTE_UNITS_PER_UNIT +
+    Math.max(cnftUnits, 0) * CNFT_TRANSFER_COMPUTE_UNITS;
   const rounded = Math.ceil(measured / 10_000) * 10_000;
   return Math.min(Math.max(rounded, 50_000), MAX_COMPUTE_UNIT_LIMIT);
 }
@@ -170,14 +179,15 @@ export function computeBudgetForUnits(units: number): number {
 /**
  * Why an asset cannot be sent yet.
  *
- * Kept as one function so the reasons are written once. Two of the three are
- * temporary — the routes for them are planned — and the copy says so rather than
- * implying the asset itself is a problem.
+ * Kept as one function so the reasons are written once. The remaining temporary
+ * ones are pNFTs and fungible-shaped collectibles, whose routes are not built —
+ * and the copy says so rather than implying the asset itself is a problem.
  */
 export function unsendableAssetReason(asset: NonFungibleAsset): string | null {
-  if (asset.compressed) {
-    return "Compressed NFTs cannot be sent yet. The Bubblegum transfer route is not built.";
-  }
+  // A cNFT is a leaf, not an account, so every check below it — frozen accounts,
+  // a missing token account, the interface shape — is about a different kind of
+  // thing. What a compressed asset needs is a description of its leaf.
+  if (asset.compressed) return compressedAssetReason(asset);
   if (asset.frozen) {
     return "This asset is frozen. Only the mint's freeze authority can thaw it, so it cannot be moved.";
   }
@@ -195,6 +205,27 @@ export function unsendableAssetReason(asset: NonFungibleAsset): string | null {
   }
   if (asset.interface !== "V1_NFT" && asset.interface !== "LEGACY_NFT") {
     return `Sending a ${asset.interface} is not supported.`;
+  }
+  return null;
+}
+
+/**
+ * Why a compressed asset cannot be sent, or `null` when it can.
+ *
+ * Nothing here reads the chain: a cNFT has no account, so everything that
+ * decides whether it can move came from the indexer at scan time. A leaf with no
+ * tree data cannot be proven to be in its tree at all, and a V2 leaf whose
+ * asset-data hash the index did not return cannot be checked by the program —
+ * both are refused rather than sent with a plausible-looking default.
+ */
+function compressedAssetReason(asset: NonFungibleAsset): string | null {
+  if (!asset.merkle) {
+    return "A metadata index (Helius key) is needed to prove this leaf is in its tree, and this wallet was scanned without one.";
+  }
+  // The same distinction the burn makes: V2 leaves commit to their own
+  // asset-data hash, and `transferV2` compares it against the leaf.
+  if (asset.interface === "MplBubblegumV2" && !asset.merkle.assetDataHash) {
+    return "A Bubblegum V2 leaf needs its asset-data hash, which this scan did not return. Rescan the wallet.";
   }
   return null;
 }
@@ -306,7 +337,7 @@ export async function planSend(input: PlanSendInput): Promise<PlanSendResult> {
 
   // ── 1. What is being sent, and what is refused before any read ──────────
   interface Candidate {
-    kind: "token" | "nft";
+    kind: "token" | "nft" | "cnft";
     mint: string;
     label: string;
     decimals: number;
@@ -385,10 +416,13 @@ export async function planSend(input: PlanSendInput): Promise<PlanSendResult> {
   }
 
   for (const asset of assets) {
+    const compressed = asset.compressed;
     let refused = unsendableAssetReason(asset);
     let source: PublicKey | null = null;
 
-    if (refused === null && asset.tokenAccount) {
+    // A cNFT has no token account to name, read or close: the leaf's own facts
+    // came from the index at scan time, and its proof is fetched below.
+    if (refused === null && !compressed && asset.tokenAccount) {
       try {
         source = new PublicKey(asset.tokenAccount);
       } catch {
@@ -397,19 +431,34 @@ export async function planSend(input: PlanSendInput): Promise<PlanSendResult> {
     }
 
     candidates.push({
-      kind: "nft",
+      kind: compressed ? "cnft" : "nft",
       mint: asset.id,
       label: asset.name || asset.id.slice(0, 6),
       decimals: 0,
-      // One indivisible unit, which is what makes an NFT's send empty its
-      // account and free that account's rent.
+      // One indivisible unit. For an uncompressed NFT that is what makes the
+      // send empty its account and free that account's rent; a leaf has neither.
       amount: 1n,
       source,
       tokenProgram: tokenProgramFor(asset.program),
       refused,
-      closeable: true,
+      // A leaf cannot be closed, because there is no account holding it.
+      closeable: !compressed,
     });
   }
+
+  /**
+   * Proofs for every cNFT in the batch, in one request.
+   *
+   * Fetched here rather than carried from the scan for the same reason as a
+   * burn: a proof is only valid against the tree's *current* root, and a tree
+   * can gain a leaf at any moment. `fetchCnftProofs` goes through our own route,
+   * so the Helius key stays on the server.
+   */
+  const assetsById = new Map(assets.map((asset) => [asset.id, asset]));
+  const cnftIds = candidates
+    .filter((candidate) => candidate.kind === "cnft" && candidate.refused === null)
+    .map((candidate) => candidate.mint);
+  const proofs = await fetchCnftProofs(cnftIds);
 
   // ── 2. The fee wallet, and whether it can receive ───────────────────────
   // A fee is only charged once a close has returned rent to pay it from, and only
@@ -480,6 +529,83 @@ export async function planSend(input: PlanSendInput): Promise<PlanSendResult> {
       recipientAccountRentLamports: 0,
       feeLamports: 0,
     };
+
+    // ── A compressed NFT: a leaf, not an account ──────────────────────────
+    // Nothing here reads a token account, creates one at the destination, or
+    // closes anything, because a cNFT is not an account. Bubblegum checks the
+    // leaf against the tree's current root and rewrites its owner in place.
+    if (candidate.kind === "cnft") {
+      const asset = assetsById.get(candidate.mint);
+      const leaf = asset?.merkle;
+      if (!asset || !leaf) {
+        outcomes.push({
+          ...base,
+          refused:
+            "The leaf's tree data is missing from this scan, so it cannot be proven to be in its tree. Rescan the wallet.",
+        });
+        continue;
+      }
+
+      const proof = proofs.get(asset.id);
+      if (!proof) {
+        outcomes.push({
+          ...base,
+          refused:
+            "Its merkle proof could not be fetched, so this leaf cannot be proven to be in its tree. Try again in a moment.",
+        });
+        continue;
+      }
+
+      let instruction;
+      try {
+        instruction = await buildCnftTransferInstruction({
+          asset: asset.id,
+          // Same distinction as the burn: a V2 leaf is moved by `transferV2`.
+          variant: asset.interface === "MplBubblegumV2" ? "v2" : "v1",
+          tree: leaf.tree,
+          owner: ownerAddress,
+          delegate: asset.delegate,
+          collection: asset.collection?.address ?? null,
+          leafId: leaf.leafId,
+          dataHash: leaf.dataHash,
+          creatorHash: leaf.creatorHash,
+          assetDataHash: leaf.assetDataHash,
+          flags: leaf.flags,
+          root: proof.root,
+          proof: proof.proof,
+          // The leaf's index, not the proof's `nodeIndex` — confusing the two
+          // encodes perfectly and is rejected on chain.
+          index: leaf.leafId,
+          newOwner: recipientAddress,
+        });
+      } catch {
+        outcomes.push({
+          ...base,
+          refused:
+            "This cNFT's tree data could not be read from the indexer, so the transfer could not be built. Rescan the wallet and try again.",
+        });
+        continue;
+      }
+
+      units.push({
+        mint: candidate.mint,
+        instructions: [instruction],
+        // A leaf is not an account: there is nothing to close and no rent.
+        rentReclaim: false,
+      });
+      outcomes.push({
+        ...base,
+        sending: true,
+        reclaimsRent: false,
+        rentLamports: 0,
+        // Nothing is created for the destination either — Bubblegum records the
+        // owner in the leaf, so there is no associated account and no rent.
+        createsRecipientAccount: false,
+        recipientAccountRentLamports: 0,
+        feeLamports: 0,
+      });
+      continue;
+    }
 
     if (candidate.source === null || destination === null) {
       outcomes.push(base);
@@ -604,7 +730,12 @@ export async function planSend(input: PlanSendInput): Promise<PlanSendResult> {
 
   // ── 4. Pack into as few transactions as the 1232-byte limit allows ───────
   const blockhashInfo = await connection.getLatestBlockhash("confirmed");
-  const computeUnitLimit = computeBudgetForUnits(units.length);
+  // Bubblegum verifies a proof per leaf, so those units get their own allowance
+  // on top of the token-transfer one rather than sharing it.
+  const cnftUnits = units.filter(
+    (unit) => assetsById.get(unit.mint)?.compressed === true,
+  ).length;
+  const computeUnitLimit = computeBudgetForUnits(units.length, cnftUnits);
   const prologue = createComputeBudgetInstructions(
     computeUnitLimit,
     PRIORITY_FEE_MICRO_LAMPORTS,
@@ -680,6 +811,10 @@ export async function planSend(input: PlanSendInput): Promise<PlanSendResult> {
           ).toBase58(),
         ),
       allowedAtaOwners: [recipient.toBase58()],
+      // A cNFT's destination is an account key rather than an ATA, so it cannot
+      // be expressed as a transfer destination. The audit checks that the
+      // recipient is named by the Bubblegum instruction instead — see rule 7.
+      expectedCompressedDestination: recipient.toBase58(),
       expectedCloses: candidates
         .filter(
           (candidate) =>

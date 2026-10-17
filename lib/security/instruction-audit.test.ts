@@ -28,6 +28,7 @@ import {
   type AuditExpectations,
 } from "./instruction-audit";
 import {
+  BUBBLEGUM_PROGRAM_ID,
   CORE_PROGRAM_ID,
   JUPITER_PROGRAM_ID,
 } from "./program-ids";
@@ -668,6 +669,68 @@ describe("the gate a planner calls", () => {
         expected: sweep(),
       }),
     ).toThrow(InstructionAuditError);
+  });
+});
+
+
+/**
+ * A compressed transfer's destination is an account key, not an ATA — so it is
+ * checked against the instruction's account list rather than against a derived
+ * address. The instruction here is deliberately a stub: the check being proved is
+ * about *which keys are named*, and Bubblegum's own data layout is covered by
+ * `lib/solana/cnft-transfer.test.ts`.
+ */
+describe("a compressed transfer", () => {
+  const bubblegum = (keys: string[]): TransactionInstruction =>
+    new TransactionInstruction({
+      programId: new PublicKey(BUBBLEGUM_PROGRAM_ID),
+      keys: keys.map((key) => ({
+        pubkey: new PublicKey(key),
+        isSigner: false,
+        isWritable: false,
+      })),
+      data: Buffer.from([163, 52, 200, 231, 140, 3, 69, 186, 0]),
+    });
+
+  const expectations: AuditExpectations = {
+    flow: "payload",
+    owner: OWNER,
+    feeWallet: null,
+    expectedFeeLamports: 0,
+    expectedCompressedDestination: DESTINATION,
+  };
+
+  it("accepts a transfer that names the address you set", () => {
+    const result = auditInstructions(
+      [...budget(100_000), bubblegum([OWNER, DESTINATION])],
+      expectations,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(
+      result.calls.find((call) => call.programName === "Bubblegum")?.notes,
+    ).toEqual(["moves a compressed leaf of yours to the address you set"]);
+  });
+
+  it("refuses one that would send the leaf somewhere else", () => {
+    // The failure this rule exists for: a leaf handed to a key nobody intended,
+    // with no account and no rent to notice it by.
+    const result = auditInstructions(
+      [...budget(100_000), bubblegum([OWNER, STRANGER])],
+      expectations,
+    );
+
+    expect(result.ok).toBe(false);
+    expect(refusal(result)?.code).toBe("unexpected-subject");
+  });
+
+  it("does not apply the rule to a burn, which has nowhere to send anything", () => {
+    const result = auditInstructions(
+      [...budget(100_000), bubblegum([OWNER])],
+      { ...expectations, expectedCompressedDestination: null },
+    );
+
+    expect(result.ok).toBe(true);
   });
 });
 

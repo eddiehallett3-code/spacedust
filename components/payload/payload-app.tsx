@@ -234,9 +234,22 @@ export function PayloadApp() {
             all ? new Set(scan.tokens.map((token) => token.mint)) : new Set(),
           )
         }
-        onSelectAllAssets={(all) =>
-          setSelectedAssets(all ? new Set(sendable.map((asset) => asset.id)) : new Set())
-        }
+        // NFTs and cNFTs share one selection set but are two tabs, so this
+        // touches only the kind that was asked for: "select all cNFTs" must not
+        // quietly add the NFTs the reader is not looking at.
+        onSelectAllAssets={(all, compressed) => {
+          const ids = sendable
+            .filter((asset) => asset.compressed === compressed)
+            .map((asset) => asset.id);
+          setSelectedAssets((previous) => {
+            const next = new Set(previous);
+            for (const id of ids) {
+              if (all) next.add(id);
+              else next.delete(id);
+            }
+            return next;
+          });
+        }}
       />
 
       <SweepError error={payload.error} />

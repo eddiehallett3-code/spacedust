@@ -82,6 +82,15 @@ export interface AuditExpectations {
   expectedCloses?: readonly string[];
   /** The only token accounts a transfer may credit (a send's destination). */
   expectedTransferDestinations?: readonly string[];
+  /**
+   * Where a compressed NFT is meant to go.
+   *
+   * A cNFT names its new owner as an *account key*, not an associated token
+   * account, so it cannot be expressed as a transfer destination. Set by a send
+   * and checked against the Bubblegum instruction's account list; a burn leaves
+   * it unset, because a destroyed leaf has nowhere to go.
+   */
+  expectedCompressedDestination?: string | null;
   /** Accounts SOL may legitimately be moved to besides the fee wallet. */
   allowedSolDestinations?: readonly string[];
   /** Wallets that may own an account this batch creates. Defaults to you. */
@@ -813,7 +822,8 @@ export function auditInstructions(
           (key) => key.pubkey.toBase58() === owner,
         );
         // The two helper programs move nothing: one verifies the leaf, the other
-        // checks the tree's root. Everything else here is a burn.
+        // checks the tree's root. Everything else here either burns or, in a
+        // send, moves a compressed leaf.
         const movesNothing =
           programId === NOOP_PROGRAM_ID ||
           programId === ACCOUNT_COMPRESSION_PROGRAM_ID;
@@ -828,13 +838,39 @@ export function auditInstructions(
           );
           return;
         }
+
+        // A cNFT send names its destination as an account key, so it can be
+        // checked here — and it matters more than anywhere else: a wrong key in
+        // this instruction hands the leaf to whoever it names, and nothing on
+        // chain gives it back.
+        if (
+          programId === BUBBLEGUM_PROGRAM_ID &&
+          expected.expectedCompressedDestination &&
+          !instruction.keys.some(
+            (key) =>
+              key.pubkey.toBase58() === expected.expectedCompressedDestination,
+          )
+        ) {
+          noteProgram(into, programId);
+          refuse(
+            into,
+            "unexpected-subject",
+            `A compressed transfer in this batch does not name ${short(expected.expectedCompressedDestination)} as its new owner, so the leaf would not arrive there.`,
+            programId,
+            index,
+          );
+          return;
+        }
+
         const note =
           programId === NOOP_PROGRAM_ID
             ? "verifies a leaf, moves nothing"
             : programId === ACCOUNT_COMPRESSION_PROGRAM_ID
               ? "checks the tree's root, moves nothing"
               : programId === BUBBLEGUM_PROGRAM_ID
-                ? "burns a compressed leaf you own"
+                ? expected.expectedCompressedDestination
+                  ? "moves a compressed leaf of yours to the address you set"
+                  : "burns a compressed leaf you own"
                 : programId === CORE_PROGRAM_ID
                   ? "burns a Core asset you own"
                   : "burns a classic NFT you own";

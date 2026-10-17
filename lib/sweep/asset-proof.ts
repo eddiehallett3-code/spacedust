@@ -20,8 +20,13 @@ export interface CnftProof {
  * Proofs for the given assets, keyed by asset id.
  *
  * Assets the indexer cannot answer for are simply absent from the map, which
- * callers must treat as "cannot burn this one" — with a reason — rather than as
+ * callers must treat as "cannot move this one" — with a reason — rather than as
  * a failure of the whole plan.
+ *
+ * Batched, because the route caps a request at 25 ids and a send can select more
+ * cNFTs than that. Without this the route would answer 400 and *every* leaf in the
+ * batch would be refused, which reads as "the indexer is down" rather than "you
+ * picked too many".
  */
 export async function fetchCnftProofs(
   ids: string[],
@@ -29,26 +34,32 @@ export async function fetchCnftProofs(
   const proofs = new Map<string, CnftProof>();
   if (ids.length === 0) return proofs;
 
-  try {
-    const response = await fetch("/api/asset-proof", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids }),
-    });
-    if (!response.ok) return proofs;
+  /** Matches `MAX_IDS` in `app/api/asset-proof/route.ts`. */
+  const BATCH = 25;
 
-    const body = (await response.json()) as {
-      proofs?: Record<string, CnftProof>;
-    };
+  for (let start = 0; start < ids.length; start += BATCH) {
+    const batch = ids.slice(start, start + BATCH);
+    try {
+      const response = await fetch("/api/asset-proof", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: batch }),
+      });
+      if (!response.ok) continue;
 
-    for (const [id, proof] of Object.entries(body.proofs ?? {})) {
-      if (typeof proof?.root === "string" && Array.isArray(proof.proof)) {
-        proofs.set(id, { root: proof.root, proof: proof.proof });
+      const body = (await response.json()) as {
+        proofs?: Record<string, CnftProof>;
+      };
+
+      for (const [id, proof] of Object.entries(body.proofs ?? {})) {
+        if (typeof proof?.root === "string" && Array.isArray(proof.proof)) {
+          proofs.set(id, { root: proof.root, proof: proof.proof });
+        }
       }
+    } catch {
+      // A failed batch leaves its own leaves refused, each with a reason, rather
+      // than stopping a plan that also holds SPL and Core assets.
     }
-  } catch {
-    // A failed proof fetch leaves every cNFT refused, each with its own reason,
-    // rather than stopping a plan that also holds SPL and Core assets.
   }
 
   return proofs;

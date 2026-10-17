@@ -888,10 +888,18 @@ every real account, so pricing from it would understate the total by about 27%.
 
 ## Payload — batch sending
 
-`/payload` sends tokens and NFTs to **one address**, packed into as few
+`/payload` sends tokens, NFTs and cNFTs to **one address**, packed into as few
 transactions as the 1232-byte limit allows, closing every account the send empties
 so its rent comes back. 1.5% of that rent is the fee; the assets themselves are
 never charged on.
+
+A cNFT is the exception to the rent half of that, and not a small one: a compressed
+NFT is a leaf in a merkle tree rather than an account, so sending one creates
+nothing at the destination, closes nothing at the source, and returns no rent. The
+transfer is a Bubblegum instruction carrying the leaf's tree, index, hashes and a
+merkle proof fetched at plan time — because a proof only holds against the tree's
+*current* root — and the destination is a wallet key rather than an associated
+token account.
 
 A send is the only flow here that cannot be undone, so the destination is settled
 before anything else is chosen:
@@ -1155,7 +1163,7 @@ Two things the tests caught while building it, both worth keeping in mind:
   that outputs SOL wraps it. Banning the program was wrong; the *destination* rule
   is the check that belongs there.
 
-31 tests in `lib/security/instruction-audit.test.ts`, and every "accepts" case
+34 tests in `lib/security/instruction-audit.test.ts`, and every "accepts" case
 runs through the real builder the app ships — `createComputeBudgetInstructions`,
 `createCloseAccountInstruction`, `buildSend` — so a change to any instruction
 layout fails in the test suite rather than at a wallet prompt.
@@ -1623,6 +1631,7 @@ has already been violated once:
 | `lib/solana/compose.test.ts` | The audit is told about every close the composer will make — including the derived-ATA fallback for a holding the scanner could not name, and the wrapped-SOL account Jupiter's own cleanup closes on a SOL-output swap, which was the close reported four times over as one "the plan did not name"; a non-canonical account declares nothing, because nothing is closed. The composer's other output is the rent-reclaim fee: exactly one SOL transfer per closed account, sitting directly after the close that funds it, and nothing at all when fees are off, the fee is zero, or no account is closed |
 | `app/api/plan/route.test.ts` | The money path refuses what the app would never send: an owner that is not an address, an output asset outside the SOL/USDC/JUP allow-list, more tokens than a sweep can carry, slippage outside the band, and a swap amount that is not a whole base-unit string — while both a partial amount and the original whole-balance request still parse |
 | `lib/solana/cnft-burn.test.ts` | A cNFT burn is Bubblegum's `Burn` with each leaf fact at its own offset and the proof appended — and for V2, `burnV2` with the payer and authority as the signers, not the leaf owner |
+| `lib/solana/cnft-transfer.test.ts` | A cNFT send is Bubblegum's `Transfer`, and the one thing that must be right is the destination: the new owner is asserted in its own account slot, for both `transfer` and `transferV2`, because a wrong key there hands the leaf away and nothing gives it back |
 | `lib/solana/pnft-burn.test.ts` | A pNFT burn is Token Metadata's `burnV1` with an amount of one, from the account the scan found, asking *only* the owner to sign |
 | `lib/sweep/recoverable.test.ts` | The read-only total never promises rent it cannot deliver: frozen, transfer-hooked, fee-charging and unnamed accounts are excluded by reason and counted, an unusable price reads as no price, the native balance is never part of the total, a pool share leaves the promise in value *and* in rent, and a named staking token is counted once as `staked` rather than twice as a pool share |
 | `lib/sweep/sweepable.test.ts` | One rule, both screens: a staking token, a pool share, a frozen holding and a transfer-hooked mint are all unsellable — so the sweeper's own list cannot offer to sell what the read-only scan promised a sweep would not touch |

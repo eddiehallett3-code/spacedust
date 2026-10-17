@@ -10,7 +10,7 @@
 /** What happened to one item in a batch, after it was submitted. */
 export interface PayloadOutcome {
   mint: string;
-  kind: "token" | "nft";
+  kind: "token" | "nft" | "cnft";
   label: string;
   status: "sent" | "failed" | "skipped";
   /** Solscan-linkable signature, when it was submitted. */

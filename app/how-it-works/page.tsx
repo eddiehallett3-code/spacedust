@@ -505,7 +505,7 @@ export default function HowItWorksPage() {
       <ToolSection
         tool="payload"
         name="Payload"
-        lede="The send tool. A sweep sells what you do not want and The Void takes what nobody wants at all — neither moves things you are keeping. Payload is for the third case: forty tokens and a handful of NFTs, all going to one address, in as few transactions as the chain will allow."
+        lede="The send tool. A sweep sells what you do not want and The Void takes what nobody wants at all — neither moves things you are keeping. Payload is for the third case: forty tokens and a handful of NFTs and cNFTs, all going to one address, in as few transactions as the chain will allow."
       >
         <h3>1. Why a batch send needs its own tool</h3>
         <p>
@@ -668,10 +668,17 @@ export default function HowItWorksPage() {
             effects it cannot see.
           </li>
           <li>
-            <strong>Compressed and programmable NFTs.</strong> The Bubblegum
-            transfer route and the Token Metadata transfer instruction are not
-            built, so those assets are refused with that reason instead of being
-            attempted badly.
+            <strong>Programmable NFTs.</strong> Token Metadata&rsquo;s transfer
+            instruction is not built, so those assets are refused with that reason
+            instead of being attempted badly.
+          </li>
+          <li>
+            <strong>A compressed NFT the index could not describe.</strong> A leaf
+            needs its tree, its index and its hashes — all from the indexer — plus
+            a merkle proof fetched at plan time, because a proof only holds
+            against the tree&rsquo;s current root. Missing either, the row says so.
+            A cNFT has no account to close, so its row reclaims no rent: the leaf
+            simply changes owner.
           </li>
         </ul>
       </ToolSection>

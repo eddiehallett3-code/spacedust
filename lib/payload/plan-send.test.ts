@@ -40,6 +40,13 @@ describe("computeBudgetForUnits", () => {
     expect(computeBudgetForUnits(10)).toBe(160_000);
   });
 
+  it("adds a proof allowance for each compressed NFT", () => {
+    // A Bubblegum transfer verifies a merkle proof before it moves anything, so
+    // asking for a token transfer's budget would under-ask and fail.
+    expect(computeBudgetForUnits(1, 1)).toBe(80_000); // 16,000 + 60,000
+    expect(computeBudgetForUnits(2, 2)).toBe(160_000); // 32,000 + 120,000
+  });
+
   it("never exceeds Solana's own ceiling", () => {
     expect(computeBudgetForUnits(100)).toBe(1_400_000);
     expect(computeBudgetForUnits(100_000)).toBe(1_400_000);
@@ -84,10 +91,59 @@ describe("unsendableAssetReason", () => {
     expect(unsendableAssetReason(asset({ interface: "LEGACY_NFT" }))).toBeNull();
   });
 
-  it("says a compressed NFT's route is not built, rather than blaming the asset", () => {
-    const reason = unsendableAssetReason(asset({ compressed: true }));
-    expect(reason).toMatch(/cannot be sent yet/i);
-    expect(reason).toMatch(/not built/i);
+  it("sends a compressed NFT once the index has described its leaf", () => {
+    // A cNFT is a leaf, not an account — so `tokenAccount: null` is normal here
+    // and must not be read as "the scan lost it". What it needs is the tree data.
+    const reason = unsendableAssetReason(
+      asset({
+        compressed: true,
+        tokenAccount: null,
+        merkle: {
+          tree: "7MHNupVw45KV1JG3HxPPqUnCJoLzFxt3THMJsLjJRerz",
+          leafId: 1172,
+          dataHash: "3eNTexmWmu1cEYKhCsoXDCZJRSvgdujR1RQDGVa3t8H9",
+          creatorHash: "98UuRrUaTrQF5gQocbrabinCDqmPh2UeyF9t7GwzNVCK",
+          assetDataHash: null,
+          flags: null,
+        },
+      }),
+    );
+
+    expect(reason).toBeNull();
+  });
+
+  it("refuses a leaf the index never described", () => {
+    // Without tree, index and hashes there is nothing to prove, so the leaf
+    // cannot be moved at all — and without a metadata index this is what every
+    // cNFT in the wallet looks like.
+    const reason = unsendableAssetReason(
+      asset({ compressed: true, tokenAccount: null, merkle: null }),
+    );
+
+    expect(reason).toMatch(/metadata index/i);
+    expect(reason).toMatch(/prove/i);
+  });
+
+  it("refuses a V2 leaf with no asset-data hash", () => {
+    // `transferV2` encodes that hash and the program compares it against the
+    // leaf, so a leaf the index described without one cannot be moved honestly.
+    const reason = unsendableAssetReason(
+      asset({
+        compressed: true,
+        tokenAccount: null,
+        interface: "MplBubblegumV2",
+        merkle: {
+          tree: "6Fqx4W2g1LDE4Qqy6XHZBxPgLnCNEZ2VzrKmg9TQcBUN",
+          leafId: 1,
+          dataHash: "3Af4hPqqpmqCeXyXxGB4ZAAnp7HfjNJYFD1UocGW8Gsm",
+          creatorHash: "CCk2pSgMkvB6NeLJe8z6AzY6MW1XgP7b8vgtT5Sk7n7d",
+          assetDataHash: null,
+          flags: 0,
+        },
+      }),
+    );
+
+    expect(reason).toMatch(/asset-data hash/i);
   });
 
   it("names the freeze authority when an asset is frozen", () => {

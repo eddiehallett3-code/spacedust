@@ -16,14 +16,17 @@ import type { DustToken, NonFungibleAsset } from "@/types/token";
 /**
  * What goes in the batch.
  *
- * Two tabs rather than one merged list, for the reason The Void learned the hard
- * way: an uncompressed NFT arrives from the index looking exactly like a token —
- * balance 1, decimals 0, its own account — so a single list is one mis-click away
- * from sending something irreplaceable as if it were dust.
+ * Three tabs rather than one merged list, for the reason The Void learned the
+ * hard way: an uncompressed NFT arrives from the index looking exactly like a
+ * token — balance 1, decimals 0, its own account — so a single list is one
+ * mis-click away from sending something irreplaceable as if it were dust.
+ *
+ * cNFTs get their own tab for a second reason: they are not accounts. Sending one
+ * moves a leaf in a merkle tree, so there is no rent to reclaim and nothing to
+ * close — facts the NFT rows state and the cNFT rows must not.
  *
  * Assets the send path cannot handle yet are listed with their reason rather than
- * hidden. Two of those reasons are temporary — those routes are coming — and
- * saying so beats an NFT that appears to have gone missing from the wallet.
+ * hidden, so nothing appears to have gone missing from the wallet.
  */
 export function AssetPicker({
   tokens,
@@ -53,14 +56,38 @@ export function AssetPicker({
   onToggleToken: (mint: string) => void;
   onToggleAsset: (id: string) => void;
   onSelectAllTokens: (all: boolean) => void;
-  onSelectAllAssets: (all: boolean) => void;
+  /**
+   * Select or deselect every sendable asset of one kind.
+   *
+   * `compressed` says which list: NFTs and cNFTs share one selection set but are
+   * two tabs, and "select all" must only touch the tab it is on.
+   */
+  onSelectAllAssets: (all: boolean, compressed: boolean) => void;
 }) {
-  const [tab, setTab] = useState<"tokens" | "nfts">("tokens");
+  const [tab, setTab] = useState<"tokens" | "nfts" | "cnfts">("tokens");
+
+  // Two kinds of collectible, two tabs. They are not the same thing to send: an
+  // NFT is an account that is emptied and closed, so its rent comes back; a cNFT
+  // is a leaf in a merkle tree with no account, no close and no rent at all.
+  // Sharing one list would make the rent column a lie for whichever half the
+  // reader was looking at.
+  const sendableNfts = sendable.filter((asset) => !asset.compressed);
+  const sendableCnfts = sendable.filter((asset) => asset.compressed);
+  const refusedNfts = refused.filter((asset) => !asset.compressed);
+  const refusedCnfts = refused.filter((asset) => asset.compressed);
+
+  const activeAssets =
+    tab === "tokens" ? [] : tab === "nfts" ? sendableNfts : sendableCnfts;
+  const activeRefused =
+    tab === "tokens" ? [] : tab === "nfts" ? refusedNfts : refusedCnfts;
+  const activeSelected = activeAssets.filter((asset) =>
+    selectedAssets.has(asset.id),
+  ).length;
+  const allActiveSelected =
+    activeAssets.length > 0 && activeSelected === activeAssets.length;
 
   const allTokensSelected =
     tokens.length > 0 && selectedTokens.size === tokens.length;
-  const allAssetsSelected =
-    sendable.length > 0 && selectedAssets.size === sendable.length;
 
   return (
     <Card>
@@ -97,9 +124,29 @@ export function AssetPicker({
             onClick={() => setTab("nfts")}
           >
             NFTs
-            {selectedAssets.size > 0 ? (
+            {sendableNfts.filter((asset) => selectedAssets.has(asset.id))
+              .length > 0 ? (
               <Badge variant="accent" size="sm" className="ml-2">
-                {selectedAssets.size}
+                {
+                  sendableNfts.filter((asset) => selectedAssets.has(asset.id))
+                    .length
+                }
+              </Badge>
+            ) : null}
+          </Button>
+          <Button
+            variant={tab === "cnfts" ? "primary" : "outline"}
+            size="sm"
+            onClick={() => setTab("cnfts")}
+          >
+            cNFTs
+            {sendableCnfts.filter((asset) => selectedAssets.has(asset.id))
+              .length > 0 ? (
+              <Badge variant="accent" size="sm" className="ml-2">
+                {
+                  sendableCnfts.filter((asset) => selectedAssets.has(asset.id))
+                    .length
+                }
               </Badge>
             ) : null}
           </Button>
@@ -116,10 +163,15 @@ export function AssetPicker({
         ) : (
           <label className="flex cursor-pointer items-center gap-2.5 border-b border-border/60 pb-2 text-xs text-muted">
             <Checkbox
-              checked={allAssetsSelected}
-              onCheckedChange={(checked) => onSelectAllAssets(checked === true)}
+              checked={allActiveSelected}
+              onCheckedChange={(checked) =>
+                // Only this tab's assets: selecting every cNFT must not quietly
+                // add the NFTs the reader is not looking at.
+                onSelectAllAssets(checked === true, tab === "cnfts")
+              }
             />
-            Select all {sendable.length} sendable NFTs
+            Select all {activeAssets.length} sendable{" "}
+            {tab === "cnfts" ? "cNFTs" : "NFTs"}
           </label>
         )}
 
@@ -196,8 +248,8 @@ export function AssetPicker({
               })
             : null}
 
-          {tab === "nfts"
-            ? sendable.map((asset) => (
+          {tab !== "tokens"
+            ? activeAssets.map((asset) => (
                 <label
                   key={asset.id}
                   className="flex cursor-pointer items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-white/4"
@@ -219,8 +271,8 @@ export function AssetPicker({
             : null}
 
           {/* Refused, not hidden: their reason is on the row. */}
-          {tab === "nfts"
-            ? refused.map((asset) => (
+          {tab !== "tokens"
+            ? activeRefused.map((asset) => (
                 <div
                   key={asset.id}
                   className="flex items-start gap-3 rounded-xl px-2 py-2 opacity-70"
@@ -244,9 +296,15 @@ export function AssetPicker({
             </p>
           ) : null}
 
-          {tab === "nfts" && sendable.length === 0 && refused.length === 0 ? (
+          {tab !== "tokens" &&
+          activeAssets.length === 0 &&
+          activeRefused.length === 0 ? (
             <p className="px-2 py-6 text-center text-sm text-muted">
-              {isScanning ? "Scanning…" : "No NFTs in this wallet."}
+              {isScanning
+                ? "Scanning…"
+                : tab === "cnfts"
+                  ? "No compressed NFTs in this wallet."
+                  : "No NFTs in this wallet."}
             </p>
           ) : null}
         </div>
