@@ -229,7 +229,31 @@ Chainstack) — the code does not care which one.
    `NEXT_PUBLIC_FEE_WALLET`) under **Settings → Environment Variables**.
 4. Deploy.
 
-Vercel's Hobby plan is enough: five dynamic routes, one static, no database, no queue.
+Vercel's Hobby plan is enough: a handful of routes, no database, no queue. The
+pages render **per request** rather than being prerendered — that is the cost of
+the CSP nonce (see "The policy the page now sends") — so budget for function
+invocations, not for static HTML.
+
+### Deployment protection
+
+Production is public; previews are not. The project uses **Standard Protection**
+(*Settings → Deployment Protection*), which leaves `spacedust.cc` and the
+git-branch alias open and keeps every preview and per-deployment URL behind Vercel
+Authentication. That split is deliberate: preview builds can contain work that is
+not ready to be seen, and their URLs are guessable.
+
+It is project state rather than repository state, so it is written down here — a
+redeploy will not restore it, and "why does spacedust.cc ask for a login" has
+exactly one cause:
+
+```bash
+vercel api "/v9/projects/<project-id>?teamId=<team-id>" | jq .ssoProtection
+# {"deploymentType":"all"}                              everything gated, production too
+# {"deploymentType":"prod_deployment_urls_and_all_previews"}  Standard (what we want)
+# {"deploymentType":"preview"}                          previews only
+# null                                                  nothing protected
+```
+
 
 ### Before you take traffic: the two steps the repo cannot do
 
