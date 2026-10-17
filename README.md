@@ -469,10 +469,14 @@ that allow-list it would be an open RPC relay pointed at your Helius account.
    it is simply a fee of zero, which is why something has to ask.
 6. **The ~150-slot blockhash window is treated as the scarce resource it is.**
    Every transaction in a batch is signed under one blockhash, so anything slow
-   before a send is window that send never gets. Two margins enforce that, and
-   they are deliberately different sizes: the batch is **rebuilt before the
-   wallet prompt** when fewer than ~75 slots (~30s) remain, because a person
-   reading a Phantom prompt takes seconds, not milliseconds; and a send is
+   before a send is window that send never gets. Reading the preview is
+   deliberately *not* on that clock: five of the six flows rebuild the batch at
+   the click when fewer than ~140 slots remain — nearly a full window — so a
+   preview can sit open for as long as someone wants to read it. Payload keeps
+   the smaller ~75-slot margin on purpose, because its rebuild re-quotes
+   Jupiter rather than re-packing. Whatever the margin, the rebuild happens
+   **before** the wallet prompt, never after, and it replaces the preview with
+   the new plan's figures. Then a send is
    **refused outright** inside ~30 slots (~12s) of expiry, because a transaction
    broadcast with a sliver of window left is accepted by the RPC, included by no
    leader, and silently dropped. Refusing early means "run the preview again and
@@ -1703,6 +1707,7 @@ has already been violated once:
 | `lib/sweep/phase.test.ts` | Whatever phase a successful `prepare()` settles on is not a busy one |
 | `lib/security/instruction-audit.test.ts` | Every instruction a plan produces is checked against the program and the destination it is supposed to touch, so a built plan cannot quietly point somewhere else — and each flow's "accepts" case runs through the real builder the app ships, so a change to an instruction layout fails here rather than at a wallet prompt |
 | `lib/solana/submit.test.ts` | An expired blockhash ends the *wait*, not the transaction: nothing is called failed until the chain has been asked, including a transaction an RPC refused after accepting it |
+| `lib/solana/prompt-window.test.ts` | Every flow that shows a preview rebuilds at the click against the prompt margin — a preview can sit open as long as the user likes — and the rebuild replaces the preview's figures. Payload keeps the smaller approval margin on purpose, because its rebuild re-quotes rather than re-packs |
 | `lib/sweep/nft-burnability.test.ts` | Anything we cannot build a *correct* burn for is refused, with a reason |
 | `lib/sweep/hidden-assets.test.ts` | Hiding is stable and reversible: the list only grows when asked, never duplicates, and an id removed comes back exactly once |
 | `lib/sweep/plan-nft-burn.test.ts` | A plain NFT is burned through Token Metadata — one instruction naming the metadata and master edition accounts, so nothing is left for an index to describe the asset from — with the SPL fallback taken, and reported, only when that builder fails; a Core asset goes through the Core program's instruction |

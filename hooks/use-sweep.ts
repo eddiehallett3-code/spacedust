@@ -297,6 +297,19 @@ export function useSweep() {
         });
         // Keep the fresh plan, so a retry starts from something valid.
         preparedRef.current = { result, request };
+        // A re-quote changes what the preview is describing — the amounts, the
+        // output, the fee, possibly the transaction count — so all of it is
+        // replaced together. Otherwise the panel describes one batch while the
+        // wallet is asked to sign another.
+        patch({
+          plan: result.plan,
+          packed: result.packed,
+          simulations: result.simulations,
+          audit: result.audit,
+          warnings: result.warnings,
+          rentLamports: result.estimatedRentReclaimLamports,
+          reclaimFeeLamports: result.estimatedReclaimFeeLamports,
+        });
       } else if (
         await isBlockhashExpired(
           connection,
@@ -312,6 +325,13 @@ export function useSweep() {
         patch({ phase: "planning", error: null });
         result = await refreshBlockhash(connection, result);
         preparedRef.current = { result, request };
+        // Same instructions, new bytes. The grouping does not move, but the state
+        // should still hold the transactions that will actually be signed.
+        patch({
+          packed: result.packed,
+          rentLamports: result.estimatedRentReclaimLamports,
+          reclaimFeeLamports: result.estimatedReclaimFeeLamports,
+        });
       }
 
       patch({ phase: "awaiting-signature", error: null });

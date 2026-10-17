@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { getConnection } from "@/lib/solana/connection";
-import { isBlockhashExpired, BLOCKHASH_APPROVAL_MARGIN_SLOTS } from "@/lib/solana/blockhash";
+import { isBlockhashExpired, BLOCKHASH_PROMPT_MARGIN_SLOTS } from "@/lib/solana/blockhash";
 import {
   planVoid,
   VoidError,
@@ -207,16 +207,21 @@ export function useVoid() {
     let result = prepared.result;
 
     try {
-      // A preview can sit open longer than a blockhash lives, and the whole
-      // batch is signed with the blockhash captured at preview time. Rebuild
-      // rather than hand the wallet something it will refuse to sign — and
-      // rebuild against the *approval* margin, not the send margin, so the user
-      // starts signing with a window that survives them reading the prompt.
+      // A preview can sit open as long as the user wants to read it. The batch
+      // was built against a blockhash that lives about a minute, so it is rebuilt
+      // at the moment of the click — and against the *prompt* margin, not the
+      // approval one: by then the old blockhash is seconds from expiry, and ~30
+      // seconds is not enough for a phone approval plus the send burst.
+      //
+      // The rebuild is a re-plan because that is what The Void's plan costs: one
+      // batched read for frozen flags and deposits, one rent read, a pack and a
+      // simulation per transaction. Seconds, paid once, by the person who is
+      // already waiting — in exchange for reading for as long as they like.
       if (
         await isBlockhashExpired(
           connection,
           result.lastValidBlockHeight,
-          BLOCKHASH_APPROVAL_MARGIN_SLOTS,
+          BLOCKHASH_PROMPT_MARGIN_SLOTS,
         )
       ) {
         patch({ phase: "planning", error: null });
@@ -226,6 +231,17 @@ export function useVoid() {
           tokens: request.tokens,
         });
         preparedRef.current = { result, request };
+        // Everything the preview reads comes from the plan, so all of it moves
+        // together. Otherwise the panel describes the old batch — its count, its
+        // warnings, its rent — while the wallet is asked to sign the new one.
+        patch({
+          packed: result.packed,
+          simulations: result.simulations,
+          warnings: result.warnings,
+          tokenAccountRentLamports: result.tokenAccountRentLamports,
+          rentByMint: result.rentByMint,
+          feeByMint: result.feeByMint,
+        });
       }
 
       patch({ phase: "awaiting-signature", error: null });

@@ -4,7 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useSolanaConnection } from "@/lib/solana/connection";
 import {
-  BLOCKHASH_APPROVAL_MARGIN_SLOTS,
+  BLOCKHASH_PROMPT_MARGIN_SLOTS,
   isBlockhashExpired,
 } from "@/lib/solana/blockhash";
 import {
@@ -239,21 +239,29 @@ export function useRevoke() {
     let result = prepared.result;
 
     try {
-      // A preview can sit open longer than a blockhash lives, and the batch is
-      // signed with the blockhash captured at preview time. Rebuild rather than
-      // hand the wallet something it will refuse — against the *approval* margin,
-      // so the user starts signing with a window that survives them reading the
-      // prompt.
+      // A preview can sit open for as long as the user wants to read it, so the
+      // batch is rebuilt at the click — against the *prompt* margin, because the
+      // rebuild is a batched read and a re-pack (seconds) and the approval margin
+      // would leave only ~30 seconds for a phone approval plus the send burst.
       if (
         await isBlockhashExpired(
           connection,
           result.lastValidBlockHeight,
-          BLOCKHASH_APPROVAL_MARGIN_SLOTS,
+          BLOCKHASH_PROMPT_MARGIN_SLOTS,
         )
       ) {
         patch({ phase: "planning", error: null });
         result = await planRevokes({ connection, owner: publicKey, approvals });
         preparedRef.current = { result, approvals };
+        // The preview moves with the plan: a rebuild can find that an approval was
+        // already revoked, so the count, the warnings and the fee all have to come
+        // from the batch that will actually be signed.
+        patch({
+          packed: result.packed,
+          simulations: result.simulations,
+          warnings: result.warnings,
+          estimatedFeeLamports: result.estimatedFeeLamports,
+        });
       }
 
       patch({ phase: "awaiting-signature", error: null });

@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { getConnection } from "@/lib/solana/connection";
-import { isBlockhashExpired, BLOCKHASH_APPROVAL_MARGIN_SLOTS } from "@/lib/solana/blockhash";
+import { isBlockhashExpired, BLOCKHASH_PROMPT_MARGIN_SLOTS } from "@/lib/solana/blockhash";
 import { planNftBurn, type PlanNftBurnResult } from "@/lib/sweep/plan-nft-burn";
 import { signTransactions, submitTransactions } from "@/lib/solana/submit";
 import { toFriendlyError, type FriendlyError } from "@/lib/utils/errors";
@@ -206,21 +206,40 @@ export function useNftBurn() {
     let result = prepared;
 
     try {
-      // A preview can sit open longer than a blockhash lives. Rebuild rather
-      // than hand the wallet something it will refuse to sign — against the
-      // *approval* margin, so the user starts signing with a window that
-      // survives them reading the prompt.
+      // A preview can sit open for as long as the user wants to read it; the
+      // blockhash it was built with lives about a minute. So the batch is rebuilt
+      // at the moment of the click, against the *prompt* margin: by then the old
+      // blockhash is almost always within seconds of expiry, and the approval
+      // margin would settle for ~30 seconds — a phone approval plus a burst of
+      // transactions can spend that, and the tail is what loses the race.
+      //
+      // A rebuild is a **re-plan**, not a re-pack, on purpose. A cNFT burn carries
+      // a merkle proof, and a proof is only valid against its tree's root *now* —
+      // a tree someone is minting into moves every few seconds. Re-planning
+      // re-fetches every proof, so a long read cannot leave us signing membership
+      // that moved while the user was reading. That costs a proof fetch and a
+      // simulation per transaction, paid once, at the click.
       if (
         await isBlockhashExpired(
           connection,
           result.lastValidBlockHeight,
-          BLOCKHASH_APPROVAL_MARGIN_SLOTS,
+          BLOCKHASH_PROMPT_MARGIN_SLOTS,
         )
       ) {
         patch({ phase: "planning", error: null });
         result = await planNftBurn({ connection, owner: publicKey, assets });
         preparedRef.current = result;
-        patch({ skipped: result.skipped, warnings: result.warnings });
+        // The preview has to describe the batch that will be signed, not the one
+        // it described a moment ago: the rebuild can re-group transactions and
+        // skip an asset that is no longer burnable, and leaving the old figures
+        // on screen is how a panel ends up describing one batch while the wallet
+        // is asked to sign another.
+        patch({
+          packed: result.packed,
+          simulations: result.simulations,
+          skipped: result.skipped,
+          warnings: result.warnings,
+        });
       }
 
       patch({ phase: "awaiting-signature", error: null });

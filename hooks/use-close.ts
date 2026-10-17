@@ -4,7 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { getConnection } from "@/lib/solana/connection";
 import {
-  BLOCKHASH_APPROVAL_MARGIN_SLOTS,
+  BLOCKHASH_PROMPT_MARGIN_SLOTS,
   isBlockhashExpired,
 } from "@/lib/solana/blockhash";
 import {
@@ -208,14 +208,16 @@ export function useClose() {
 
     try {
       // The batch is signed under the blockhash captured at preview time, and a
-      // preview can sit open longer than one lives. Rebuild against the
-      // *approval* margin, so the user starts signing with a window that
-      // survives them reading the prompt.
+      // preview can sit open for as long as the user wants to read it. So the
+      // batch is rebuilt at the click, against the *prompt* margin: rebuilding is
+      // a re-read and a re-pack (seconds), which is worth paying once to start the
+      // approval with a full window rather than the ~30 seconds the approval
+      // margin would settle for.
       if (
         await isBlockhashExpired(
           connection,
           result.lastValidBlockHeight,
-          BLOCKHASH_APPROVAL_MARGIN_SLOTS,
+          BLOCKHASH_PROMPT_MARGIN_SLOTS,
         )
       ) {
         patch({ phase: "planning", error: null });
@@ -225,6 +227,19 @@ export function useClose() {
           accounts: request.accounts,
         });
         preparedRef.current = { result, request };
+        // Everything the preview shows is re-derived, because the rebuild can find
+        // an account already closed and keep fewer of them. Leaving the old
+        // figures up would describe one batch while the wallet signs another.
+        patch({
+          packed: result.packed,
+          simulations: result.simulations,
+          warnings: result.warnings,
+          rentLamports: result.rentLamports,
+          reclaimFeeLamports: result.reclaimFeeLamports,
+          netRentLamports: result.netRentLamports,
+          closeCount: result.closeCount,
+          estimatedFeeLamports: result.estimatedFeeLamports,
+        });
       }
 
       patch({ phase: "awaiting-signature", error: null });

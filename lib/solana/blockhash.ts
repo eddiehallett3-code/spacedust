@@ -46,6 +46,11 @@ export const BLOCKHASH_SEND_MARGIN_SLOTS = 30;
  *
  * 75 slots is roughly 30 seconds: comfortably longer than approving takes,
  * while still leaving most of the ~150-slot window for the send itself.
+ *
+ * Only Payload uses this one now. Its rebuild re-quotes Jupiter — seconds per
+ * token, and amounts that can move — so it cannot afford to rebuild on every
+ * click, and accepts the smaller window instead. That is a real trade, not an
+ * oversight: the alternative is re-quoting a batch the user is looking at.
  */
 export const BLOCKHASH_APPROVAL_MARGIN_SLOTS = 75;
 
@@ -67,6 +72,16 @@ export const BLOCKHASH_APPROVAL_MARGIN_SLOTS = 75;
  *
  * Sized just under a full ~150-slot life, so an ordinary "open the preview, press
  * Sign & send" changes nothing, and only a preview left sitting gets refreshed.
+ *
+ * It is also the right margin for the two burn flows — The Void and the NFT/cNFT
+ * burner — and for the reason in their names rather than in the sweep's: they
+ * rebuild *at the click*, so reading time stops mattering. Their rebuild is a
+ * re-plan rather than a re-pack (a cNFT's merkle proof is only valid against its
+ * tree's root now, and The Void re-reads frozen flags and deposits), which costs a
+ * few seconds — paid once, by a person who is already waiting. The alternative is
+ * the approval margin, which leaves ~18 seconds after the prompt for a phone
+ * approval *and* the whole send burst: on a batch that is a race, and the tail is
+ * what loses it.
  */
 export const BLOCKHASH_PROMPT_MARGIN_SLOTS = 140;
 
