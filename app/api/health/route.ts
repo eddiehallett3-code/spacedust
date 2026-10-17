@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Connection } from "@solana/web3.js";
 import { allowRequest, rateLimitResponse } from "@/lib/api/rate-limit";
 import { sharedLimiterStatus } from "@/lib/api/rate-limit-store";
+import { describeFailure } from "@/lib/api/redact";
 import {
   getHeliusApiKey,
   getJupiterApiKey,
@@ -21,7 +22,12 @@ import { OUTPUT_ASSETS, SWAP_FEE_BPS } from "@/lib/utils/constants";
  * slow. This endpoint reports, per provider, whether a key is present **and
  * whether it actually works**, by making one real upstream call.
  *
- * It returns no secret material — only booleans, provider names, and error text.
+ * It returns no secret material — only booleans, provider names, and a scrubbed
+ * sentence per failure. That last part is load-bearing: this endpoint is public
+ * and unauthenticated, and the key it is testing lives *inside* the RPC URL, so a
+ * provider error that echoes the request URL would echo the key. Nothing upstream
+ * is repeated verbatim; see `lib/api/redact.ts`, and the operator-facing copy of
+ * each failure in the server log.
  */
 
 export const runtime = "nodejs";
@@ -100,10 +106,15 @@ export async function GET(request: Request) {
         checks.helius.detail = `DAS responded — ${result.holdings.length} holdings via helius-das.`;
       }
     } catch (error) {
-      checks.helius.detail =
-        error instanceof Error
-          ? `Key rejected or quota exhausted: ${error.message.slice(0, 160)}`
-          : "Helius scan failed.";
+      // The public field is a diagnosis, not a transcript. The full message can
+      // name the endpoint — and this endpoint carries the key in its query string
+      // — so the raw error goes to the deployment log, where only the operator can
+      // read it, and the response gets the same sentence with the key scoured out.
+      console.warn("[spacedust] /api/health: Helius probe failed", error);
+      checks.helius.detail = `Key rejected or quota exhausted: ${describeFailure(
+        error,
+        [getHeliusApiKey() ?? "", getServerRpcUrl()],
+      )}`;
     }
   }
 
@@ -134,8 +145,13 @@ export async function GET(request: Request) {
       }`;
     }
   } catch (error) {
-    checks.jupiter.detail =
-      error instanceof Error ? error.message.slice(0, 160) : "Jupiter unreachable.";
+    // Same rule as Helius: the key here travels in a header rather than a URL, so
+    // it is less likely to be echoed — but "less likely" is not a reason to quote
+    // an upstream message at a public endpoint.
+    console.warn("[spacedust] /api/health: Jupiter probe failed", error);
+    checks.jupiter.detail = `Jupiter unreachable: ${describeFailure(error, [
+      getJupiterApiKey() ?? "",
+    ])}`;
   }
 
   // ── Integrator fees ──────────────────────────────────────────────────────

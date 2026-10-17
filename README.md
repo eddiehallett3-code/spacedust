@@ -108,7 +108,11 @@ curl localhost:3000/api/health | jq
 ```
 
 It tests both keys with a **real upstream call**, so `"working": true` means
-genuinely working, not merely present:
+genuinely working, not merely present. The `detail` strings are scrubbed before
+they leave the server: the endpoint is public, and the Helius key it tests lives
+*inside* the RPC URL, so a provider error that echoes that URL would echo the key.
+Failures are classified and passed through `lib/api/redact.ts`; the raw message goes
+to the deployment log instead, where only the operator can read it.
 
 ```json
 {
@@ -1351,6 +1355,53 @@ fixed:
   policy, not of a permission. That is the reading that would have saved the three
   rounds.
 
+### The policy the page now sends
+
+`lib/security/csp.ts` builds the `Content-Security-Policy`, and `middleware.ts`
+issues it once per request with a fresh nonce. For a wallet app this is the control
+that matters most: the page origin is where the wallet connection lives, so
+injected script does not need a private key — it only needs to render a convincing
+"Confirm".
+
+It **reports rather than enforces by default**, for the reason the section above
+exists. A policy that is too tight does not present as a policy problem: the wallet
+modal opens and signing fails, or the page arrives fully drawn and never hydrates.
+So enforcement is explicit:
+
+```bash
+CSP_ENFORCE=1 npm run build    # or set it in the deployment's environment
+```
+
+Before flipping it, open the browser console on a preview deployment and watch for
+`Content-Security-Policy-Report-Only` violations during a full pass — connect
+(browser wallet *and* WalletConnect), scan, preview, sign, Payload, The Void.
+Report-only blocks nothing, so the app keeps working while it says what enforcement
+would break.
+
+What the policy allows is derived rather than remembered:
+
+| Part | Where it comes from |
+|---|---|
+| `img-src` logo hosts | `LOGO_EXACT_HOSTS` + `LOGO_HOST_SUFFIXES` in `lib/utils/logo-hosts.ts` — the same list the image optimizer's allow-list is built from, so the two cannot drift |
+| `connect-src` wallet hosts | the installed Reown/AppKit build: the relay socket, the wallet list, the verify and secure-wallet origins |
+| `connect-src 'self'` | everything else already goes through this origin — RPC via `/api/rpc`, Jupiter via `/api/*` — so no provider host needs an entry, and `https:` would be a regression rather than a convenience |
+| `script-src` | `'self'` + a per-request `'nonce-…'` + `'strict-dynamic'`; no `'unsafe-inline'`, and no `'unsafe-eval'` outside development |
+| `style-src` | `'unsafe-inline'` is deliberate: React and framer-motion style elements directly, and the App Router server-renders `style` attributes. Style injection is a nuisance; script injection is the threat, and `script-src-attr 'none'` closes the inline-handler route on its own |
+
+The nonce requires **per-request rendering**, which is why `app/layout.tsx` reads
+the request headers. A page prerendered at build time ships the scripts Next
+rendered then, with no nonce on them, and a strict policy would block the whole
+framework bootstrap: the page would look complete and never hydrate. `app/page.tsx`
+reads the same nonce for its JSON-LD block, because that is a `<script>` like any
+other.
+
+Verified against a real server rather than assumed: across `/`, `/how-it-works`,
+`/slingshot`, `/void` and `/payload` there are **zero** `<script>` tags without a
+nonce, zero inline event handlers, and the nonce in the header matches the ones in
+the HTML of that same response. `lib/security/csp.test.ts` pins the directives, the
+derived origins and the report-only default; `CSP_ENFORCE=1` was checked end to end
+as well, and flips the header name without changing anything else.
+
 ### How the Slingshot mark was verified
 
 The home page's backdrop is a trajectory deflected by the letter O — no planet; the
@@ -1655,6 +1706,8 @@ has already been violated once:
 | `lib/payload/camera-failure.test.ts` | A camera refusal names *who* refused it: never a browser setting when the browser already allows the camera, never a setting at all when a policy denies it, and never a diagnosis from a question the browser did not answer |
 | `lib/sweep/burn-result-copy.test.ts` | The burn report describes the batch, not the tab it was read on: an NFT and a cNFT burned in one transaction are counted and priced separately, so a rent claim can never contradict the asset that just returned its rent |
 | `next.config.test.ts` | The response headers allow the camera **to this origin** and never deny it to every origin — `Permissions-Policy: camera=()` made the scanner impossible while every permission setting, and the browser's own camera preview, said "allow" |
+| `lib/security/csp.test.ts` | The policy carries the nonce and `'strict-dynamic'`, never `'unsafe-eval'` in production, closes `object-src`/`base-uri`/`frame-ancestors`/inline handlers, and its `img-src` is derived from the optimizer's own logo allow-list rather than a second copy of it. Report-only is the default, and only `CSP_ENFORCE=1` (or `true`) enforces |
+| `lib/api/redact.test.ts` | A public diagnostic cannot repeat a key: a credential in a URL is removed by shape, a literal secret by value, bearer tokens and `x-api-key` echoes too, control characters and length are bounded, and an ordinary sentence comes back untouched |
 | `app/api/rpc/route.test.ts` | Every RPC method the browser reaches for is on the proxy's allow-list — including the ones it never names, because a `*Parsed*` call is a plain call with an encoding, and the route still consults the list |
 
 Every one of these was validated by mutation: reintroducing the original bug and

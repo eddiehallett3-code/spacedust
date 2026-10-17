@@ -6,6 +6,10 @@
 # next.js
 /.next/
 /.next-verify/
+# A verification build can go anywhere via NEXT_DIST_DIR (see next.config.ts); the
+# two documented values (`.next-verify`, `.next-csp`) are ignored so a build for a
+# check cannot dirty the tree.
+/.next-csp/
 /out/
 next-env.d.ts
 

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, ShieldCheck, Wallet } from "lucide-react";
@@ -76,11 +77,19 @@ function structuredData() {
   };
 }
 
-export default function HomePage() {
+export default async function HomePage() {
+  /**
+   * The JSON-LD block below is a `<script>`, so a strict `script-src` covers it
+   * like any other — nonced, or silently dropped. Next applies the nonce to the
+   * scripts it renders itself; this one is ours to label.
+   */
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   return (
     <Container size="wide">
       <script
         type="application/ld+json"
+        nonce={nonce}
         // `JSON.stringify` of an object assembled in this module: no user input and
         // no request data reaches it, so there is nothing to escape. That is a
         // property of *this* value, not a general rule — if anything dynamic is

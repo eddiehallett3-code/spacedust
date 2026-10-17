@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
@@ -92,9 +93,25 @@ export const viewport: Viewport = {
   maximumScale: 5,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  /**
+   * Reading the request headers is what opts every page into dynamic rendering —
+   * and that is required, not incidental.
+   *
+   * A nonce is new for every response. A page prerendered at build time ships the
+   * scripts Next rendered *then*, with no nonce on them, so a strict `script-src`
+   * would block the whole framework bootstrap and the page would arrive looking
+   * complete and never hydrate: no wallet, no buttons. Per-request rendering is
+   * the documented price of a nonce-based policy, and the only correct one.
+   *
+   * The nonce itself is read where it is needed (`app/page.tsx`, for the JSON-LD
+   * block, which is a `<script>` like any other). Next applies it to its own
+   * scripts on its own, from the policy header the middleware sets.
+   */
+  await headers();
+
   return (
     <html
       lang="en"
