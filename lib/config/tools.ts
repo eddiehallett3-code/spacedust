@@ -97,7 +97,7 @@ export const TOOLS: Tool[] = [
     key: "salvage",
     name: "Salvage",
     href: "/salvage",
-    tagline: "Reclaim the rent in empty token accounts and unused .sol names.",
+    tagline: "Reclaim the rent still locked in token accounts you have emptied.",
     cta: "Open Salvage",
   },
   {

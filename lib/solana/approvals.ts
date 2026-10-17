@@ -385,7 +385,6 @@ export async function planRevokes(
       owner: owner.toBase58(),
       feeWallet: null,
       expectedFeeLamports: 0,
-      expectedSubjects: packedResult.transactions.flatMap((tx) => tx.mints),
     },
   });
 

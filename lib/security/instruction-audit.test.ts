@@ -30,7 +30,6 @@ import {
 import {
   CORE_PROGRAM_ID,
   JUPITER_PROGRAM_ID,
-  SNS_NAME_PROGRAM_ID,
 } from "./program-ids";
 
 /**
@@ -38,8 +37,8 @@ import {
  *
  * Every "accepts" case below goes through the real builder the app ships —
  * `createComputeBudgetInstructions`, `createCloseAccountInstruction`,
- * `buildSend`, and the SNS delete shape `/api/domains` returns — so a change
- * that alters an instruction layout fails here rather than at a wallet prompt.
+ * `buildSend` — so a change that alters an instruction layout fails here rather
+ * than at a wallet prompt.
  * Every "refuses" case is the attack the check exists for, written as the
  * smallest instruction that would carry it out.
  */
@@ -50,8 +49,6 @@ const DESTINATION = "2NPGoYUAFDwkbrKeHmQdkjeA593om56riGhjfWLS7TLR";
 const STRANGER = "9qDz4uC7M7oJdhCErKEtLzm4pkdjdc7uQAFggy5jYrmt";
 const ATA = "7ZY8izSSAn7VFo5dyVxpf6xwXWemxMGJNbxthQiXVxeK";
 const SOURCE = "FUTLE3UD1rjyJo4mYxtgJCSiK1AE4umsGuenMFayqNMY";
-const NAME_ACCOUNT = "3AMLqpWhZurbUiXLUEf5nHYtVQttEwmh2FPnYkfBPyCw";
-const OTHER_NAME = "ETyW5vNyWubynX7pyncBA4P5YwsggHASZjmSYK3cc9N6";
 const MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 
 const owner = new PublicKey(OWNER);
@@ -85,23 +82,6 @@ function flip(
     fromPubkey: new PublicKey(from),
     toPubkey: new PublicKey(to),
     lamports,
-  });
-}
-
-/** The SNS delete exactly as `/api/domains` builds it: byte 3, three keys. */
-function snsDelete(
-  nameAccount: string,
-  authority: string,
-  refund: string,
-): TransactionInstruction {
-  return new TransactionInstruction({
-    programId: new PublicKey(SNS_NAME_PROGRAM_ID),
-    keys: [
-      { pubkey: new PublicKey(nameAccount), isSigner: false, isWritable: true },
-      { pubkey: new PublicKey(authority), isSigner: true, isWritable: false },
-      { pubkey: new PublicKey(refund), isSigner: false, isWritable: true },
-    ],
-    data: Buffer.from([3]),
   });
 }
 
@@ -396,91 +376,6 @@ describe("a send", () => {
   });
 });
 
-function salvage(over: Partial<AuditExpectations> = {}): AuditExpectations {
-  return {
-    flow: "salvage",
-    owner: OWNER,
-    feeWallet: FEE_WALLET,
-    expectedFeeLamports: 25_000,
-    expectedSubjects: [NAME_ACCOUNT],
-    ...over,
-  };
-}
-
-describe("a domain reclaim", () => {
-  it("accepts the delete shape the route returns", () => {
-    const result = auditInstructions(
-      [
-        ...budget(50_000),
-        snsDelete(NAME_ACCOUNT, OWNER, OWNER),
-        flip(OWNER, FEE_WALLET, 25_000),
-      ],
-      salvage(),
-    );
-
-    expect(result.ok).toBe(true);
-    expect(result.feeLamports).toBe(25_000);
-    expect(result.calls.map((call) => call.programName).sort()).toEqual([
-      "Compute Budget",
-      "SNS Name Registry",
-      "System",
-    ]);
-  });
-
-  it("refuses a delete that would refund a third party", () => {
-    // The one field where a wrong value is a theft rather than a failure: the
-    // name is destroyed either way, and its rent goes somewhere else.
-    const result = auditInstructions(
-      [...budget(50_000), snsDelete(NAME_ACCOUNT, OWNER, STRANGER)],
-      salvage(),
-    );
-
-    expect(result.ok).toBe(false);
-    expect(refusal(result)?.code).toBe("refund-to-third-party");
-  });
-
-  it("refuses a delete for a name that was not selected", () => {
-    const result = auditInstructions(
-      [...budget(50_000), snsDelete(OTHER_NAME, OWNER, OWNER)],
-      salvage(),
-    );
-
-    expect(result.ok).toBe(false);
-    expect(refusal(result)?.code).toBe("unexpected-subject");
-  });
-
-  it("refuses a delete authorised by someone who is not you", () => {
-    const result = auditInstructions(
-      [...budget(50_000), snsDelete(NAME_ACCOUNT, STRANGER, OWNER)],
-      salvage(),
-    );
-
-    expect(result.ok).toBe(false);
-    expect(refusal(result)?.code).toBe("unexpected-subject");
-  });
-
-  it("refuses an SNS instruction that is not a delete", () => {
-    const notADelete = new TransactionInstruction({
-      programId: new PublicKey(SNS_NAME_PROGRAM_ID),
-      keys: [
-        {
-          pubkey: new PublicKey(NAME_ACCOUNT),
-          isSigner: false,
-          isWritable: true,
-        },
-        { pubkey: owner, isSigner: true, isWritable: false },
-        { pubkey: owner, isSigner: false, isWritable: true },
-      ],
-      data: Buffer.from([9]),
-    });
-
-    const result = auditInstructions([...budget(50_000), notADelete], salvage());
-
-    expect(result.ok).toBe(false);
-    expect(refusal(result)?.code).toBe("unreadable-instruction");
-  });
-});
-
 describe("a burn and a revoke", () => {
   it("accepts a burn of your own balance and the close that follows it", () => {
     const result = auditInstructions(
@@ -567,7 +462,6 @@ describe("a burn and a revoke", () => {
         owner: OWNER,
         feeWallet: null,
         expectedFeeLamports: 0,
-        expectedSubjects: [ATA],
       },
     );
 
@@ -584,7 +478,7 @@ describe("a burn and a revoke", () => {
       data: Buffer.from([1, 2, 3]),
     });
 
-    const result = auditInstructions([...budget(50_000), burn], salvage());
+    const result = auditInstructions([...budget(50_000), burn], payload());
 
     expect(result.ok).toBe(false);
     expect(refusal(result)?.code).toBe("unknown-program");

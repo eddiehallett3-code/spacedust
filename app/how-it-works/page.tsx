@@ -39,7 +39,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/how-it-works" },
   title: "How it works — what each of the six tools actually does",
   description:
-    "Exactly what each of the six tools does: how a sweep finds dust, sells part of a balance and packs twenty swaps into one transaction, how The Void takes the tokens, NFTs and cNFTs you no longer want, how a batch send proves its destination, what deleting an unused .sol name really does, how approvals are read and revoked, and what the read-only scan counts and refuses.",
+    "Exactly what each of the six tools does: how a sweep finds dust, sells part of a balance and packs twenty swaps into one transaction, how The Void takes the tokens, NFTs and cNFTs you no longer want, how a batch send proves its destination, what closing an empty token account really does, how approvals are read and revoked, and what the read-only scan counts and refuses.",
 };
 
 /**
@@ -679,24 +679,22 @@ export default function HowItWorksPage() {
       <ToolSection
         tool="salvage"
         name="Salvage"
-        lede="The rent reclaimer. Two quite different things hold your SOL hostage: token accounts you emptied and forgot about, and .sol names you no longer use. Closing the first is routine. Deleting the second is irreversible — and the tool is built so you can see that difference before you sign, not after."
+        lede="The rent reclaimer. A token account you have emptied still exists, still holds a rent-exempt deposit, and will keep holding it until somebody closes it. This finds those accounts and closes them."
       >
-        <h3>1. Two kinds of account hold rent, and they are not alike</h3>
+        <h3>1. An empty account still holds your SOL</h3>
         <p>
           A rent-exempt deposit is the minimum balance an account has to keep in
-          order to exist on chain. In an ordinary wallet there are two kinds of
-          account holding one and doing nothing with it: token accounts left at a
-          zero balance after a sweep, and names in your .sol domains that you no
-          longer use. Both are reclaimable. Neither is automatically yours to
-          reclaim safely, which is the whole reason this tool exists.
+          order to exist on chain. When a token balance reaches zero the account
+          is not deleted — it sits there holding that deposit and doing nothing,
+          and no sale or transfer will ever release it. Only a close will, and
+          only the account&rsquo;s owner can ask for one.
         </p>
         <p>
-          They sit in separate panels with separate rules because they only
-          resemble each other at a distance: one is routine cleanup you can
-          undo the cost of in a second transaction, the other cannot be undone at
-          all. Anything that hides that difference behind a single
-          &ldquo;reclaim all&rdquo; button is a worse tool, even if it feels
-          tidier.
+          They accumulate quietly. A sweep closes the accounts it empties, so a
+          sweep leaves none behind; the ones Salvage finds were emptied somewhere
+          else — a sale on another venue, a transfer made by hand, a
+          minted-then-emptied airdrop account. Nothing is lost by closing one,
+          because there is nothing in it. The deposit comes back to you.
         </p>
 
         <h3>2. Empty token accounts: the same close rules, measured</h3>
@@ -730,96 +728,22 @@ export default function HowItWorksPage() {
           </li>
         </ul>
 
-        <h3>3. An unused .sol name is a different problem entirely</h3>
-        <p>
-          Names live in the SNS name registry as accounts owned by the SNS
-          program, and their deposits are not a fixed number: the rent scales
-          with the length of the name. Across real domains the name accounts
-          measured <strong>1,559,040 lamports for a 96-byte account, 8,519,040
-          for 1,096, and 71,159,040 for 10,096</strong> — so the only honest way
-          to price a delete is to read that specific account. There is no
-          formula worth trusting here.
-        </p>
-        <p>
-          Reading them does not work like reading tokens either, and both
-          problems were found by trying:
-        </p>
-        <ul>
-          <li>
-            <strong>The listing has to happen server-side.</strong> The SNS SDK
-            enumerates a wallet&rsquo;s names with <code>getProgramAccounts</code>,
-            which the RPC proxy refuses, so the lookup runs in a route of its own
-            rather than in the browser.
-          </li>
-          <li>
-            <strong>The reads are batched.</strong> Asking for one domain at a
-            time drew HTTP 429s from the RPC, so the route and the planner fetch
-            them in groups with <code>getMultipleAccounts</code>.
-          </li>
-          <li>
-            <strong>Name accounts come from the registry, never from
-            arithmetic.</strong> Deriving an account address from a name string
-            produced addresses with no account at all for names that certainly
-            exist — <code>solana.sol</code>, <code>toly.sol</code> and{" "}
-            <code>phantom.sol</code> among them — while the SDK&rsquo;s own
-            queries returned 455,612 live names. So the keys used here come from
-            the SDK, and a derivation written in this repo is never used to find
-            one.
-          </li>
-        </ul>
-
-        <h3>4. Deleting a name is not closing an account</h3>
-        <p>
-          The delete is not built here — it is the SNS program&rsquo;s own
-          instruction, and it was proved the same way everything else on this
-          site was: by simulating it against a real mainnet name account. It
-          returns <code>err: null</code> at <strong>207 bytes and 1,801 CU</strong>,
-          and the refund is that account&rsquo;s own deposit — 8,519,040 lamports
-          on the one measured. Two consequences follow, and both are stated on
-          screen rather than in a footnote:
-        </p>
-        <ul>
-          <li>
-            <strong>It cannot be undone.</strong> The name goes back into the
-            open namespace, where anyone can register it — possibly before you
-            have finished reading the confirmation. Anything hanging off it goes
-            with it: records, subdomains, the lot.
-          </li>
-          <li>
-            <strong>It does not return the registration price.</strong> What you
-            paid to register the name is gone for good. What comes back is the
-            account&rsquo;s rent-exempt deposit and nothing else, which is why
-            the figure shown is the deposit read from that account, not a
-            &ldquo;total value&rdquo; of any kind.
-          </li>
-        </ul>
-        <p>
-          That is why not a single domain is pre-selected, and why the delete
-          instruction is only ever built for the ones you pick yourself. An
-          unused name is a decision rather than a mess, so the tool asks instead
-          of assuming. And one case is refused outright rather than attempted: a
-          name that is <strong>wrapped as an NFT</strong>. Whether that
-          NFT has to be destroyed before the name can be deleted has not been
-          settled against mainnet, so those domains are listed with that reason.
-          A tool that guesses at an irreversible action is a worse tool than one
-          that says it does not know.
-        </p>
-
-        <h3>5. What a reclaim costs</h3>
+        <h3>3. What a reclaim costs</h3>
         <p>
           The fee is {RECLAIM_RATE} of the rent actually returned, charged per
           account after its close has succeeded — never on an estimate, and never
           on an account that refused. It is summed from the per-account figures
-          rather than taken as a percentage of the batch total, so a 71-SOL name
-          and a 1.5-SOL name are each charged on their own number and a large
-          batch does not round in anyone&rsquo;s favour by accident.
+          rather than taken as a percentage of the batch total, so one large
+          legacy account and ten small Token-2022 ones are each charged on their
+          own deposit, and a large batch does not round in anyone&rsquo;s favour
+          by accident.
         </p>
         <p>
-          The network fee is the other side of it, and the measurement is the
-          reassuring part: a name delete came in at 1,801 CU, against a refund
-          measured in millions of lamports. The question is therefore never
-          whether a delete is worth its fee. It is whether you still want the
-          name.
+          The network fee is the other side of it, and it is small next to what
+          comes back: a close costs a few thousand lamports of compute, against a
+          deposit measured in millions. The only question worth asking is whether
+          you want the account gone — and since it is empty and can be recreated
+          the moment that token is received again, the answer is usually yes.
         </p>
       </ToolSection>
 

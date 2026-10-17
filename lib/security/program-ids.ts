@@ -12,7 +12,7 @@ import {
  * WHY THIS FILE EXISTS
  *
  * Instructions reach this app from two places it does not fully control: the
- * server routes that talk to Jupiter and to SNS, and — for burns — the Metaplex
+ * server routes that talk to Jupiter, and — for burns — the Metaplex
  * builders. `apiToInstruction` checks that such an instruction is *well formed*
  * (a real address, a bounded account list, base64 data) and nothing more: it
  * cannot know that the program it names is one we expected, and a
@@ -28,10 +28,10 @@ import {
  * "a program a response could contain", not "a program that is usually safe" —
  * a program we can point at the line of code that needs it.
  *
- * The ids are copied from the packages that ship them, never from memory: three
- * of them (Core, Noop, and SNS's own registry program) were read out of
- * `node_modules` while writing this, and Bubblegum's four-name program lookup is
- * documented in `lib/solana/umi-program-repository.ts`.
+ * The ids are copied from the packages that ship them, never from memory: two
+ * of them (Core and Noop) were read out of `node_modules` while writing this, and
+ * Bubblegum's four-name program lookup is documented in
+ * `lib/solana/umi-program-repository.ts`.
  */
 
 /** Jupiter's aggregator. The only program whose opaque data we accept at all. */
@@ -55,9 +55,6 @@ export const CORE_PROGRAM_ID = "CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d";
 /** SPL Noop — Bubblegum's leaf-owner verification CPI. Moves nothing. */
 export const NOOP_PROGRAM_ID = "noopb9bkMVfRPU8AsbpTUg8AQkHtKwMYZiFUjNRtMmV";
 
-/** The SNS name registry. Its delete instruction is the only thing we use it for. */
-export const SNS_NAME_PROGRAM_ID = "namesLPneVptA9Z5rqUDD9tMTWEJwofgaYwp8cawRkX";
-
 /**
  * Human names, so a refusal can say *who* it refused rather than showing a
  * base58 blob. An unknown id is truncated instead of guessed.
@@ -78,7 +75,6 @@ export const PROGRAM_LABELS: Record<string, string> = {
   [ACCOUNT_COMPRESSION_PROGRAM_ID]: "SPL Account Compression",
   [CORE_PROGRAM_ID]: "Metaplex Core",
   [NOOP_PROGRAM_ID]: "SPL Noop",
-  [SNS_NAME_PROGRAM_ID]: "SNS Name Registry",
 };
 
 /** The name to use for a program, or a short form of an unknown id. */
@@ -91,8 +87,8 @@ export function programLabel(programId: string): string {
 /**
  * Which programs each flow may touch, as a hard allow-list.
  *
- * Deliberately not "all programs we know": a sweep has no business naming the
- * SNS registry, and a revoke has no business naming Jupiter. A flow that finds
+ * Deliberately not "all programs we know": a revoke has no business naming
+ * Jupiter, and a sweep has no business naming Metaplex. A flow that finds
  * itself needing a program the list does not have is a decision to make here,
  * in a diff, rather than something that happens quietly at a wallet prompt.
  *
@@ -136,11 +132,6 @@ export const FLOW_PROGRAMS: Record<AuditFlowName, readonly string[]> = {
     ASSOCIATED_TOKEN_PROGRAM_ID,
     SYSTEM_PROGRAM_ID,
   ],
-  salvage: [
-    COMPUTE_BUDGET_PROGRAM_ID,
-    SNS_NAME_PROGRAM_ID,
-    SYSTEM_PROGRAM_ID,
-  ],
   approvals: [
     COMPUTE_BUDGET_PROGRAM_ID,
     TOKEN_PROGRAM_ID,
@@ -149,9 +140,13 @@ export const FLOW_PROGRAMS: Record<AuditFlowName, readonly string[]> = {
 };
 
 /**
- * The five flows, named once.
+ * The four flows, named once.
  *
  * Declared here rather than in the audit so this module has no import of it —
  * the audit imports the allow-list, never the other way round.
+ *
+ * There were five until Salvage stopped deleting `.sol` names: that flow's only
+ * instruction came from another program's SDK, so it needed its own allow-list
+ * and its own decoding rules for a single operation nothing else used.
  */
-export type AuditFlowName = "sweep" | "void" | "payload" | "salvage" | "approvals";
+export type AuditFlowName = "sweep" | "void" | "payload" | "approvals";

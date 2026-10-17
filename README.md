@@ -27,7 +27,7 @@ and names any that is missing, because Jupiter does not check, and a fee with
 nowhere to land is a swap that fails for everyone. **1.5% of the rent that any flow
 reclaims** is unchanged: a token burned in The Void, an account a swap emptied and
 closed, an already-empty account closed, a Payload send that empties the account
-it came from, or a `.sol` name deleted.
+it came from.
 Burning an NFT or a cNFT costs nothing. Revoking an approval and looking a wallet
 up cost only the network fee.
 
@@ -201,7 +201,7 @@ Chainstack) — the code does not care which one.
 |---|---|---|
 | `HELIUS_API_KEY` | No | Enables the faster DAS scanner. Blank = free core-RPC path. |
 | `JUPITER_API_KEY` | No | Jupiter works keyless (~0.5 req/s). A free key at [portal.jup.ag](https://portal.jup.ag) removes rate-limit errors. |
-| `NEXT_PUBLIC_FEE_WALLET` | No | Receiving wallet for the 1.5% fee on reclaimed rent (Void sends, empty-account closes, Payload sends, domain deletes). **Leave blank to charge nothing** — every rent fee path is skipped when unset. |
+| `NEXT_PUBLIC_FEE_WALLET` | No | Receiving wallet for the 1.5% fee on reclaimed rent (Void sends, empty-account closes, Payload sends). **Leave blank to charge nothing** — every rent fee path is skipped when unset. |
 | `NEXT_PUBLIC_FALLBACK_RPC_URL` | No | RPC used when Helius is absent. |
 | `NEXT_PUBLIC_SITE_URL` | No | The site's own origin. Feeds `metadataBase` (so the generated social-preview card resolves to an absolute URL) and `sitemap.xml`. Defaults to `https://spacedust.cc`. |
 | `NEXT_PUBLIC_TWITTER_URL` | No | The X account. Drives the footer link (labelled with the derived `@handle`), the "we only post from …" line on `/security`, and the `twitter:site`/`creator` attribution on preview cards. A value that is not an `x.com`/`twitter.com` profile is ignored rather than linked. |
@@ -225,7 +225,7 @@ Chainstack) — the code does not care which one.
    `NEXT_PUBLIC_FEE_WALLET`) under **Settings → Environment Variables**.
 4. Deploy.
 
-Vercel's Hobby plan is enough: six dynamic routes, one static, no database, no queue.
+Vercel's Hobby plan is enough: five dynamic routes, one static, no database, no queue.
 
 ### Before you take traffic: the two steps the repo cannot do
 
@@ -245,7 +245,6 @@ reprice both.
 | `/api/rpc` | 240 | 1 minute |
 | `/api/plan` | 60 | 1 minute |
 | `/api/tokens` | 30 | 1 minute |
-| `/api/domains` | 30 | 1 minute |
 | `/api/asset-proof` | 30 | 1 minute |
 | `/api/health` | 12 | 1 minute |
 
@@ -362,7 +361,6 @@ app/
 └── api/
     ├── tokens/route.ts     GET  — scan a wallet, return valued tokens
     ├── plan/route.ts       POST — build one Jupiter route per token
-    ├── domains/route.ts    GET  — a wallet's .sol names; POST builds the deletes
     ├── asset-proof/route.ts POST — cNFT proofs, one DAS call per asset
     ├── rpc/route.ts        POST — allow-listed JSON-RPC proxy
     └── health/route.ts     GET  — setup diagnostics, one real call per provider
@@ -414,7 +412,7 @@ that allow-list it would be an open RPC relay pointed at your Helius account.
    redirected client-side, and paid in the output asset into the fee wallet's own
    token account for it), and 1.5% of any rent reclaimed — a Void burn, an account
    a swap emptied and closed, an already-empty account closed, a Payload send that
-   emptied its account, a `.sol` name deleted.
+   emptied its account.
    The rent fee is a plain SOL transfer taken from the rent just returned to the
    user.
 
@@ -923,34 +921,6 @@ transfer-hook mints, and any holding whose token account the scan could not name
 
 ---
 
-## `.sol` domains — deleting a name for its rent
-
-A `.sol` domain is not an SPL token. It is a **name account** owned by the SNS
-program, and its deposit is set by the *length of the name* at registration rather
-than by any one constant: measured across real domains, a 96-byte name held
-1,559,040 lamports, a 1,096-byte name 8,519,040, and a 10,096-byte name
-71,159,040. So the figure is read per domain, like every other rent in this app.
-
-Deleting one uses the SNS program's own `deleteInstruction` — taken from
-`@bonfida/spl-name-service` rather than assembled here, because this codebase does
-not hand-encode another program's instructions — with the owner as both signer and
-refund target. It is built by `POST /api/domains` and validated on the client
-through `apiToInstruction`, the same boundary Jupiter's instructions cross.
-
-**It is not a close.** SNS's own documentation is blunt: the name returns to the open
-namespace where anyone can register it, its records and subdomains go with it, and
-deletion cannot be undone — they say they do not recommend it. So nothing is
-pre-selected, each domain is a deliberate tick, the warning sits above the list
-rather than in fine print, and the button says "delete for good". Refused with the
-reason on the row: domains wrapped as NFTs (that route is not built), and any name
-whose registry owner is not the connected wallet.
-
-The lookup is a **server route** because the SDK lists with `getProgramAccounts`,
-which this app's RPC proxy refuses by design. Tokenization and account sizes are read
-in two batched calls, because per-domain reads drew 429s during the probe.
-
----
-
 ## Security model
 
 **Spacedust cannot move your funds.** There is no code path from a server key to
@@ -1083,29 +1053,6 @@ are fixed in the script, and the isolation rule — one variable at a time — i
 written into it, because a probe that answers the wrong question is worse than
 no probe.
 
-### How the domain delete was measured
-
-`probes/tmp-sol-rent-probe.mjs` builds the real instruction and simulates it against a real
-mainnet name account with `sigVerify: false`:
-
-| Measurement | Result |
-|---|---|
-| delete on a live name account | `err: null` — **207 bytes, 1,801 CU** |
-| the refund | that account's own rent — 8,519,040 lamports on the one measured |
-| name-account rent across real domains | 1,559,040 (96 bytes) → 8,519,040 (1,096) → 71,159,040 (10,096) |
-| names registered in total | **455,612** (a ground-truth scan of the program) |
-
-Two things the probe had to learn the hard way. Deriving a name account from a name
-string produced addresses with **no account** for names that certainly exist
-(`solana.sol`, `toly.sol`, `phantom.sol`), while `getAllSnsDomains` returned 455,612
-live ones — so the keys come from the SDK's own queries, never from a derivation
-written in this repo. And per-domain reads drew 429s from the RPC, which is why both
-the route and the planner batch them.
-
-What remains unmeasured, and is therefore refused rather than attempted: whether a
-**tokenized** domain's NFT has to be burned before the name can be deleted. Until
-that is settled against mainnet, wrapped domains are listed with that reason.
-
 ### How the swap fee was measured
 
 `probes/tmp-referral-probe.mjs` asks Jupiter's Swap API for the same swap twice — once
@@ -1171,7 +1118,7 @@ not attributable to what the flow promised.
 
 The gap it closes is the one simulation cannot: a `SystemProgram.transfer` that
 empties a wallet simulates perfectly. Before this, nothing asked whether the
-instructions from `POST /api/plan` and `POST /api/domains` — both of which cross
+instructions from `POST /api/plan` — which crosses
 the network — meant what the screen said they meant.
 `apiToInstruction` checks that an instruction is *well formed*: a real address, a
 bounded account list, base64 data. That is a different question from *permitted*.
@@ -1180,7 +1127,7 @@ What it enforces, for all six flows:
 
 | Rule | Why |
 |---|---|
-| The program must be on that flow's allow-list (`lib/security/program-ids.ts`) | A sweep has no business naming the SNS registry; a revoke has no business naming Jupiter. |
+| The program must be on that flow's allow-list (`lib/security/program-ids.ts`) | A sweep has no business naming Metaplex; a revoke has no business naming Jupiter. |
 | `Approve` and `SetAuthority` are refused in **every** flow | The two instructions that turn a mistake into a loss. Nothing here ever grants a delegation or hands over ownership. |
 | A `closeAccount` may only refund to the owner | Rent goes back to the wallet that paid it. |
 | The only SOL that may leave is the computed fee | A sweep's swap fee rides inside the aggregator's call, so the only System transfers a sweep allows are the rent-reclaim fee and the wrapping transfer into the wallet's own wrapped-SOL account. |
@@ -1208,11 +1155,10 @@ Two things the tests caught while building it, both worth keeping in mind:
   that outputs SOL wraps it. Banning the program was wrong; the *destination* rule
   is the check that belongs there.
 
-36 tests in `lib/security/instruction-audit.test.ts`, and every "accepts" case
+31 tests in `lib/security/instruction-audit.test.ts`, and every "accepts" case
 runs through the real builder the app ships — `createComputeBudgetInstructions`,
-`createCloseAccountInstruction`, `buildSend`, and the SNS delete shape the route
-returns — so a change to any instruction layout fails in the test suite rather
-than at a wallet prompt.
+`createCloseAccountInstruction`, `buildSend` — so a change to any instruction
+layout fails in the test suite rather than at a wallet prompt.
 
 ### Why a transaction that landed was reported as expired
 
@@ -1693,7 +1639,6 @@ has already been violated once:
 | `lib/payload/plan-send.test.ts` | A batch is built only for the destination that was verified, at per-token amounts — and a close is attached only to a send that empties its account, because a close with a residue left in it is refused on chain with `Custom: 11` |
 | `lib/payload/preparation.test.ts` | A disabled button is never indistinguishable from a dead one: the gate on Payload's two actions is a pure function of the state, including the combination that started it — assets selected, verification off, both actions correctly available |
 | `lib/payload/camera-failure.test.ts` | A camera refusal names *who* refused it: never a browser setting when the browser already allows the camera, never a setting at all when a policy denies it, and never a diagnosis from a question the browser did not answer |
-| `lib/salvage/plan-delete.test.ts` | The compute budget for a domain delete is floored rather than sized like a swap's — a real delete measures 1,801 CU, and the priority fee is billed on the budget *requested*, so headroom nobody uses is money spent |
 | `lib/sweep/burn-result-copy.test.ts` | The burn report describes the batch, not the tab it was read on: an NFT and a cNFT burned in one transaction are counted and priced separately, so a rent claim can never contradict the asset that just returned its rent |
 | `next.config.test.ts` | The response headers allow the camera **to this origin** and never deny it to every origin — `Permissions-Policy: camera=()` made the scanner impossible while every permission setting, and the browser's own camera preview, said "allow" |
 | `app/api/rpc/route.test.ts` | Every RPC method the browser reaches for is on the proxy's allow-list — including the ones it never names, because a `*Parsed*` call is a plain call with an encoding, and the route still consults the list |

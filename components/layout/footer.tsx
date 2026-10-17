@@ -60,8 +60,8 @@ export function Footer() {
               <span>
                 {(SWAP_FEE_BPS / 100).toFixed(1)}% on swaps, and{" "}
                 {(RECLAIM_FEE_BPS / 100).toFixed(1)}% of the rent any flow returns —
-                Void sends, account closes, Payload sends, domain deletes. All shown
-                before you sign, and you sign every transaction.
+                Void sends, account closes, Payload sends. All shown before you
+                sign, and you sign every transaction.
               </span>
             </p>
           </div>

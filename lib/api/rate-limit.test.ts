@@ -57,7 +57,7 @@ describe("createRateLimiter", () => {
     for (let i = 0; i < 30; i += 1) check("tokens", "203.0.113.9", T0);
 
     expect(check("tokens", "203.0.113.9", T0).allowed).toBe(false);
-    expect(check("domains", "203.0.113.9", T0).allowed).toBe(true);
+    expect(check("asset-proof", "203.0.113.9", T0).allowed).toBe(true);
   });
 
   it("clamps a flood of rotating keys at the per-route ceiling", () => {

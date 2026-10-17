@@ -11,17 +11,16 @@ export const metadata: Metadata = {
   // page. It matters because the site answers on two hosts — the custom domain and
   // the *.vercel.app one — and a crawler finding both is free to choose either.
   alternates: { canonical: "/salvage" },
-  title: "Salvage — reclaim rent from empty accounts and unused .sol domains",
-  description: `Close token accounts that hold no balance and delete the .sol names you no longer use, returning the rent those accounts were holding. ${RECLAIM_RATE} of what comes back.`,
+  title: "Salvage — reclaim the rent locked in empty token accounts",
+  description: `Close token accounts that hold no balance and get the rent each one was holding back. ${RECLAIM_RATE} of what comes back.`,
 };
 
 /**
  * Salvage.
  *
- * The smallest tool here in terms of decisions — nothing is priced, nothing is
- * routed, and the accounts hold no assets — but not the smallest in consequence:
- * one of its two jobs cannot be undone. The page is therefore plain about which is
- * which, rather than presenting both as "rent reclaim".
+ * The smallest tool here: nothing is priced, nothing is routed, and the accounts
+ * hold no assets — only the rent-exempt deposit the network keeps while an
+ * account exists. One job, so the page says one thing.
  */
 export default function SalvagePage() {
   return (
@@ -29,7 +28,7 @@ export default function SalvagePage() {
       <PageHeader
         emblem={<ToolEmblem tool="salvage" />}
         title="Salvage"
-        description="Two kinds of thing hold rent you cannot otherwise reach: token accounts that have been emptied, and .sol names you no longer use. Closing an account and deleting a name are different decisions, so they are separate here — one tidies up, the other gives the name away."
+        description="Every token account you have emptied still holds a rent deposit, and the network keeps it until the account is closed. Salvage finds those accounts and closes them, returning the deposit to your wallet."
       />
       <SalvageApp />
     </Container>

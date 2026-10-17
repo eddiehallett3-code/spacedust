@@ -264,20 +264,6 @@ export const SEND_COMPUTE_UNITS_PER_UNIT = 16_000;
 /** Solana's own ceiling on one transaction's compute budget. */
 export const MAX_COMPUTE_UNIT_LIMIT = 1_400_000;
 
-/**
- * Measured compute for one SNS domain delete.
- *
- * 1,801 CU was measured by simulating the real instruction against a real mainnet
- * name account — 207 bytes, `err: null`, refunding that account's own rent. That
- * figure is carried into the comment rather than the constant's name because the
- * budget below is sized from it: the priority fee is billed on the budget you
- * *request*, so a delete priced like a swap would overpay for headroom nobody uses.
- */
-export const DELETE_COMPUTE_UNITS_PER_UNIT = 5_000;
-
-/** Floor for a delete transaction's compute budget. */
-export const DELETE_COMPUTE_UNIT_FLOOR = 50_000;
-
 // ── Scanning ────────────────────────────────────────────────────────────────
 
 /** DAS page size. */

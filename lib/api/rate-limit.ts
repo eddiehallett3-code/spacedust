@@ -31,7 +31,6 @@ export type LimitedRoute =
   | "rpc"
   | "plan"
   | "tokens"
-  | "domains"
   | "asset-proof"
   | "health";
 
@@ -43,8 +42,8 @@ export type LimitedRoute =
  *    and simulates each packed transaction, then sends and polls for status —
  *    dozens within a few seconds. 240/min passes an impatient repeat sweep while
  *    capping a loop at a rate Helius will not notice.
- *  - `plan` builds one plan per preview; `tokens`, `domains` and `asset-proof` each
- *    back a single screen's scan.
+ *  - `plan` builds one plan per preview; `tokens` and `asset-proof` each back a
+ *    single screen's scan.
  *  - `health` is the most expensive *per call* — it makes one real upstream request
  *    per provider, including a DAS wallet scan, to answer "are the keys working?".
  *    12/min is one every five seconds, which covers any sane uptime monitor and
@@ -56,7 +55,6 @@ const BUDGETS: Record<LimitedRoute, number> = {
   rpc: 240,
   plan: 60,
   tokens: 30,
-  domains: 30,
   "asset-proof": 30,
   health: 12,
 };
