@@ -116,14 +116,22 @@ export function useSweep() {
    * Build, pack and simulate. Shared by Dry Run and the real sweep, so the
    * preview comes from the exact code path that will later submit — there is no
    * separate, drifting "preview" implementation to get wrong.
+   *
+   * Returns the plan it built, rather than `true`. Callers used to read
+   * `sweep.packed` straight afterwards to report how many transactions there
+   * were — but `prepare` sets state, and the caller's closure still holds the
+   * object from the render *before* it ran, so that count was always the
+   * previous plan's. It announced "0 transactions built" on a first run and a
+   * stale number on a later one. Returning the result removes the trap instead
+   * of documenting it.
    */
   const prepare = useCallback(
     async (
       request: SweepRequest,
       options?: { dryRun?: boolean },
-    ): Promise<boolean> => {
+    ): Promise<PlanSweepResult | null> => {
       const dryRun = options?.dryRun ?? false;
-      if (busyRef.current) return false;
+      if (busyRef.current) return null;
 
       if (!publicKey) {
         patch({
@@ -132,9 +140,9 @@ export function useSweep() {
             message: "Connect your wallet before running a sweep.",
           },
         });
-        return false;
+        return null;
       }
-      if (request.tokens.length === 0) return false;
+      if (request.tokens.length === 0) return null;
 
       busyRef.current = true;
       preparedRef.current = null;
@@ -187,7 +195,7 @@ export function useSweep() {
         } else {
           patch({ phase: "idle" });
         }
-        return true;
+        return result;
       } catch (caught) {
         if (caught instanceof PlanError) {
           patch({
@@ -202,7 +210,7 @@ export function useSweep() {
         } else {
           patch({ phase: "error", error: toFriendlyError(caught) });
         }
-        return false;
+        return null;
       } finally {
         busyRef.current = false;
       }

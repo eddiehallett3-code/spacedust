@@ -456,7 +456,7 @@ export function DustApp() {
 
   const handlePreview = useCallback(async (): Promise<void> => {
     retryingRef.current = false;
-    const ok = await sweep.prepare({
+    const result = await sweep.prepare({
       tokens: selectedTokens,
       outputAsset,
       // The per-token amounts ride alongside the tokens rather than replacing
@@ -467,10 +467,14 @@ export function DustApp() {
       // says rather than an empty map that happens to mean the same thing.
       amounts: customAmounts ? amountsByMint : undefined,
     });
-    if (ok) {
+    if (result) {
+      // Read from the result, never from `sweep`. This closure holds the render
+      // from before the plan existed, so `sweep.packed` here is the *previous*
+      // plan's — which is how this toast came to announce "0 transactions built"
+      // on a first run and a stale count on every run after it.
       toast.success("Preview ready", {
         description:
-          pluralize(sweep.packed.length, "transaction") +
+          pluralize(result.packed.length, "transaction") +
           " built and simulated. Review before signing.",
       });
     }
@@ -503,12 +507,12 @@ export function DustApp() {
     if (!plan) return;
 
     retryingRef.current = true;
-    const ok = await sweep.prepare({
+    const result = await sweep.prepare({
       tokens: plan.tokens,
       outputAsset,
       amounts: plan.amounts,
     });
-    if (ok) {
+    if (result) {
       toast.success(`Retrying ${pluralize(plan.tokens.length, "token")}`, {
         description: "Fresh routes and quotes. Review the preview, then sign.",
       });
