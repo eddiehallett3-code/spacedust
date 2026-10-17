@@ -72,6 +72,23 @@ export function ControlsColumn({
   /** Called once accounts have been closed, so the app can rescan. */
   onRentReclaimed: () => void;
 }) {
+  // A preview describes its own plan, and these two numbers have to describe the
+  // bytes rather than the checkboxes. They differ in two real cases: a retry
+  // plans a subset of the selection (the rest already went), and Jupiter can
+  // decline to route a selected token, which drops it from the plan. Either way
+  // the button has to say how many swaps are actually about to be signed.
+  const plannedTokens = sweep.packed.reduce(
+    (sum, transaction) => sum + transaction.mints.length,
+    0,
+  );
+  const hasPlan = sweep.packed.length > 0;
+  const panelTokens = hasPlan ? plannedTokens : selectedCount;
+  // The plan's own figure, which is the value of the *chosen* amounts — so it
+  // already excludes anything it dropped and respects a partial sale.
+  const panelValueUsd = hasPlan
+    ? (sweep.plan?.totalInValueUsd ?? selectedValueUsd)
+    : selectedValueUsd;
+
   return (
     // `max-h` + `overflow-y-auto` at the same breakpoint as `sticky`, and they are
     // load-bearing rather than decorative: a sticky element taller than the viewport
@@ -97,8 +114,8 @@ export function ControlsColumn({
 
           <SweepPanel
             phase={sweep.phase}
-            selectedTokens={selectedCount}
-            totalValueUsd={selectedValueUsd}
+            selectedTokens={panelTokens}
+            totalValueUsd={panelValueUsd}
             packed={sweep.packed}
             simulations={sweep.simulations}
             audit={sweep.audit}

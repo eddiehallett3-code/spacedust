@@ -26,6 +26,7 @@ import { useWalletScan } from "@/hooks/use-wallet-scan";
 import { countTokensLeftBehind } from "@/lib/sweep/void-prompt";
 import { isSweepableToken } from "@/lib/sweep/sweepable";
 import { resolveAmount } from "@/lib/sweep/amounts";
+import { planRetry } from "@/lib/sweep/retry";
 import {
   isBoolean,
   isNumberInRange,
@@ -444,6 +445,40 @@ export function DustApp() {
     await sweep.execute();
   }, [sweep]);
 
+  /**
+   * Runs just the tokens whose transaction did not land.
+   *
+   * No rescan and no re-selection, deliberately: a reverted swap moves nothing,
+   * so the balances are exactly where the failed run left them and the scan we
+   * already hold still describes the wallet. What the retry rebuilds is the
+   * *plan* — fresh quotes, fresh blockhash, fresh simulation — because those are
+   * what actually fix the two ways a batch fails.
+   *
+   * It lands in the ordinary preview state rather than signing straight away,
+   * which means the retry is reviewed like any other run. A new plan means a new
+   * blockhash, and therefore a new signature: there is nothing here that could be
+   * submitted without one, so skipping the preview would buy nothing but risk.
+   */
+  const handleRetryFailed = useCallback(async (): Promise<void> => {
+    const plan = planRetry({
+      outcomes: sweep.outcomes,
+      tokens,
+      amounts: amountsByMint,
+    });
+    if (!plan) return;
+
+    const ok = await sweep.prepare({
+      tokens: plan.tokens,
+      outputAsset,
+      amounts: plan.amounts,
+    });
+    if (ok) {
+      toast.success(`Retrying ${pluralize(plan.tokens.length, "token")}`, {
+        description: "Fresh routes and quotes. Review the preview, then sign.",
+      });
+    }
+  }, [amountsByMint, outputAsset, sweep, tokens]);
+
   // ── One tally path ──────────────────────────────────────────────────────
   // The moment a real sweep lands, both persistent records update together:
   // the site-wide counters and the history ledger. A ref keyed on the plan's
@@ -611,6 +646,7 @@ export function DustApp() {
       <SuccessOverlay
         summary={sweep.summary}
         outcomes={sweep.outcomes}
+        onRetryFailed={() => void handleRetryFailed()}
         show={sweep.phase === "success"}
         voidCount={voidPromptCount}
         onEnterVoid={handleEnterVoid}
@@ -719,6 +755,7 @@ function ScanErrorState({
 function SuccessOverlay({
   summary,
   outcomes,
+  onRetryFailed,
   show,
   voidCount,
   onEnterVoid,
@@ -727,6 +764,7 @@ function SuccessOverlay({
 }: {
   summary: SweepSummary | null;
   outcomes: TokenOutcome[];
+  onRetryFailed: () => void;
   show: boolean;
   /** Unroutable tokens still held — offered The Void after a real sweep. */
   voidCount: number;
@@ -755,6 +793,7 @@ function SuccessOverlay({
             <SuccessSummary
               summary={summary}
               outcomes={outcomes}
+              onRetryFailed={onRetryFailed}
               voidCount={voidCount}
               onEnterVoid={onEnterVoid}
               onSweepMore={onSweepMore}

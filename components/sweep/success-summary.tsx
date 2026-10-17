@@ -8,6 +8,7 @@ import {
   ExternalLink,
   Orbit,
   PartyPopper,
+  RotateCcw,
   XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,7 @@ import type { SweepSummary, TokenOutcome } from "@/types/sweep";
 export function SuccessSummary({
   summary,
   outcomes,
+  onRetryFailed,
   voidCount,
   onEnterVoid,
   onSweepMore,
@@ -42,6 +44,14 @@ export function SuccessSummary({
 }: {
   summary: SweepSummary;
   outcomes: TokenOutcome[];
+  /**
+   * Rebuilds a plan for just the tokens whose transaction did not land.
+   *
+   * Offered instead of "run it again and reselect": a reverted swap changes no
+   * balance, so the failed tokens are still in the wallet — what failed was the
+   * timing, and rebuilding is the fix.
+   */
+  onRetryFailed: () => void;
   /**
    * Illiquid tokens still sitting in the wallet. Shown only after a real
    * sweep, because the suggested order is: swap first, The Void after.
@@ -239,6 +249,39 @@ export function SuccessSummary({
               </li>
             ))}
           </ul>
+        </div>
+      ) : null}
+
+      {/* Failures here are recoverable, and saying so plainly is the point.
+          A reverted transaction changes no balance, so every failed token is
+          still in the wallet with its rent still locked in its account. What
+          went wrong was the timing — a quote that moved, a blockhash that
+          expired while the wallet waited — and both are fixed by building the
+          same tokens again. The retry previews first for the same reason the
+          original run did: it gets its own routes and simulation before
+          anything is signed. */}
+      {!isDryRun && summary.failedCount > 0 ? (
+        <div className="relative mt-4 flex flex-col gap-3 rounded-xl border border-warning/30 bg-warning/8 p-3 sm:flex-row sm:items-center">
+          <div className="min-w-0 flex-1">
+            <p className="flex items-center gap-1.5 text-sm font-medium">
+              <RotateCcw className="size-4 shrink-0 text-warning" aria-hidden />
+              {pluralize(summary.failedCount, "token")} didn&apos;t go
+            </p>
+            <p className="mt-0.5 text-xs leading-relaxed text-muted">
+              Nothing left your wallet. A fresh attempt rebuilds the routes and
+              quotes, which is what fixes an expired blockhash or a price that
+              moved mid-sign.
+            </p>
+          </div>
+          <Button
+            size="md"
+            variant="outline"
+            className="shrink-0"
+            onClick={onRetryFailed}
+          >
+            <RotateCcw className="size-3.5" aria-hidden />
+            Retry {pluralize(summary.failedCount, "token")}
+          </Button>
         </div>
       ) : null}
 
