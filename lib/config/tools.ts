@@ -90,7 +90,7 @@ export const TOOLS: Tool[] = [
     name: "Payload",
     href: "/payload",
     tagline:
-      "Send many tokens and NFTs to one address, with the destination checked first.",
+      "Send many tokens, NFTs and cNFTs to one address, with the destination checked first.",
     cta: "Open Payload",
   },
   {
