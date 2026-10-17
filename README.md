@@ -276,9 +276,20 @@ reprice both.
 
 **If your plan has no rate limiting rules**, the shared counter is the equivalent
 that costs nothing: add Upstash (free tier) or Vercel's Redis integration and let it
-set its own variables. `UPSTASH_REDIS_REST_URL`/`_TOKEN` and
-`KV_REST_API_URL`/`_TOKEN` are read as-is; the app's own
-`RATE_LIMIT_REDIS_URL`/`RATE_LIMIT_REDIS_TOKEN` work too, and win when both are set.
+set its own variables — no renaming. Any of these pairs is read, in this order:
+
+| Variables | Where they come from |
+| --- | --- |
+| `RATE_LIMIT_REDIS_URL` / `RATE_LIMIT_REDIS_TOKEN` | set by hand; wins over the rest |
+| `RATE_LIMIT_REDIS_KV_REST_API_URL` / `…_TOKEN` | Vercel's integration, prefix `RATE_LIMIT_REDIS` |
+| `UPSTASH_REDIS_REST_URL` / `…_TOKEN` | a database created at Upstash |
+| `KV_REST_API_URL` / `KV_REST_API_TOKEN` | an unprefixed Vercel connection |
+
+The `…_KV_URL` and `…_REDIS_URL` siblings that the Vercel integration also creates
+are **not** read: they are `redis://` connection strings, and this client speaks
+HTTP. Reading one would fail on every request and fail open, leaving a limiter that
+looks configured and is not.
+
 `middleware.ts` then applies the same `BUDGETS` through a counter *every instance
 shares*, which is the gap the edge rule would otherwise close. Unset it, and it does
 nothing at all; unreachable, it fails open, because a counter store that hiccups

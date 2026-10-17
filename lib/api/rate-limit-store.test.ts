@@ -154,6 +154,10 @@ describe("checkSharedLimit", () => {
 const STORE_ENV = [
   "RATE_LIMIT_REDIS_URL",
   "RATE_LIMIT_REDIS_TOKEN",
+  "RATE_LIMIT_REDIS_KV_REST_API_URL",
+  "RATE_LIMIT_REDIS_KV_REST_API_TOKEN",
+  "RATE_LIMIT_REDIS_KV_URL",
+  "RATE_LIMIT_REDIS_REDIS_URL",
   "UPSTASH_REDIS_REST_URL",
   "UPSTASH_REDIS_REST_TOKEN",
   "KV_REST_API_URL",
@@ -201,6 +205,31 @@ describe("store configuration", () => {
     process.env.UPSTASH_REDIS_REST_TOKEN = "upstash-token";
 
     await expect(endpointUsed()).resolves.toBe("https://explicit.example/pipeline");
+  });
+
+  it("reads what Vercel's integration creates after a custom prefix", async () => {
+    // The real shape: the prefix is prepended to the integration's own KV_* names,
+    // so `RATE_LIMIT_REDIS` arrives as …_KV_REST_API_URL, not …_URL.
+    process.env.RATE_LIMIT_REDIS_KV_REST_API_URL = "https://prefixed.example";
+    process.env.RATE_LIMIT_REDIS_KV_REST_API_TOKEN = "prefixed-token";
+
+    await expect(endpointUsed()).resolves.toBe("https://prefixed.example/pipeline");
+  });
+
+  it("ignores the redis:// siblings that connection also creates", async () => {
+    // Every Upstash/Vercel connection ships …_KV_URL and …_REDIS_URL beside the
+    // REST pair. They speak the Redis protocol, so fetching them would fail on
+    // every request and fail open — the limiter would look configured and be off.
+    process.env.RATE_LIMIT_REDIS_KV_URL = "rediss://default:secret@example.com:6379";
+    process.env.RATE_LIMIT_REDIS_REDIS_URL = "rediss://default:secret@example.com:6379";
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+
+    await expect(checkSharedLimit(request(), "tokens")).resolves.toEqual({
+      allowed: true,
+      retryAfterSeconds: 0,
+    });
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it("needs both halves, so a URL with no token is still unconfigured", async () => {

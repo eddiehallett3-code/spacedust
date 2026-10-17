@@ -47,20 +47,34 @@ function store(): { url: string; token: string; source: string } | null {
 /**
  * The environment conventions this accepts, in precedence order.
  *
- * Three, because that is how many the platforms actually use — and a deployment
+ * Four pairs, because each is one a platform actually creates — and a deployment
  * that has to rename what its integration just created is a deployment that ends
  * up not configuring this at all. That is not hypothetical: production ran with no
  * store for days because the only names this read were ones nothing had set.
  *
- *   RATE_LIMIT_REDIS_*      this app's own names, first so they can override
- *   UPSTASH_REDIS_REST_*    what Upstash's dashboard gives you
- *   KV_REST_API_*           what Vercel's Redis integration gives you
+ *   RATE_LIMIT_REDIS_URL/_TOKEN             this app's own names, first so they
+ *                                           can override anything else
+ *   RATE_LIMIT_REDIS_KV_REST_API_URL/_TOKEN what Vercel's integration creates
+ *                                           when that prefix is chosen
+ *   UPSTASH_REDIS_REST_URL/_TOKEN           what Upstash's dashboard gives you
+ *   KV_REST_API_URL/_TOKEN                  an unprefixed Vercel connection
  */
 const STORE_CONVENTIONS = [
   {
     source: "RATE_LIMIT_REDIS_URL",
     url: "RATE_LIMIT_REDIS_URL",
     token: "RATE_LIMIT_REDIS_TOKEN",
+  },
+  {
+    // What Vercel's Upstash integration creates when the custom prefix is
+    // `RATE_LIMIT_REDIS`: it prepends the prefix to its own KV_* names rather than
+    // substituting into them, so the pair arrives as …_KV_REST_API_URL/…_TOKEN
+    // instead of the …_URL/…_TOKEN two entries up. The connection also creates
+    // …_KV_URL and …_REDIS_URL siblings, which are `redis://` connection strings
+    // and are deliberately not read here — this client speaks HTTP.
+    source: "RATE_LIMIT_REDIS_KV_REST_API_URL",
+    url: "RATE_LIMIT_REDIS_KV_REST_API_URL",
+    token: "RATE_LIMIT_REDIS_KV_REST_API_TOKEN",
   },
   {
     source: "UPSTASH_REDIS_REST_URL",
