@@ -17,6 +17,7 @@ import {
   validateDestination,
 } from "@/lib/payload/destination";
 import { resolvePreparationGate } from "@/lib/payload/preparation";
+import { SOL_SEND_FEE_RESERVE_LAMPORTS } from "@/lib/utils/constants";
 import { parseBaseAmount, toBaseAmount } from "@/lib/utils/sanitize";
 import { truncateAddress } from "@/lib/utils/format";
 
@@ -55,6 +56,14 @@ export function PayloadApp() {
    * from the amount, and the preview's figures follow.
    */
   const [amounts, setAmounts] = useState<Record<string, string>>({});
+  /**
+   * Native SOL, which is its own kind of item rather than a token: no mint, no
+   * account to close, no rent. Selected separately because it cannot live in
+   * `selectedTokens` — that set is keyed by mint.
+   */
+  const [solSelected, setSolSelected] = useState(false);
+  /** SOL to send, as typed, in whole units. Empty means the maximum. */
+  const [solAmount, setSolAmount] = useState("");
   /**
    * Verification defaults to on.
    *
@@ -131,6 +140,60 @@ export function PayloadApp() {
     return null;
   }, [requestedAmounts]);
 
+  /**
+   * The most SOL a send can move.
+   *
+   * The batch pays its network fees from this same wallet, so an amount that
+   * leaves nothing behind is an amount that cannot be sent. The reserve is the
+   * floor the UI calls "max" — it is not a fee, and Spacedust keeps none of it.
+   */
+  const solMaxLamports = Math.max(
+    0,
+    (scan.native?.lamports ?? 0) - SOL_SEND_FEE_RESERVE_LAMPORTS,
+  );
+
+  /** The SOL amount to send, or the reason it cannot be. */
+  const solRequest = useMemo(() => {
+    if (!solSelected) {
+      return { lamports: null as string | null, problem: null as string | null };
+    }
+
+    const typed = solAmount.trim();
+    if (typed.length === 0) {
+      return solMaxLamports > 0
+        ? { lamports: String(solMaxLamports), problem: null }
+        : {
+            lamports: null,
+            problem:
+              "There is no SOL to send once the network-fee reserve is kept.",
+          };
+    }
+
+    const base = toBaseAmount(typed, 9);
+    if (base === null) {
+      return {
+        lamports: null,
+        problem:
+          "Enter the SOL amount as a plain number, with no more than 9 decimal places.",
+      };
+    }
+    if (base <= 0n) {
+      return {
+        lamports: null,
+        problem:
+          "The SOL amount has to be more than zero — untick it to leave it out instead.",
+      };
+    }
+    if (base > BigInt(solMaxLamports)) {
+      return {
+        lamports: null,
+        problem: `That would leave less than ${(SOL_SEND_FEE_RESERVE_LAMPORTS / 1e9).toFixed(3)} SOL behind, and the batch pays its network fee from this wallet.`,
+      };
+    }
+
+    return { lamports: base.toString(), problem: null };
+  }, [solAmount, solMaxLamports, solSelected]);
+
   const selectedTokenList = useMemo(
     () =>
       scan.tokens
@@ -151,7 +214,8 @@ export function PayloadApp() {
   );
 
   const check = validateDestination(recipient, scan.owner);
-  const itemCount = selectedTokenList.length + selectedAssetList.length;
+  const itemCount =
+    selectedTokenList.length + selectedAssetList.length + (solSelected ? 1 : 0);
 
   /**
    * Whether the two actions are available, and why not when they are not.
@@ -171,7 +235,7 @@ export function PayloadApp() {
     ),
     verifyRequired: requireVerify,
     itemCount,
-    amountProblem,
+    amountProblem: amountProblem ?? solRequest.problem,
     preparedFor: payload.request?.recipient ?? null,
     recipient,
   });
@@ -227,6 +291,13 @@ export function PayloadApp() {
         onAmountChange={(mint, value) =>
           setAmounts((current) => ({ ...current, [mint]: value }))
         }
+        nativeLamports={scan.native?.lamports ?? 0}
+        solSelected={solSelected}
+        solAmount={solAmount}
+        solProblem={solSelected ? solRequest.problem : null}
+        solMaxLamports={solMaxLamports}
+        onToggleSol={() => setSolSelected((current) => !current)}
+        onSolAmountChange={setSolAmount}
         onToggleToken={(mint) => toggle(selectedTokens, setSelectedTokens, mint)}
         onToggleAsset={(id) => toggle(selectedAssets, setSelectedAssets, id)}
         onSelectAllTokens={(all) =>
@@ -271,6 +342,8 @@ export function PayloadApp() {
               verifiedAddress: verification.verification?.arrived
                 ? verification.verification.address
                 : null,
+              solLamports: solRequest.lamports,
+              solBalanceLamports: scan.native?.lamports ?? null,
             });
           }
         }}
@@ -288,6 +361,8 @@ export function PayloadApp() {
           // right after a successful send. Empty means "all of it", which is the
           // right default for a fresh batch.
           setAmounts({});
+          setSolSelected(false);
+          setSolAmount("");
           void scan.rescan();
         }}
       />

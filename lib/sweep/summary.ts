@@ -106,12 +106,6 @@ export function buildSummary(params: {
     rentReclaimedLamports: grossRentLamports - reclaimFeeLamports,
     reclaimFeeLamports,
     feeLamports,
-    // The integrator fee, in output units. Derived from the plan's *applied*
-    // rate rather than the configured one, so a sweep that could not collect
-    // (a missing fee account) reports zero instead of claiming a charge it
-    // never made.
-    spacedustFeeAmount: (Number(totalOut) / divisor) * (plan.feeBps / 10_000),
-    spacedustFeeBps: plan.feeBps,
     signatures: Array.from(
       new Set(
         outcomes

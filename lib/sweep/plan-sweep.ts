@@ -208,9 +208,8 @@ export async function planSweep(
   // ── The rent-reclaim fee ──────────────────────────────────────────────────
   // A sweep returns the rent locked in every token account it empties, and that
   // reclaim is charged like every other flow here: 1.5% of the rent, taken as a
-  // plain SOL transfer from the rent the close has just handed back. It is a
-  // *second* fee, on a different base from the 0.5% swap fee — that one is
-  // charged inside Jupiter's call on the swap's output, this one on the rent.
+  // plain SOL transfer from the rent the close has just handed back. It is the
+  // only fee a sweep carries — nothing is taken out of the swap's output.
   //
   // Priced from the plan's own rent figure, so the fee is exactly 1.5% of the
   // "rent reclaimable" the panel shows. Read from the *public* config because
@@ -332,11 +331,9 @@ export async function planSweep(
     expected: {
       flow: "sweep",
       owner: owner.toBase58(),
-      // Two fees ride in a sweep, and they reach the chain differently. The swap
-      // fee is a `platformFeeBps` charge inside the aggregator's own call, so it
-      // never appears as a System instruction. The rent-reclaim fee *is* one
-      // System transfer per closed account, so the wallet is named here and the
-      // batch's own total is the ceiling the audit checks each transfer against.
+      // One fee rides in a sweep, and it reaches the chain as a System transfer
+      // per closed account. The wallet is named here and the batch's own total is
+      // the ceiling the audit checks each transfer against.
       feeWallet: feeEnabled ? feeWallet : null,
       expectedFeeLamports: estimatedReclaimFeeLamports,
       // Told to the audit through the composer's own function, so the two can

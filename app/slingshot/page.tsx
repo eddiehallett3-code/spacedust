@@ -4,7 +4,7 @@ import { DustApp } from "@/components/dust-app";
 import { Hero, SlingshotHighlights } from "@/components/layout/hero";
 import { SetupNotice } from "@/components/setup-notice";
 import { HowItWorksStrip } from "@/components/layout/how-it-works-strip";
-import { SWAP_RATE, RECLAIM_RATE } from "@/lib/config/tools";
+import { RECLAIM_RATE } from "@/lib/config/tools";
 
 export const metadata: Metadata = {
   // Per page, and deliberately not in the root layout: metadata merges downwards,
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   // the *.vercel.app one — and a crawler finding both is free to choose either.
   alternates: { canonical: "/slingshot" },
   title: "Slingshot — sweep dust into SOL, USDC or JUP",
-  description: `Connect your Solana wallet, pick a USD threshold, and let Slingshot swap leftover token dust into SOL, USDC or JUP in as few transactions as possible. Non-custodial. ${SWAP_RATE} fee on swaps, ${RECLAIM_RATE} of reclaimed rent.`,
+  description: `Connect your Solana wallet, pick a USD threshold, and let Slingshot swap leftover token dust into SOL, USDC or JUP in as few transactions as possible. Non-custodial. No fee on the swap itself; ${RECLAIM_RATE} of reclaimed rent.`,
 };
 
 /**

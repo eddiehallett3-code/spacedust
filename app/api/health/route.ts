@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { Connection } from "@solana/web3.js";
+import { Connection, PublicKey } from "@solana/web3.js";
 import { allowRequest, rateLimitResponse } from "@/lib/api/rate-limit";
 import { sharedLimiterStatus } from "@/lib/api/rate-limit-store";
 import { describeFailure, redactForLog } from "@/lib/api/redact";
@@ -9,11 +9,8 @@ import {
   getServerRpcUrl,
 } from "@/lib/config/env";
 import { getPublicFeeWallet } from "@/lib/config/public-env";
-import { feeAccountExists } from "@/lib/solana/fee.server";
-import { swapFeeAccount } from "@/lib/solana/fee-account";
 import { fetchRentMinimums } from "@/lib/solana/rent";
 import { scanWallet } from "@/lib/token-source/index.server";
-import { OUTPUT_ASSETS, SWAP_FEE_BPS } from "@/lib/utils/constants";
 
 /**
  * `GET /api/health` — setup diagnostics.
@@ -37,14 +34,6 @@ interface Check {
   configured: boolean;
   working: boolean;
   detail: string;
-}
-
-/** One output asset's fee account, and whether a fee could land in it. */
-interface FeeAccountReport {
-  symbol: string;
-  mint: string;
-  account: string;
-  usable: boolean;
 }
 
 export async function GET(request: Request) {
@@ -161,41 +150,36 @@ export async function GET(request: Request) {
   }
 
   // ── Integrator fees ──────────────────────────────────────────────────────
-  // The destination is the fee wallet's own token account for each output asset:
-  // a swap fee is charged in the output mint, so it needs one account per asset.
-  // Each is read from chain rather than assumed, because Jupiter verifies none of
-  // them — a missing or frozen account does not error, it just produces a swap
-  // that cannot land. What the fee is *worth* needs no reading: it is ours in
-  // full, with no claim step and no program taking a share.
+  // One fee, and it is on reclaimed rent: a plain SOL transfer to the fee wallet
+  // once each close has handed the rent back. There is no token account to create
+  // and no asset list to keep in step — but the wallet does have to be *funded*,
+  // because Solana refuses to send to an account below the rent-exempt minimum
+  // and these fees are tens of thousands of lamports, far below it. An unfunded
+  // wallet is therefore not "a fee that arrives later"; it is a transaction that
+  // fails, which is why every flow checks before charging.
   const feeWallet = getPublicFeeWallet();
-  const rate = (SWAP_FEE_BPS / 100).toFixed(1);
   const short = (address: string) => `${address.slice(0, 4)}…${address.slice(-4)}`;
-  let feeAccounts: FeeAccountReport[] = [];
 
   if (!feeWallet) {
     checks.fees.detail =
-      `Not set — swaps run fee-free. Set NEXT_PUBLIC_FEE_WALLET to a wallet you control to collect ${rate}% of each swap's output, in the output asset itself.`;
+      "Not set — every flow runs fee-free. Set NEXT_PUBLIC_FEE_WALLET to a wallet you control to collect 1.5% of the rent each flow reclaims, as SOL.";
   } else {
-    feeAccounts = await Promise.all(
-      Object.values(OUTPUT_ASSETS).map(async (asset) => {
-        const account = swapFeeAccount(feeWallet, asset.mint);
-        return {
-          symbol: asset.symbol,
-          mint: asset.mint,
-          account,
-          usable: await feeAccountExists(account),
-        };
-      }),
-    );
+    let funded = false;
+    try {
+      const connection = new Connection(getServerRpcUrl(), "confirmed");
+      const [rent, info] = await Promise.all([
+        fetchRentMinimums(connection),
+        connection.getAccountInfo(new PublicKey(feeWallet)),
+      ]);
+      funded = (info?.lamports ?? 0) >= rent.emptyAccount;
+    } catch {
+      funded = false;
+    }
 
-    const ready = feeAccounts.filter((entry) => entry.usable);
-    const missing = feeAccounts.filter((entry) => !entry.usable);
-    checks.fees.working = missing.length === 0;
-
-    checks.fees.detail =
-      missing.length === 0
-        ? `${rate}% fee active on all ${feeAccounts.length} output assets, paid into ${short(feeWallet)} in the output asset itself — no claim step, and no third party's cut.`
-        : `${rate}% fee CANNOT be collected for ${missing.map((m) => m.symbol).join(", ")}: ${short(feeWallet)} has no usable token account for those assets, so swaps into them run fee-free. Missing: ${missing.map((m) => `${m.symbol} → ${m.account}`).join(" | ")}. Ready: ${ready.map((r) => r.symbol).join(", ") || "none"}.`;
+    checks.fees.working = funded;
+    checks.fees.detail = funded
+      ? `1.5% of reclaimed rent is paid to ${short(feeWallet)} as plain SOL — no claim step, and no token account to create.`
+      : `${short(feeWallet)} is not funded, so every flow runs fee-free: a fee this small cannot create the account, and Solana refuses to send below the rent-exempt minimum.`;
   }
 
   // ── Rate limiting ────────────────────────────────────────────────────────
@@ -214,47 +198,20 @@ export async function GET(request: Request) {
   const anyBlockingIssue =
     !checks.helius.working || !checks.jupiter.working;
 
-  /**
-   * What a new token account costs, read from the chain rather than quoted from
-   * a constant.
-   *
-   * This figure is printed inside an instruction that somebody is about to act
-   * on, and the constant it used to quote was **wrong by 37%**: it said
-   * ~0.00204 SOL where the network now charges 1,488,440 lamports for a freshly
-   * created account. A number that costs real money to follow is the last place
-   * to repeat a remembered value — the same reasoning as `lib/solana/rent.ts`,
-   * which is why the app prices rent per account everywhere else.
-   *
-   * A failure here is swallowed: diagnostics must not fail over a rent read, and
-   * the wording degrades to a version that needs no figure.
-   */
-  let tokenAccountRentLamports: number | null = null;
-  try {
-    const rent = await fetchRentMinimums(
-      new Connection(getServerRpcUrl(), "confirmed"),
-    );
-    tokenAccountRentLamports = rent.tokenAccount;
-  } catch {
-    tokenAccountRentLamports = null;
-  }
-
   return NextResponse.json({
     ok: !anyBlockingIssue,
     checks,
-    nextSteps: buildNextSteps(checks, feeAccounts, tokenAccountRentLamports),
+    nextSteps: buildNextSteps(checks),
   });
 }
 
 /** Turn the results into instructions a human can act on. */
-function buildNextSteps(
-  checks: { helius: Check; jupiter: Check; fees: Check; ratelimit: Check },
-  feeAccounts: FeeAccountReport[],
-  /**
-   * Live rent-exempt minimum for one token account, in lamports, or null when
-   * the read failed. Null changes only the wording, never the instruction.
-   */
-  tokenAccountRentLamports: number | null,
-): string[] {
+function buildNextSteps(checks: {
+  helius: Check;
+  jupiter: Check;
+  fees: Check;
+  ratelimit: Check;
+}): string[] {
   const steps: string[] = [];
 
   if (!checks.helius.configured) {
@@ -281,32 +238,14 @@ function buildNextSteps(
     );
   }
 
-  // Both fee paths read the same variable — the swap fee in the output asset,
-  // the rent-reclaim fee as SOL — so an unset wallet is one instruction here,
-  // not two that say almost the same thing.
+  // One wallet, one fee: the rent-reclaim fee, as SOL.
   if (!checks.fees.configured) {
     steps.push(
-      "Optional: set NEXT_PUBLIC_FEE_WALLET to a wallet you control. It collects both fees — 0.5% of each swap's output, in the output asset, and 1.5% of the rent any flow reclaims, as SOL. Leave it unset to charge nothing anywhere.",
+      "Optional: set NEXT_PUBLIC_FEE_WALLET to a wallet you control. It collects 1.5% of the rent any flow reclaims, as SOL. Leave it unset to charge nothing anywhere.",
     );
   } else if (!checks.fees.working) {
-    const feeWallet = getPublicFeeWallet();
-    // The cost is the live rent-exempt minimum for one 165-byte account — which
-    // is exactly what the command below locks up. When that read failed the
-    // sentence drops the figure rather than quoting a remembered one.
-    const cost =
-      tokenAccountRentLamports == null
-        ? "a few thousand lamports of rent, refunded if you close it"
-        : `~${(tokenAccountRentLamports / 1e9).toFixed(5)} SOL of rent, refunded if you close it`;
-    // One command per missing account: the mint and the owner are the only parts
-    // that vary, and both are known right here.
-    for (const entry of feeAccounts.filter((account) => !account.usable)) {
-      steps.push(
-        `Create the ${entry.symbol} fee account (${cost}; whoever pays is the only signer): ` +
-          `spl-token create-account ${entry.mint} --owner ${feeWallet} --fee-payer <YOUR WALLET> -u mainnet-beta`,
-      );
-    }
     steps.push(
-      "Until an account exists, swaps into that asset run fee-free rather than failing — a fee is only ever asked for once its destination is confirmed usable.",
+      "NEXT_PUBLIC_FEE_WALLET is set but not funded. Send it a little SOL: a fee this small cannot create the account, and Solana refuses to send to an address below the rent-exempt minimum. Every flow runs fee-free until it is funded.",
     );
   }
 

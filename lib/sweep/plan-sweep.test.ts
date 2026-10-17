@@ -130,8 +130,6 @@ function planResponse(): PlanResponse {
     estimatedRentReclaimLamports: 0,
     tokenAccountRentLamports: 1_488_440,
     emptyAccountRentLamports: 650_240,
-    feeBps: 50,
-    feeAccount: null,
     warnings: [],
     estimatedFeeLamports: 5_000,
     createdAt: 0,

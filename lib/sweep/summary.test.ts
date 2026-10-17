@@ -34,8 +34,6 @@ function build(overrides: Partial<PlanResponse> = {}): PlanResponse {
     estimatedRentReclaimLamports: 0,
     tokenAccountRentLamports: RENT,
     emptyAccountRentLamports: 650_240,
-    feeBps: 0,
-    feeAccount: null,
     warnings: [],
     estimatedFeeLamports: 5_000,
     createdAt: 0,
@@ -200,40 +198,3 @@ describe("buildSummary reclaim fee", () => {
   });
 });
 
-describe("buildSummary integrator fee", () => {
-  const swap: SwapBuild = {
-    mint: "A",
-    symbol: "A",
-    logoUri: null,
-    inAmount: "1000",
-    tokenAccount: null,
-    outAmount: "1000000000", // 1 SOL at 9 decimals
-    otherAmountThreshold: "0",
-    outputMint: "So11111111111111111111111111111111111111112",
-    priceImpactPct: null,
-    routeLabels: [],
-    computeBudgetInstructions: [],
-    bundle: {} as SwapBuild["bundle"],
-    addressesByLookupTableAddress: null,
-    lastValidBlockHeight: 0,
-    error: null,
-  };
-
-  it("reports the fee that was actually applied, not the configured rate", () => {
-    // feeBps 0 means the fee account was missing, so nothing was collected — the
-    // screen must not claim otherwise.
-    const summary = summaryFor({ plan: build({ feeBps: 0 }) });
-
-    expect(summary.spacedustFeeBps).toBe(0);
-    expect(summary.spacedustFeeAmount).toBe(0);
-  });
-
-  it("reports 0.5% of the output when the fee did apply", () => {
-    const summary = summaryFor({
-      plan: build({ builds: [swap], feeBps: 50 }),
-    });
-
-    expect(summary.spacedustFeeBps).toBe(50);
-    expect(summary.spacedustFeeAmount).toBeCloseTo(0.005, 9);
-  });
-});

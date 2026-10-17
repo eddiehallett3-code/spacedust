@@ -11,8 +11,8 @@ export const metadata: Metadata = {
   // page. It matters because the site answers on two hosts — the custom domain and
   // the *.vercel.app one — and a crawler finding both is free to choose either.
   alternates: { canonical: "/payload" },
-  title: "Payload — batch send tokens, NFTs and cNFTs",
-  description: `Send tokens, NFTs and cNFTs to one address in as few transactions as the size limit allows, reclaiming the rent the emptied accounts were holding. Verify the destination with a test transfer first. ${PAYLOAD_RATE} of reclaimed rent.`,
+  title: "Payload — batch send SOL, tokens, NFTs and cNFTs",
+  description: `Send SOL, tokens, NFTs and cNFTs to one address in as few transactions as the size limit allows, reclaiming the rent the emptied accounts were holding. Verify the destination with a test transfer first. ${PAYLOAD_RATE} of reclaimed rent.`,
 };
 
 /**
@@ -29,7 +29,7 @@ export default function PayloadPage() {
       <PageHeader
         emblem={<ToolEmblem tool="payload" />}
         title="Payload"
-        description="Send tokens, NFTs and cNFTs to one address at once, and reclaim the rent that the accounts you empty were holding. Nothing is signed until you have seen what will happen, and nothing is built against an address you have not seen."
+        description="Send SOL, tokens, NFTs and cNFTs to one address at once, and reclaim the rent that the accounts you empty were holding. Nothing is signed until you have seen what will happen, and nothing is built against an address you have not seen."
       />
       <PayloadApp />
     </Container>

@@ -38,6 +38,10 @@ export interface PayloadRequest {
   requireVerification: boolean;
   /** The address that was verified with a test transfer, when there is one. */
   verifiedAddress: string | null;
+  /** Native SOL to send, in lamports as a decimal string, or null. */
+  solLamports: string | null;
+  /** The wallet's native balance when the plan was built, for the fee check. */
+  solBalanceLamports: number | null;
 }
 
 interface PayloadState {
@@ -177,6 +181,8 @@ export function usePayload() {
           assets: request.assets,
           requireVerification: request.requireVerification,
           verifiedAddress: request.verifiedAddress,
+          solLamports: request.solLamports,
+          solBalanceLamports: request.solBalanceLamports,
         });
 
         preparedRef.current = { result, request };

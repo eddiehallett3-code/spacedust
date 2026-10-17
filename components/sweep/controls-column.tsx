@@ -136,7 +136,6 @@ export function ControlsColumn({
             hasPreview={sweep.packed.length > 0}
             isBusy={sweep.isBusy}
             disabled={selectedCount === 0}
-            feeBps={sweep.plan?.feeBps ?? 0}
             // Totalled by the planner from each account's own verified deposit.
             // Zero before a preview exists, which is exactly when the panel hides
             // the rent figures anyway.

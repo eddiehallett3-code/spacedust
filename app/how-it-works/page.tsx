@@ -9,7 +9,6 @@ import {
   PAYLOAD_RATE,
   RECLAIM_RATE,
   SLIPPAGE_RATE,
-  SWAP_RATE,
   TOOLS,
   VOID_RATE,
 } from "@/lib/config/tools";
@@ -255,20 +254,15 @@ export default function HowItWorksPage() {
           ability to move funds on your behalf.
         </p>
 
-        <h3>7. Fees are {SWAP_RATE} on a swap and {VOID_RATE} on rent, and always visible</h3>
+        <h3>7. The only fee is {VOID_RATE} of the rent a flow returns, and it is always visible</h3>
         <p>
-          Spacedust charges {SWAP_RATE} of each swap&apos;s output, and{" "}
-          {VOID_RATE} of the rent any flow reclaims. Both are shown before you
-          sign anything. The swap fee is applied by Jupiter inside the swap
-          instruction itself — so it cannot be skipped or redirected — and paid
-          in the output asset into the receiving wallet&apos;s own token account
-          for that asset. That account is <em>derived</em> from the wallet rather
-          than configured per asset, so it cannot drift out of step with the mint
-          it is paid in, and there is no claim step and no third party&apos;s cut
-          between the swap and the balance. <code>/api/health</code> reads each
-          one back from chain and names any that is missing, because Jupiter does
-          not check, and a fee with nowhere to land is a swap that fails for
-          everyone who runs it.
+          A swap is not charged. The output of Slingshot is yours in full — the
+          fee it used to take came out of the asset being swapped into, and it is
+          gone. What remains is {VOID_RATE} of the rent any flow reclaims: Void
+          sends, account closes, Payload sends. It is a plain SOL transfer taken{" "}
+          <em>after</em> a close has handed the rent back, so it is always funded
+          by the thing it is charged on and never touches the dust being recovered.
+          It is shown before you sign anything.
         </p>
 
         <h3>8. What can go wrong</h3>

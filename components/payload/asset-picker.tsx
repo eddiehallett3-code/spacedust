@@ -9,7 +9,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { TokenLogo } from "@/components/scanner/token-logo";
 import { unsendableAssetReason } from "@/lib/payload/plan-send";
-import { formatAmount, truncateAddress } from "@/lib/utils/format";
+import { formatAmount, formatSol, truncateAddress } from "@/lib/utils/format";
+import { SOL_SEND_FEE_RESERVE_LAMPORTS } from "@/lib/utils/constants";
 import { cn } from "@/lib/utils/cn";
 import type { DustToken, NonFungibleAsset } from "@/types/token";
 
@@ -38,6 +39,13 @@ export function AssetPicker({
   selectedAssets,
   amounts,
   onAmountChange,
+  nativeLamports,
+  solSelected,
+  solAmount,
+  solProblem,
+  solMaxLamports,
+  onToggleSol,
+  onSolAmountChange,
   onToggleToken,
   onToggleAsset,
   onSelectAllTokens,
@@ -53,6 +61,17 @@ export function AssetPicker({
   /** What the user typed per mint, in whole units. Empty means all of it. */
   amounts: Record<string, string>;
   onAmountChange: (mint: string, value: string) => void;
+  /** The wallet's native balance, so the SOL row can state it. */
+  nativeLamports: number;
+  solSelected: boolean;
+  /** SOL to send as typed, in whole units. Empty means the maximum. */
+  solAmount: string;
+  /** Why the SOL amount cannot be used, when it cannot. */
+  solProblem: string | null;
+  /** The most SOL a send can move once the network-fee reserve is kept back. */
+  solMaxLamports: number;
+  onToggleSol: () => void;
+  onSolAmountChange: (value: string) => void;
   onToggleToken: (mint: string) => void;
   onToggleAsset: (id: string) => void;
   onSelectAllTokens: (all: boolean) => void;
@@ -153,13 +172,66 @@ export function AssetPicker({
         </div>
 
         {tab === "tokens" ? (
-          <label className="flex cursor-pointer items-center gap-2.5 border-b border-border/60 pb-2 text-xs text-muted">
-            <Checkbox
-              checked={allTokensSelected}
-              onCheckedChange={(checked) => onSelectAllTokens(checked === true)}
-            />
-            Select all {tokens.length} tokens
-          </label>
+          <div className="space-y-2">
+            {/* Native SOL sits above the tokens because it is the one row that is
+                not a token: no mint, no account to close, and no rent. Its amount
+                cannot be "all of it" either — the batch pays its fee from the
+                same wallet — so it shows what stays behind. */}
+            <div className="rounded-xl border border-border/60 px-2 py-2">
+              <div className="flex items-center gap-3">
+                <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
+                  <Checkbox
+                    checked={solSelected}
+                    onCheckedChange={() => onToggleSol()}
+                  />
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-white/8 text-[9px] font-semibold tracking-wide">
+                    SOL
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium">SOL</span>
+                    <span className="block truncate text-xs text-muted">
+                      {formatSol(nativeLamports)} ·{" "}
+                      {formatSol(SOL_SEND_FEE_RESERVE_LAMPORTS)} stays for fees
+                    </span>
+                  </span>
+                </label>
+                {solSelected ? (
+                  <span className="flex w-32 shrink-0 items-center gap-1">
+                    <Input
+                      value={solAmount}
+                      onChange={(event) => onSolAmountChange(event.target.value)}
+                      placeholder={formatSol(solMaxLamports).replace(" SOL", "")}
+                      inputMode="decimal"
+                      aria-label="Amount of SOL to send"
+                      className="h-8 px-2 text-xs"
+                    />
+                    {solAmount.trim().length > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => onSolAmountChange("")}
+                        className="shrink-0 text-[11px] text-violet-glow transition-colors hover:text-violet-core"
+                      >
+                        Max
+                      </button>
+                    ) : null}
+                  </span>
+                ) : null}
+              </div>
+              {solSelected && solProblem ? (
+                <p className="mt-1 text-[11px] leading-relaxed text-warning">
+                  {solProblem}
+                </p>
+              ) : null}
+            </div>
+
+            <label className="flex cursor-pointer items-center gap-2.5 border-b border-border/60 pb-2 text-xs text-muted">
+              <Checkbox
+                checked={allTokensSelected}
+                onCheckedChange={(checked) => onSelectAllTokens(checked === true)}
+              />
+              Select all {tokens.length} tokens
+            </label>
+          </div>
         ) : (
           <label className="flex cursor-pointer items-center gap-2.5 border-b border-border/60 pb-2 text-xs text-muted">
             <Checkbox

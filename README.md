@@ -15,19 +15,13 @@ heading.
 as they were, because "12 tokens swept" is the thing that actually happened, and
 "dust sweeper" stays the category in the page metadata.
 
-**A 0.5% swap fee, kept in full.** Charged on the swap's *output* — inside the
-Jupiter instruction, so it can never be skipped or redirected client-side — and
-never on the dust being recovered. It is paid in the output asset into the
-receiving wallet's **own** token account for that asset, `ATA(FEE_WALLET, mint)`,
-derived rather than configured so it cannot drift out of step with the mint it is
-paid in. There is no claim step and no third party's cut: Jupiter's Referral
-Program charges the same fee but pays out the account's on-chain `share_bps` on
-claim, keeping only part of it. `/api/health` reads each account back from chain
-and names any that is missing, because Jupiter does not check, and a fee with
-nowhere to land is a swap that fails for everyone. **1.5% of the rent that any flow
-reclaims** is unchanged: a token burned in The Void, an account a swap emptied and
-closed, an already-empty account closed, a Payload send that empties the account
-it came from.
+**One fee, on rent — and nothing on the swap.** Slingshot's output is yours in
+full: the 0.5% that used to come out of the swap inside Jupiter's instruction is
+gone, along with the token accounts it needed. What remains is **1.5% of the rent
+that any flow reclaims** — a token burned in The Void, an account a swap emptied
+and closed, an already-empty account closed, a Payload send that empties the
+account it came from — taken as a plain SOL transfer *after* the close has handed
+the rent back, so it is always funded by the thing it is charged on.
 Burning an NFT or a cNFT costs nothing. Revoking an approval and looking a wallet
 up cost only the network fee.
 
@@ -39,9 +33,9 @@ and the panel that runs it says so before you sign, not after.
 
 ## What makes it different
 
-Most dust sweepers take a cut. This one takes a visible 0.5% of the swap's
-output rather than the dust being recovered — and 1.5% of the rent it reclaims,
-the same rate every other flow here charges for a reclaim.
+Most dust sweepers take a cut. This one takes none of the swap: the output is
+yours in full. Its only fee is 1.5% of the rent it reclaims — the same rate every
+other flow here charges for a reclaim.
 
 | | |
 |---|---|
@@ -49,7 +43,7 @@ the same rate every other flow here charges for a reclaim.
 | **The Void** | The burn flow, for tokens with no market left. Named, for a reason — see below. |
 | **Non-custodial** | Transactions are built in your browser and signed by *your* wallet. Spacedust has no keyring, no seed phrase field, and no ability to move funds. |
 | **Fewest signatures** | Swaps are packed into as few versioned transactions as the 1232-byte limit allows — often clearing 10+ dust tokens in a single approval. |
-| **Rent reclaim** | Emptied token accounts are closed in the same flow, returning ~0.00203928 SOL each, less the 1.5% reclaim fee. Frequently worth more than the dust itself. |
+| **Rent reclaim** | Emptied token accounts are closed in the same flow, returning each account's own rent (~0.0015 SOL for a fresh one), less the 1.5% reclaim fee. Frequently worth more than the dust itself. |
 | **Simulated first** | Every transaction is dry-run against the cluster *before* you are asked to sign. |
 | **Revoke approvals** | Finds token accounts where someone else still holds a delegate — from NFT listings and old dApp approvals — and clears them. |
 | **Rent from empty accounts** | A token account with no balance still holds ~0.002 SOL, and nothing else in the app can reach it. Closing it returns that rent, with no swap and no burn — for 1.5% of what comes back. |
@@ -435,38 +429,18 @@ that allow-list it would be an open RPC relay pointed at your Helius account.
    the whole packet — measuring the message alone under-reports by 64 bytes per
    signer.
 4. `signAllTransactions` covers multiple transactions in one approval.
-5. Fees are charged in two places, never hidden: 0.5% of a swap's output
-   (applied by Jupiter *inside* the swap instruction, so it cannot be skipped or
-   redirected client-side, and paid in the output asset into the fee wallet's own
-   token account for it), and 1.5% of any rent reclaimed — a Void burn, an account
-   a swap emptied and closed, an already-empty account closed, a Payload send that
-   emptied its account.
+5. There is one fee, and it is charged on rent rather than on a swap: 1.5% of
+   any rent reclaimed — a Void burn, an account a swap emptied and closed, an
+   already-empty account closed, a Payload send that emptied its account. Nothing
+   is taken out of a swap's output.
    The rent fee is a plain SOL transfer taken from the rent just returned to the
-   user.
+   user, so it is always funded by the thing it is charged on.
 
-   A swap fee requires a token account the **fee wallet** owns in the output
-   mint, and Jupiter does **not** check whether it exists — it will happily
-   return a swap whose fee has nowhere to land. Spacedust therefore derives it as
-   `ATA(NEXT_PUBLIC_FEE_WALLET, outputMint)`, verifies it on chain (that it exists
-   *and* that it is not frozen), and simply omits the fee when it is unusable —
-   so a misconfiguration can never break a sweep. It is deliberately not routed
-   through Jupiter's Referral Program: a claim there keeps only the account's
-   on-chain `share_bps`, so part of the fee would go to the project rather than to
-   the wallet that configured it.
-
-   **Setting it up** is three accounts, once:
-
-   ```bash
-   node scripts/create-fee-accounts.mjs --keypair ~/.config/solana/id.json          # dry run
-   node scripts/create-fee-accounts.mjs --keypair ~/.config/solana/id.json --send   # create
-   ```
-
-   The accounts are owned by the fee wallet, but the keypair only *pays* and is the
-   only signer — so any funded wallet works, and the fee wallet's private key is
-   never needed. `/api/health` reports the same thing with the server running, and
-   `probes/tmp-fee-wallet-ata-probe.mjs` reports it with nothing running at all.
-   The failure mode is quiet by design: a missing account is not an error anywhere,
-   it is simply a fee of zero, which is why something has to ask.
+   Its one requirement is that the fee wallet is **funded**: a fee this small
+   cannot create an account, and Solana refuses to send to an address below the
+   rent-exempt minimum. An unfunded wallet does not mean a fee that arrives later,
+   it means a transaction that fails — which is why every flow checks before
+   charging, and `/api/health` reports the answer.
 6. **The ~150-slot blockhash window is treated as the scarce resource it is.**
    Every transaction in a batch is signed under one blockhash, so anything slow
    before a send is window that send never gets. Reading the preview is
@@ -922,10 +896,16 @@ every real account, so pricing from it would understate the total by about 27%.
 
 ## Payload — batch sending
 
-`/payload` sends tokens, NFTs and cNFTs to **one address**, packed into as few
-transactions as the 1232-byte limit allows, closing every account the send empties
-so its rent comes back. 1.5% of that rent is the fee; the assets themselves are
-never charged on.
+`/payload` sends SOL, tokens, NFTs and cNFTs to **one address**, packed into as
+few transactions as the 1232-byte limit allows, closing every account the send
+empties so its rent comes back. 1.5% of that rent is the fee; the assets
+themselves are never charged on.
+
+Native SOL is its own kind of item rather than a token: no mint, no account to
+close, no rent — one `SystemProgram.transfer`. Because the batch pays its network
+fee from the same wallet, "all of it" means the balance minus a **0.001 SOL
+floor**, kept back for the fee and shown on the row. Spacedust keeps none of it;
+an amount that would leave less behind is refused before anything is built.
 
 A cNFT is the exception to the rent half of that, and not a small one: a compressed
 NFT is a leaf in a merkle tree rather than an account, so sending one creates
@@ -1095,34 +1075,6 @@ are fixed in the script, and the isolation rule — one variable at a time — i
 written into it, because a probe that answers the wrong question is worse than
 no probe.
 
-### How the swap fee was measured
-
-`probes/tmp-referral-probe.mjs` asks Jupiter's Swap API for the same swap twice — once
-plain, once with `platformFeeBps: 50` — and diffs the answers, and
-`probes/tmp-referral-account-probe.mjs` reads the Referral Program's own accounts.
-
-| Measurement | Result |
-|---|---|
-| `platformFeeBps: 50` on `/swap/v2/build` | output falls by **exactly 50.00 bps** (15,310 of 3,062,169 lamports) |
-| `referralAccount` + `referralFee` on that endpoint | **ignored** — 0 accounts added, quote unchanged |
-| the fee account, in the returned instruction | +1 account: the token account named, nothing else moved |
-| a referral token account | is `ATA(referralAccount, mint)` — matched on **4/4** real `claim_v2` instructions |
-| the configured referral account's split | `share_bps` = 8000 read from chain → **0.4% kept, 0.1% to the project** |
-| referral-program instructions sampled on chain | all **8 bytes** — discriminator only, no amount argument |
-
-What this settled. Jupiter's docs put the Router path at "platform fee only
-(`platformFeeBps`)" with referral fees reserved for the Meta-Aggregator, and the
-probe agrees: `/build` honours the platform fee and ignores the referral
-parameters, so the fee is a `platformFeeBps` charge *pointed at* a token account
-of our choosing. That is the entire reason the destination is the fee wallet's
-own `ATA(wallet, mint)` and not a referral account — a referral account is
-charged identically, but a claim pays out only its on-chain `share_bps`, and the
-account measured here reads 8000, so a tenth of the fee would have gone to
-Jupiter rather than to the wallet that configured it. The account is derived from
-the wallet rather than configured per asset for the same reason the program
-derives a referral account: one address, three accounts, no way for them to
-drift.
-
 ### How the payload send was measured
 
 `probes/tmp-payload-transfer-probe.mjs` builds the real instruction runs and simulates
@@ -1172,7 +1124,7 @@ What it enforces, for all six flows:
 | The program must be on that flow's allow-list (`lib/security/program-ids.ts`) | A sweep has no business naming Metaplex; a revoke has no business naming Jupiter. |
 | `Approve` and `SetAuthority` are refused in **every** flow | The two instructions that turn a mistake into a loss. Nothing here ever grants a delegation or hands over ownership. |
 | A `closeAccount` may only refund to the owner | Rent goes back to the wallet that paid it. |
-| The only SOL that may leave is the computed fee | A sweep's swap fee rides inside the aggregator's call, so the only System transfers a sweep allows are the rent-reclaim fee and the wrapping transfer into the wallet's own wrapped-SOL account. |
+| The only SOL that may leave is the computed fee | A sweep carries no swap fee, so the only System transfers it allows are the rent-reclaim fee and the wrapping transfer into the wallet's own wrapped-SOL account. |
 | A fee transfer may not exceed the figure the plan showed | The overcharge is what is being prevented, not just the drain. |
 | A burn must be authorised by the wallet | Only a balance the wallet owns is destroyed. |
 | A send's transfer must land in the verified destination, for an account owned by it | The destination proof is only worth something if the transfer is held to it. |
@@ -1730,7 +1682,7 @@ has already been violated once:
 | `lib/sweep/asset-labels.test.ts` | Two assets sharing a name are told apart in the grid — and a name that is *not* shared is left exactly as the collection wrote it, because the fix for one unreadable row must not become a suffix on every row in the app |
 | `lib/utils/sanitize.test.ts` | Whole units become base units without ever passing through a float — `Number("0.1") * 1e9` is 100000000.00000001, and that hair is the difference between a transfer that empties an account and one that leaves a residue the account can then never be closed for |
 | `lib/payload/destination.test.ts` | A destination is an address or a *reason*, never a guess: a scanned code becomes one of the three shapes it can be (with the amount inside a payment request deliberately ignored), the test transfer is 0.001 SOL, and a real QR code round-trips through the project's own encoder and the scanner's own decoder |
-| `lib/payload/plan-send.test.ts` | A batch is built only for the destination that was verified, at per-token amounts — and a close is attached only to a send that empties its account, because a close with a residue left in it is refused on chain with `Custom: 11` |
+| `lib/payload/plan-send.test.ts` | A batch is built only for the destination that was verified, at per-token amounts — and a close is attached only to a send that empties its account, because a close with a residue left in it is refused on chain with `Custom: 11`. Native SOL is checked against the balance minus the fee floor, so "send everything" cannot build a transaction that cannot pay for itself |
 | `lib/payload/preparation.test.ts` | A disabled button is never indistinguishable from a dead one: the gate on Payload's two actions is a pure function of the state, including the combination that started it — assets selected, verification off, both actions correctly available |
 | `lib/payload/camera-failure.test.ts` | A camera refusal names *who* refused it: never a browser setting when the browser already allows the camera, never a setting at all when a policy denies it, and never a diagnosis from a question the browser did not answer |
 | `lib/sweep/burn-result-copy.test.ts` | The burn report describes the batch, not the tab it was read on: an NFT and a cNFT burned in one transaction are counted and priced separately, so a rent claim can never contradict the asset that just returned its rent |

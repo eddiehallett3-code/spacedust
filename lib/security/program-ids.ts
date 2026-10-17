@@ -109,8 +109,7 @@ export const FLOW_PROGRAMS: Record<AuditFlowName, readonly string[]> = {
     // with a plain SOL transfer to the fee wallet. Banning the program outright
     // would break both routes; what protects the user instead is the destination
     // rule — SOL may only go to the fee wallet, to the wallet itself, or to an
-    // account the plan declared. (The *swap* fee is not here at all: it rides
-    // inside the aggregator's call as a `platformFeeBps` transfer.)
+    // account the plan declared.
     SYSTEM_PROGRAM_ID,
   ],
   void: [

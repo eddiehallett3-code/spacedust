@@ -6,7 +6,7 @@ import { Providers } from "./providers";
 import { StarfieldBackground } from "@/components/layout/starfield-background";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
-import { RECLAIM_FEE_BPS, SWAP_FEE_BPS } from "@/lib/utils/constants";
+import { RECLAIM_FEE_BPS } from "@/lib/utils/constants";
 import { getSiteUrl } from "@/lib/config/site";
 import { getTwitterHandle } from "@/lib/config/social";
 
@@ -26,7 +26,7 @@ const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "Spacedust";
 // The rent-reclaim rates are three separate constants so any of them can be
 // repriced alone. This summary states one number because today they are equal —
 // if that ever stops being true, this line has to say so rather than pick one.
-const APP_DESCRIPTION = `Six non-custodial Solana wallet tools: batch swap, send, and send unwanted tokens, NFTs and cNFTs into The Void; reclaim rent; revoke approvals; and scan any address read-only. ${(SWAP_FEE_BPS / 100).toFixed(1)}% on swaps, ${(RECLAIM_FEE_BPS / 100).toFixed(1)}% of rent reclaimed.`;
+const APP_DESCRIPTION = `Six non-custodial Solana wallet tools: batch swap, send, and send unwanted tokens, NFTs and cNFTs into The Void; reclaim rent; revoke approvals; and scan any address read-only. ${(RECLAIM_FEE_BPS / 100).toFixed(1)}% of reclaimed rent, and nothing on the swap itself.`;
 const APP_TITLE = `${APP_NAME} — batch tools for a Solana wallet`;
 
 export const metadata: Metadata = {

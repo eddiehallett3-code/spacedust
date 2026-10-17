@@ -6,6 +6,7 @@ import {
   PAYLOAD_FEE_BPS,
   PRIORITY_FEE_MICRO_LAMPORTS,
   SEND_COMPUTE_UNITS_PER_UNIT,
+  SOL_SEND_FEE_RESERVE_LAMPORTS,
 } from "@/lib/utils/constants";
 import { getPublicFeeWallet } from "@/lib/config/public-env";
 import { parseBaseAmount } from "@/lib/utils/sanitize";
@@ -67,6 +68,20 @@ export interface PlanSendInput {
   /** Uncompressed NFTs. Anything else is refused, with the reason on the row. */
   assets: readonly NonFungibleAsset[];
   /**
+   * Native SOL to send, in lamports, as a decimal string.
+   *
+   * Null or absent means "no SOL in this batch". SOL is not an SPL token: it has
+   * no mint, no account to close and no rent to reclaim, so it is its own kind of
+   * item rather than a holding with different metadata — and sending it is a
+   * `SystemProgram.transfer`, not a token transfer.
+   */
+  solLamports?: string | null;
+  /**
+   * The wallet's native balance, so an amount that would leave too little behind
+   * to pay the network fee can be refused before anything is built.
+   */
+  solBalanceLamports?: number | null;
+  /**
    * The address that was verified, when the user asked for verification.
    *
    * A plan is built against one specific string, so this is checked before
@@ -83,7 +98,7 @@ export interface PlanSendInput {
 export interface SendOutcome {
   /** Mint for a token, or the asset id: the same string the row is keyed by. */
   mint: string;
-  kind: "token" | "nft" | "cnft";
+  kind: "token" | "nft" | "cnft" | "sol";
   /** What the row is labelled with. */
   label: string;
   /** False when this item was refused. */
@@ -109,6 +124,60 @@ export interface SendOutcome {
    * hardcoded rent once made The Void charge 2.06% while promising 1.5%.
    */
   feeLamports: number;
+}
+
+/**
+ * What a native-SOL item should do, given its amount and the wallet's balance.
+ *
+ * Pure and exported, so the rule that decides whether a SOL send can happen is
+ * tested without a chain — the same reason `computeBudgetForUnits` is. The rule
+ * that matters: a batch pays its network fee from the same wallet, so an amount
+ * that leaves nothing behind is an amount that cannot be sent. The reserve is a
+ * floor, not a fee — Spacedust keeps none of it.
+ */
+export function resolveSolSend(input: {
+  lamports: string | null | undefined;
+  balanceLamports: number | null | undefined;
+}): { amount: bigint } | { problem: string } {
+  if (!input.lamports) return { problem: "There is no SOL to send." };
+
+  let amount: bigint;
+  try {
+    amount = BigInt(input.lamports);
+  } catch {
+    return {
+      problem: "That SOL amount could not be read as a number of lamports.",
+    };
+  }
+
+  if (amount <= 0n) return { problem: "There is no SOL to send." };
+
+  if (
+    input.balanceLamports != null &&
+    amount + BigInt(SOL_SEND_FEE_RESERVE_LAMPORTS) >
+      BigInt(Math.trunc(input.balanceLamports))
+  ) {
+    return {
+      problem: `This would leave less than ${(SOL_SEND_FEE_RESERVE_LAMPORTS / 1e9).toFixed(3)} SOL behind, and the batch pays its network fees from this same wallet. Send less, or leave that much in the wallet.`,
+    };
+  }
+
+  return { amount };
+}
+
+/** One native-SOL send: a System transfer and nothing else — no account to close. */
+export function buildSolTransferUnit(
+  owner: PublicKey,
+  recipient: PublicKey,
+  lamports: bigint,
+): PackUnit {
+  return {
+    mint: "SOL",
+    instructions: [
+      SystemProgram.transfer({ fromPubkey: owner, toPubkey: recipient, lamports }),
+    ],
+    rentReclaim: false,
+  };
 }
 
 export interface PlanSendResult {
@@ -337,7 +406,7 @@ export async function planSend(input: PlanSendInput): Promise<PlanSendResult> {
 
   // ── 1. What is being sent, and what is refused before any read ──────────
   interface Candidate {
-    kind: "token" | "nft" | "cnft";
+    kind: "token" | "nft" | "cnft" | "sol";
     mint: string;
     label: string;
     decimals: number;
@@ -446,6 +515,31 @@ export async function planSend(input: PlanSendInput): Promise<PlanSendResult> {
     });
   }
 
+  // ── Native SOL ──────────────────────────────────────────────────────────
+  // Its own kind, because it shares almost nothing with a token: no mint, no
+  // account to close, no rent to reclaim, and no destination account to create.
+  // Sending it is one System transfer. The one thing that can go wrong is asking
+  // for more than the wallet can afford once the batch has paid its fee, so the
+  // amount is checked against the balance and a reserve rather than trusted.
+  if (input.solLamports) {
+    const resolved = resolveSolSend({
+      lamports: input.solLamports,
+      balanceLamports: input.solBalanceLamports,
+    });
+
+    candidates.push({
+      kind: "sol",
+      mint: "SOL",
+      label: "SOL",
+      decimals: 9,
+      amount: "amount" in resolved ? resolved.amount : 0n,
+      source: null,
+      tokenProgram: SystemProgram.programId,
+      refused: "problem" in resolved ? resolved.problem : null,
+      closeable: false,
+    });
+  }
+
   /**
    * Proofs for every cNFT in the batch, in one request.
    *
@@ -493,7 +587,7 @@ export async function planSend(input: PlanSendInput): Promise<PlanSendResult> {
   const planned = candidates.map((candidate) => ({
     candidate,
     destination:
-      candidate.refused !== null
+      candidate.refused !== null || candidate.kind === "sol"
         ? null
         : recipientTokenAccount(
             recipient,
@@ -529,6 +623,16 @@ export async function planSend(input: PlanSendInput): Promise<PlanSendResult> {
       recipientAccountRentLamports: 0,
       feeLamports: 0,
     };
+
+    // ── Native SOL: one transfer, and nothing to close ────────────────────
+    // No destination account is created (a System transfer creates one if it has
+    // to, and does so for free), no rent is freed, and no fee applies: Payload's
+    // only fee is on rent a close returns, and nothing closes here.
+    if (candidate.kind === "sol") {
+      units.push(buildSolTransferUnit(owner, recipient, candidate.amount));
+      outcomes.push({ ...base, sending: true });
+      continue;
+    }
 
     // ── A compressed NFT: a leaf, not an account ──────────────────────────
     // Nothing here reads a token account, creates one at the destination, or
@@ -798,6 +902,19 @@ export async function planSend(input: PlanSendInput): Promise<PlanSendResult> {
       owner: owner.toBase58(),
       feeWallet,
       expectedFeeLamports: feeLamports,
+      /**
+       * A SOL send is a System transfer to the recipient — there is no token
+       * account to name and nothing to close — so the recipient is a declared SOL
+       * destination. Only when a SOL item actually made it into the batch.
+       */
+      allowedSolDestinations: candidates.some(
+        (candidate) =>
+          candidate.kind === "sol" &&
+          candidate.refused === null &&
+          packedForAudit.has(candidate.mint),
+      )
+        ? [recipient.toBase58()]
+        : [],
       expectedTransferDestinations: candidates
         .filter(
           (candidate) =>

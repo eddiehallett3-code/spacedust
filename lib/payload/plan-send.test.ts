@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { sendEmptiesAccount } from "@/lib/solana/transfer";
-import { computeBudgetForUnits, unsendableAssetReason } from "./plan-send";
+import { PublicKey } from "@solana/web3.js";
+import { SYSTEM_PROGRAM_ID } from "@/lib/utils/constants";
+import {
+  buildSolTransferUnit,
+  computeBudgetForUnits,
+  resolveSolSend,
+  unsendableAssetReason,
+} from "./plan-send";
 import type { NonFungibleAsset } from "@/types/token";
 
 /**
@@ -169,5 +176,83 @@ describe("unsendableAssetReason", () => {
     expect(unsendableAssetReason(asset({ interface: "MplCoreAsset" }))).toMatch(
       /MplCoreAsset/,
     );
+  });
+});
+
+/**
+ * Native SOL, which shares almost nothing with a token.
+ *
+ * The rule that costs money if it is wrong: a batch pays its network fee from the
+ * same wallet it is emptying, so "send everything" has to mean everything minus a
+ * floor. Getting it wrong does not produce a wrong number on screen — it produces
+ * a transaction that cannot pay for itself, which fails for the whole batch.
+ */
+describe("resolveSolSend", () => {
+  const RESERVE = 1_000_000;
+
+  it("takes the amount it is given", () => {
+    expect(resolveSolSend({ lamports: "25000000", balanceLamports: 100_000_000 })).toEqual(
+      { amount: 25_000_000n },
+    );
+  });
+
+  it("allows exactly the balance minus the reserve", () => {
+    // The boundary the UI's "Max" sits on: spendable balance, not balance.
+    expect(
+      resolveSolSend({ lamports: String(100_000_000 - RESERVE), balanceLamports: 100_000_000 }),
+    ).toEqual({ amount: BigInt(100_000_000 - RESERVE) });
+  });
+
+  it("refuses one lamport more than that", () => {
+    const result = resolveSolSend({
+      lamports: String(100_000_000 - RESERVE + 1),
+      balanceLamports: 100_000_000,
+    });
+
+    expect("problem" in result && result.problem).toContain("SOL behind");
+  });
+
+  it("refuses zero, which is not a send", () => {
+    expect(resolveSolSend({ lamports: "0", balanceLamports: 1_000_000_000 })).toEqual({
+      problem: "There is no SOL to send.",
+    });
+  });
+
+  it("refuses text that is not a number", () => {
+    const result = resolveSolSend({ lamports: "all of it", balanceLamports: 1_000_000_000 });
+    expect("problem" in result).toBe(true);
+  });
+
+  it("refuses nothing at all", () => {
+    expect(resolveSolSend({ lamports: null, balanceLamports: 1 })).toEqual({
+      problem: "There is no SOL to send.",
+    });
+  });
+});
+
+describe("buildSolTransferUnit", () => {
+  const owner = new PublicKey("Fq9auFr6JAd5FDZDMFBikzqAycFKMryvkQUB71VTLbqi");
+  const recipient = new PublicKey("9qDz4uC7M7oJdhCErKEtLzm4pkdjdc7uQAFggy5jYrmt");
+
+  it("is exactly one System transfer, for the exact amount", () => {
+    const unit = buildSolTransferUnit(owner, recipient, 25_000_000n);
+
+    expect(unit.instructions).toHaveLength(1);
+    const transfer = unit.instructions[0]!;
+
+    expect(transfer.programId.toBase58()).toBe(SYSTEM_PROGRAM_ID);
+    // System transfer: a 4-byte instruction index of 2, then a u64 of lamports.
+    expect(transfer.data[0]).toBe(2);
+    expect(transfer.data.readBigUInt64LE(4)).toBe(25_000_000n);
+    expect(transfer.keys.map((key) => key.pubkey.toBase58())).toEqual([
+      owner.toBase58(),
+      recipient.toBase58(),
+    ]);
+  });
+
+  it("claims no rent, because a System transfer closes nothing", () => {
+    // The distinction the summary reads: a SOL send frees no rent, so it must
+    // never be counted among the closes the fee is charged on.
+    expect(buildSolTransferUnit(owner, recipient, 1n).rentReclaim).toBe(false);
   });
 });

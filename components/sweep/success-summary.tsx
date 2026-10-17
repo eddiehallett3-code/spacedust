@@ -166,9 +166,7 @@ export function SuccessSummary({
           label="Network fee"
           value={formatSol(summary.feeLamports)}
           hint={
-            summary.spacedustFeeBps > 0
-              ? `+ ${formatAmount(summary.spacedustFeeAmount, 6)} ${summary.totalOutputSymbol} Spacedust fee (${(summary.spacedustFeeBps / 100).toFixed(1)}%)`
-              : "no Spacedust fee"
+            "no swap fee taken"
           }
         />
       </div>

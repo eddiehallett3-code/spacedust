@@ -42,7 +42,6 @@ export function SweepPanel({
   hasPreview,
   isBusy,
   disabled,
-  feeBps,
   grossRentLamports,
   reclaimFeeLamports,
   onPreview,
@@ -69,8 +68,6 @@ export function SweepPanel({
   hasPreview: boolean;
   isBusy: boolean;
   disabled: boolean;
-  /** Integrator fee applied to this plan, in basis points. 0 = no fee. */
-  feeBps: number;
   /**
    * Rent this batch's closes return, totalled by the planner from each account's
    * own verified deposit.
@@ -104,9 +101,8 @@ export function SweepPanel({
   // The hero's figures. See `lib/sweep/receive.ts` for why the swap amount is net
   // of the fee and why rent only joins the headline when the payout is in SOL.
   const output = OUTPUT_ASSETS[outputAsset];
-  const { netSwapOutput, headline } = receiveFigures({
+  const { swapOutput, headline } = receiveFigures({
     expectedOutput,
-    feeBps,
     rentLamports,
     outputAsset,
   });
@@ -141,8 +137,8 @@ export function SweepPanel({
         <p className="mt-1 text-[11px] leading-relaxed text-muted">
           {hasPreview
             ? outputAsset === "SOL"
-              ? `${formatAmount(netSwapOutput, 5)} from swaps · ${formatSol(rentLamports)} rent back, after fees`
-              : `≈ ${formatAmount(netSwapOutput, 5)} ${output.symbol} from swaps, plus ${formatSol(rentLamports)} SOL rent back`
+              ? `${formatAmount(swapOutput, 5)} from swaps · ${formatSol(rentLamports)} rent back, after fees`
+              : `≈ ${formatAmount(swapOutput, 5)} ${output.symbol} from swaps, plus ${formatSol(rentLamports)} SOL rent back`
             : `${pluralize(selectedTokens, "token")} selected · preview to see what comes back`}
         </p>
       </div>

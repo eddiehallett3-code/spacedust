@@ -3,7 +3,6 @@ import {
   DEFAULT_SLIPPAGE_BPS,
   PAYLOAD_FEE_BPS,
   RECLAIM_FEE_BPS,
-  SWAP_FEE_BPS,
   VOID_FEE_BPS,
 } from "@/lib/utils/constants";
 
@@ -20,8 +19,6 @@ import {
  * a percentage quoted in prose cannot drift away from the percentage taken.
  */
 
-/** The swap fee, as prose. */
-export const SWAP_RATE = `${(SWAP_FEE_BPS / 100).toFixed(1)}%`;
 /** The Void's fee on reclaimed rent, as prose. */
 export const VOID_RATE = `${(VOID_FEE_BPS / 100).toFixed(1)}%`;
 /** Payload's fee on reclaimed rent, as prose. */
@@ -62,11 +59,10 @@ export interface Tool {
  * holding an unwanted NFT would not have learned from the landing page that this
  * is where it goes.
  *
- * No fee rate appears on any of these for the same reason it always did not:
- * "0.5% of the swap's output" reads like a charge on the dust being recovered
- * unless the sentence has room to say whose output and when, and a box this size
- * does not. Each flow states its fee against the real number it is taken from,
- * which is also the only place a reader can judge it.
+ * No fee rate appears on any of these: a rate in a box this size has no room to
+ * say what it is charged on, and a number without its base reads as a charge on
+ * the dust being recovered. Each flow states its fee against the real number it
+ * is taken from, which is also the only place a reader can judge it.
  */
 export const TOOLS: Tool[] = [
   {
@@ -90,7 +86,7 @@ export const TOOLS: Tool[] = [
     name: "Payload",
     href: "/payload",
     tagline:
-      "Send many tokens, NFTs and cNFTs to one address, with the destination checked first.",
+      "Send SOL, tokens, NFTs and cNFTs to one address, with the destination checked first.",
     cta: "Open Payload",
   },
   {

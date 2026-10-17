@@ -4,9 +4,6 @@ import { allowRequest, rateLimitResponse } from "@/lib/api/rate-limit";
 import { Connection } from "@solana/web3.js";
 import { buildSwap, buildSwapsSerial, fetchPrices } from "@/lib/jupiter/server";
 import { getServerRpcUrl } from "@/lib/config/env";
-import { getPublicFeeWallet } from "@/lib/config/public-env";
-import { feeAccountExists } from "@/lib/solana/fee.server";
-import { swapFeeAccount } from "@/lib/solana/fee-account";
 import { fetchRentMinimums } from "@/lib/solana/rent";
 import { resolveAmount, type AmountProblem } from "@/lib/sweep/amounts";
 import { nonCanonicalMints } from "@/lib/sweep/canonical";
@@ -15,7 +12,6 @@ import {
   OUTPUT_ASSETS,
   SLIPPAGE_MAX_BPS,
   SLIPPAGE_MIN_BPS,
-  SWAP_FEE_BPS,
 } from "@/lib/utils/constants";
 import {
   baseAmountToNumber,
@@ -143,36 +139,6 @@ export async function POST(request: Request) {
   const startedAt = Date.now();
 
   try {
-    // ── Integrator fee ──────────────────────────────────────────────────────
-    // Resolved once per request, into the fee wallet's own token account for
-    // this output asset. A fee is only ever applied once that account is
-    // confirmed to exist and be usable: Jupiter does not check, and a swap whose
-    // fee has nowhere to land fails on chain for every user.
-    //
-    // No fee wallet configured means no fee, never a fee pointed somewhere
-    // unverified. The rent-reclaim fees are separate and unchanged — they go to
-    // the same wallet as plain SOL transfers.
-    //
-    // Jupiter's Referral Program accepts this same fee — a referral token
-    // account is charged identically — but a claim keeps only `share_bps` and
-    // hands the rest to the project, so 20% of this fee would not be ours.
-    const feeWallet = getPublicFeeWallet();
-    let feeBps = 0;
-    let feeAccount: string | null = null;
-    const feeWarnings: string[] = [];
-
-    if (feeWallet) {
-      const candidate = swapFeeAccount(feeWallet, outputMint);
-      if (await feeAccountExists(candidate)) {
-        feeBps = SWAP_FEE_BPS;
-        feeAccount = candidate;
-      } else {
-        feeWarnings.push(
-          `The ${(SWAP_FEE_BPS / 100).toFixed(1)}% fee was not charged: the fee wallet has no usable token account for this output asset (${candidate}). Swaps still work — they just run fee-free. /api/health lists the create-account command.`,
-        );
-      }
-    }
-
     // One price batch for the output asset plus every input, so we can report a
     // real price-impact figure instead of a guess.
     const priceInput = new Set<string>([
@@ -244,9 +210,6 @@ export async function POST(request: Request) {
           taker: owner,
           slippageBps,
           maxAccounts: 32,
-          // Applied to every swap in the batch, or to none of them.
-          platformFeeBps: feeBps || undefined,
-          feeAccount: feeAccount ?? undefined,
         }),
       { concurrency: 4, gapMs: 120 },
     );
@@ -280,13 +243,7 @@ export async function POST(request: Request) {
         processed.rentReclaimMints * rent.tokenAccount,
       tokenAccountRentLamports: rent.tokenAccount,
       emptyAccountRentLamports: rent.emptyAccount,
-      // The integrator fee actually applied to this plan, and the token account
-      // it is paid into. Zero means no fee was charged — either no fee wallet is
-      // configured, or its account for this asset is unusable (reported in
-      // `warnings`).
-      feeBps,
-      feeAccount: feeBps > 0 ? feeAccount : null,
-      warnings: feeWarnings,
+      warnings: [],
       // Base fee for a single signature. The client recalculates this precisely
       // once the packer knows the real transaction count.
       estimatedFeeLamports: 5000,

@@ -176,17 +176,6 @@ export interface BuildParams {
   slippageBps: number;
   /** Cap on route accounts, 1–64. Lower = smaller tx = more swaps per tx. */
   maxAccounts?: number;
-  /**
-   * Integrator fee in basis points. Jupiter folds the fee transfer into the
-   * swap instruction itself, so it cannot be dropped or redirected client-side.
-   *
-   * Only ever set alongside a `feeAccount` that has been confirmed to exist —
-   * Jupiter does not check, and a swap paying a fee into a missing account
-   * fails on chain.
-   */
-  platformFeeBps?: number;
-  /** Token account the fee is paid into. Required when `platformFeeBps` is set. */
-  feeAccount?: string;
 }
 
 /**
@@ -212,14 +201,6 @@ export async function buildSwap(
   // Dust routes are simple. Capping accounts keeps each swap's instruction
   // list short, which is what allows more swaps to fit in one 1232-byte packet.
   query.set("maxAccounts", String(params.maxAccounts ?? 32));
-
-  // Integrator fee. Only sent as a pair, and only when the caller has already
-  // confirmed the fee account exists — Jupiter accepts the combo regardless and
-  // would happily return a swap that cannot land.
-  if (params.platformFeeBps && params.feeAccount) {
-    query.set("platformFeeBps", String(params.platformFeeBps));
-    query.set("feeAccount", params.feeAccount);
-  }
 
   const data = await jupiterFetch<JupiterBuildResponse>(
     `${JUPITER_SWAP_BASE}/build?${query.toString()}`,

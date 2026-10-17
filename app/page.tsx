@@ -8,7 +8,7 @@ import { ToolEmblem } from "@/components/layout/tool-emblem";
 import { Card, CardContent } from "@/components/ui/card";
 import { getSiteUrl } from "@/lib/config/site";
 import { TOOLS } from "@/lib/config/tools";
-import { RECLAIM_FEE_BPS, SWAP_FEE_BPS } from "@/lib/utils/constants";
+import { RECLAIM_FEE_BPS } from "@/lib/utils/constants";
 
 /**
  * The landing page.
@@ -62,7 +62,6 @@ const GUARANTEES = [
  * something the app no longer does.
  */
 function structuredData() {
-  const swapRate = `${(SWAP_FEE_BPS / 100).toFixed(1)}%`;
   const reclaimRate = `${(RECLAIM_FEE_BPS / 100).toFixed(1)}%`;
 
   return {
@@ -72,7 +71,7 @@ function structuredData() {
     applicationCategory: "FinanceApplication",
     operatingSystem: "Web",
     url: getSiteUrl(),
-    description: `Non-custodial tools for a Solana wallet. ${swapRate} on swaps and ${reclaimRate} of the rent any flow returns, both shown before you sign, and you sign every transaction.`,
+    description: `Non-custodial tools for a Solana wallet. No fee on a swap; ${reclaimRate} of the rent any flow returns, shown before you sign, and you sign every transaction.`,
     featureList: TOOLS.map((tool) => `${tool.name} — ${tool.tagline}`),
   };
 }

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Code2, ShieldCheck } from "lucide-react";
 import { getTwitterHandle, getTwitterUrl } from "@/lib/config/social";
-import { RECLAIM_FEE_BPS, SWAP_FEE_BPS } from "@/lib/utils/constants";
+import { RECLAIM_FEE_BPS } from "@/lib/utils/constants";
 import { Container } from "./container";
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "Spacedust";
@@ -58,10 +58,9 @@ export function Footer() {
                 aria-hidden
               />
               <span>
-                {(SWAP_FEE_BPS / 100).toFixed(1)}% on swaps, and{" "}
-                {(RECLAIM_FEE_BPS / 100).toFixed(1)}% of the rent any flow returns —
-                Void sends, account closes, Payload sends. All shown before you
-                sign, and you sign every transaction.
+                No fee on a swap. {(RECLAIM_FEE_BPS / 100).toFixed(1)}% of the
+                rent any flow returns — Void sends, account closes, Payload sends.
+                Shown before you sign, and you sign every transaction.
               </span>
             </p>
           </div>

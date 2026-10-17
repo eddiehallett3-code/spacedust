@@ -15,10 +15,10 @@ import { isValidSolanaAddress } from "@/lib/utils/sanitize";
 /**
  * Wallet that receives integrator fees, or `null` when fees are switched off.
  *
- * This has to be public rather than server-only: a swap fee is applied by the
- * server through Jupiter, but The Void's fee is a SOL transfer the *browser*
- * builds, and the browser cannot read a server-only variable. Publishing a
- * receiving address costs nothing — it is visible on chain regardless.
+ * This has to be public rather than server-only: the rent fee is a SOL
+ * transfer the *browser* builds, and the browser cannot read a server-only
+ * variable. Publishing a receiving address costs nothing — it is visible on
+ * chain regardless.
  *
  * Validated here rather than at each use site, so an invalid value disables
  * fees instead of building a transfer to a typo.

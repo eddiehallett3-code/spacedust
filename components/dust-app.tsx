@@ -37,7 +37,6 @@ import {
   OUTPUT_ASSETS,
   SMART_FILTER_MAX_PRICE_IMPACT,
   STORAGE_KEYS,
-  SWAP_FEE_BPS,
   THRESHOLD_DEFAULT_USD,
   THRESHOLD_MAX_USD,
   THRESHOLD_MIN_USD,
@@ -757,7 +756,7 @@ function ConnectPrompt() {
         {[
           "You sign every transaction in your own wallet",
           "We never ask for a private key or seed phrase",
-          `${(SWAP_FEE_BPS / 100).toFixed(1)}% fee on swaps, ${(VOID_FEE_BPS / 100).toFixed(1)}% on Void sends — shown before you sign`,
+          `${(VOID_FEE_BPS / 100).toFixed(1)}% on Void sends — shown before you sign`,
         ].map((line) => (
           <li key={line} className="flex items-start gap-2 text-xs text-muted">
             <ShieldCheck

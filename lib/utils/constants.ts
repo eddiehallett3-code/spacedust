@@ -173,31 +173,6 @@ export const PRIORITY_FEE_MICRO_LAMPORTS = 2_500;
 // ── Integrator fees ─────────────────────────────────────────────────────────
 
 /**
- * Fee taken on each swap, in basis points (1 bps = 0.01%).
- *
- * Charged on the swap's **output** through Jupiter's platform-fee mechanism, so
- * it comes out of the asset the user is sweeping into and never touches the
- * dust being recovered. Jupiter keeps the fee transfer inside the swap
- * instruction, which means it cannot be skipped, duplicated, or redirected by
- * the client.
- *
- * Where it lands: the **fee wallet's own token account** for that output asset —
- * `ATA(NEXT_PUBLIC_FEE_WALLET, mint)`, derived rather than configured
- * (`lib/solana/fee-account.ts`). The whole 0.5% arrives there and stays there:
- * there is no claim step, and nobody takes a cut between the swap and the
- * balance.
- *
- * Deliberately *not* routed through Jupiter's Referral Program, which is the
- * other way to point this same platform fee somewhere. A referral token account
- * is charged identically, but a claim then pays out that account's on-chain
- * `share_bps` to the partner and the remainder to the project — ours reads 8000,
- * so 0.4% would be kept and **0.1% handed to Jupiter**. Aiming the fee at our
- * own wallet keeps all of it. `probes/tmp-direct-fee-probe.mjs` measures both halves of
- * that claim; the README's fee section carries the numbers.
- */
-export const SWAP_FEE_BPS = 50; // 0.5%
-
-/**
  * Fee taken by The Void, in basis points of the rent reclaimed.
  *
  * A burn destroys the token, so the *only* value in a Void send is the rent
@@ -237,6 +212,16 @@ export const RECLAIM_FEE_BPS = 150; // 1.5%
  * repriced independently even though they start equal.
  */
 export const PAYLOAD_FEE_BPS = 150; // 1.5%
+
+/**
+ * Lamports a native-SOL send must leave in the wallet.
+ *
+ * A batch pays its network fees from the same wallet, and a transaction with no
+ * lamports left cannot pay one. This is the floor the UI treats as "max" — a
+ * reserve, not a fee: Spacedust keeps none of it. 0.001 SOL covers a base fee and
+ * the priority fee for a whole batch with room to spare.
+ */
+export const SOL_SEND_FEE_RESERVE_LAMPORTS = 1_000_000;
 
 /**
  * Measured compute for one send unit: create the recipient's account, transfer,

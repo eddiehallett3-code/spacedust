@@ -76,21 +76,6 @@ export interface PlanResponse {
    * `InsufficientFundsForRent`.
    */
   emptyAccountRentLamports: number;
-  /**
-   * Integrator fee actually applied to this plan, in basis points. Zero when the
-   * fee wallet is not configured, or when its token account for the output asset
-   * is missing or unusable (see `warnings`).
-   */
-  feeBps: number;
-  /**
-   * The token account the fee is paid into, or null when no fee was applied.
-   *
-   * A token account rather than a wallet, because the fee is charged in the
-   * output asset: it lands in the fee wallet's account for that mint. Nothing
-   * claims it out afterwards — it is that wallet's balance from the moment the
-   * swap lands.
-   */
-  feeAccount: string | null;
   /** Operator-facing notes, e.g. a fee that could not be collected. */
   warnings: string[];
   /** Per-transaction SOL fee estimate at the current priority level. */
@@ -300,14 +285,6 @@ export interface SweepSummary {
   feeLamports: number;
   signatures: string[];
   routeLabels: string[];
-  /**
-   * Integrator fee taken on the swap output, in whole output units. Jupiter
-   * charges it inside the swap instruction, in the output asset, so it is
-   * separate from the network fee and never touches the dust being recovered.
-   */
-  spacedustFeeAmount: number;
-  /** The fee rate applied, in basis points. Zero when fees were switched off. */
-  spacedustFeeBps: number;
   /** Set when the user ran a Dry Run instead of a real sweep. */
   dryRun: boolean;
 }
