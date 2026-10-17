@@ -23,7 +23,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: `${name} — batch tools for a Solana wallet`,
     short_name: name,
     description:
-      "Non-custodial Solana wallet tools: swap dust, burn what has no market, send in batches, reclaim rent, revoke approvals, and scan any address read-only.",
+      "Non-custodial Solana wallet tools: swap dust, send what has no market into The Void, send in batches, reclaim rent, revoke approvals, and scan any address read-only.",
     start_url: "/",
     display: "standalone",
     background_color: "#04050c",
