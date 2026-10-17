@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { Connection } from "@solana/web3.js";
 import { allowRequest, rateLimitResponse } from "@/lib/api/rate-limit";
 import { sharedLimiterStatus } from "@/lib/api/rate-limit-store";
-import { describeFailure } from "@/lib/api/redact";
+import { describeFailure, redactForLog } from "@/lib/api/redact";
 import {
   getHeliusApiKey,
   getJupiterApiKey,
@@ -110,7 +110,10 @@ export async function GET(request: Request) {
       // name the endpoint — and this endpoint carries the key in its query string
       // — so the raw error goes to the deployment log, where only the operator can
       // read it, and the response gets the same sentence with the key scoured out.
-      console.warn("[spacedust] /api/health: Helius probe failed", error);
+      console.warn(
+        "[spacedust] /api/health: Helius probe failed —",
+        redactForLog(error, [getHeliusApiKey() ?? "", getServerRpcUrl()]),
+      );
       checks.helius.detail = `Key rejected or quota exhausted: ${describeFailure(
         error,
         [getHeliusApiKey() ?? "", getServerRpcUrl()],
@@ -148,7 +151,10 @@ export async function GET(request: Request) {
     // Same rule as Helius: the key here travels in a header rather than a URL, so
     // it is less likely to be echoed — but "less likely" is not a reason to quote
     // an upstream message at a public endpoint.
-    console.warn("[spacedust] /api/health: Jupiter probe failed", error);
+    console.warn(
+      "[spacedust] /api/health: Jupiter probe failed —",
+      redactForLog(error, [getJupiterApiKey() ?? ""]),
+    );
     checks.jupiter.detail = `Jupiter unreachable: ${describeFailure(error, [
       getJupiterApiKey() ?? "",
     ])}`;

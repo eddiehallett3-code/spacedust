@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeFailure, redactSecrets } from "./redact";
+import { describeFailure, redactForLog, redactSecrets } from "./redact";
 
 /**
  * What a public diagnostic endpoint may repeat.
@@ -71,6 +71,27 @@ describe("redactSecrets", () => {
     expect(redactSecrets("the key is missing", { secrets: ["key"] })).toBe(
       "the key is missing",
     );
+  });
+});
+
+describe("redactForLog", () => {
+  it("keeps the diagnosis and drops the key, so a log is safe to keep", () => {
+    const failure = new Error(`Helius error: bad key in ${URL_WITH_KEY}`);
+    const line = redactForLog(failure, [KEY, URL_WITH_KEY]);
+
+    expect(line).toContain("Helius error");
+    expect(line).toContain("Error:");
+    expect(line).not.toContain(KEY);
+  });
+
+  it("allows more room than the public sentence", () => {
+    // Logs should carry the detail a public field must not.
+    const long = new Error("x".repeat(400));
+    expect(redactForLog(long).length).toBeGreaterThan(160);
+  });
+
+  it("survives a thrown non-Error", () => {
+    expect(redactForLog("plain string")).toBe("plain string");
   });
 });
 

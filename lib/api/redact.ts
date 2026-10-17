@@ -73,6 +73,24 @@ export function redactSecrets(
 }
 
 /**
+ * The operator-facing copy of a failure.
+ *
+ * Same redaction as the public sentence, with a larger cap: the full provider
+ * message has real debugging value and the key has none, and a deployment log is a
+ * place a secret can live for months. This exists so the call site never reaches
+ * for `console.warn(error)`, which would write the whole thing — URL and all — into
+ * a log the team can export but cannot un-export.
+ */
+export function redactForLog(
+  error: unknown,
+  secrets: readonly string[] = [],
+): string {
+  const message =
+    error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+  return redactSecrets(message, { secrets, maxLength: 500 });
+}
+
+/**
  * A failure, in one public sentence.
  *
  * Timeouts are named rather than quoted: `AbortSignal.timeout` surfaces as a
