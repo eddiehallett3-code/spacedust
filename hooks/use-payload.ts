@@ -15,6 +15,7 @@ import {
   type SendOutcome,
 } from "@/lib/payload/plan-send";
 import { signTransactions, submitTransactions } from "@/lib/solana/submit";
+import { previewFigures } from "@/lib/payload/preview";
 import { isBusyPhase } from "@/lib/sweep/phase";
 import { toFriendlyError, type FriendlyError } from "@/lib/utils/errors";
 import type {
@@ -184,17 +185,12 @@ export function usePayload() {
           // `isBusy` counts "simulating" as busy, so leaving it set kept a Void
           // preview rendered beside a send button that was disabled forever. The
           // same trap, so the same fix.
+          //
+          // The figures come from `previewFigures`, the same mapping the rebuild
+          // inside `execute` uses: one place that decides what a preview displays,
+          // so the two paths cannot tell the user different things.
+          ...previewFigures(result),
           phase: "idle",
-          packed: result.packed,
-          simulations: result.simulations,
-          outcomes: result.outcomes,
-          warnings: result.warnings,
-          rentLamports: result.estimatedRentLamports,
-          feeLamports: result.estimatedFeeOnRentLamports,
-          recipientAccountLamports: result.estimatedRecipientAccountLamports,
-          netLamports: result.estimatedNetLamports,
-          netIsNegative: result.netIsNegative,
-          networkFeeLamports: result.estimatedFeeLamports,
         });
         return result.packed.length;
       } catch (caught) {
@@ -293,6 +289,10 @@ export function usePayload() {
             verifiedAddress: request.verifiedAddress,
           });
           preparedRef.current = { result, request };
+          // The panel has to describe the plan that will actually be signed: this
+          // is a *new* plan, with fresh quotes and fresh rent readings, and the
+          // figures from the old one are no longer true of these bytes.
+          patch(previewFigures(result));
         }
 
         patch({ phase: "awaiting-signature", error: null });

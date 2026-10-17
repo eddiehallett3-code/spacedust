@@ -11,6 +11,7 @@ import {
   type RepackInput,
 } from "@/lib/sweep/plan-sweep";
 import { base64ToBytes } from "@/lib/utils/base64";
+import { TOKEN_PROGRAM_ID } from "@/lib/utils/constants";
 import type { ApiInstruction } from "@/types/jupiter";
 import type { PlanResponse, SwapBuild } from "@/types/sweep";
 
@@ -70,6 +71,23 @@ function connectionWith(
   } as unknown as Connection;
 }
 
+/**
+ * A connection that answers the composer's batched close-target read with one
+ * deposit per account, so a fee can be priced exactly as it is on mainnet.
+ */
+function connectionWithRent(lamports: number): Connection {
+  return {
+    getMultipleAccountsInfo: async (addresses: PublicKey[]) =>
+      addresses.map(() => ({
+        data: Buffer.alloc(0),
+        executable: false,
+        lamports,
+        owner: new PublicKey(TOKEN_PROGRAM_ID),
+        rentEpoch: 0,
+      })),
+  } as unknown as Connection;
+}
+
 /** The blockhash a packed transaction actually carries. */
 function embeddedBlockhash(base64: string): string {
   return VersionedTransaction.deserialize(base64ToBytes(base64)).message
@@ -95,7 +113,10 @@ async function composedUnits() {
       [BONK, "legacy"],
     ]),
     feeWallet: OWNER,
-    feeLamportsPerAccount: 22_326,
+    // A rate, applied by the composer to each close target's own deposit. The
+    // fake connection below reports one fresh account's rent.
+    connection: connectionWithRent(1_488_440),
+    reclaimFeeBps: 150,
   });
   return units;
 }
@@ -159,7 +180,14 @@ describe("refreshBlockhash", () => {
       blockhash: BLOCKHASH_A,
       lastValidBlockHeight: 100,
       estimatedFeeLamports: 5_000,
-      reclaimFeeLamportsPerAccount: 22_326,
+      rentByMint: new Map([
+        [USDC, 1_488_440],
+        [BONK, 1_488_440],
+      ]),
+      feeByMint: new Map([
+        [USDC, 22_326],
+        [BONK, 22_326],
+      ]),
       estimatedRentReclaimLamports: 0,
       estimatedReclaimFeeLamports: 0,
       estimatedNetRentLamports: 0,

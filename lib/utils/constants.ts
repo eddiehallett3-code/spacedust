@@ -226,17 +226,6 @@ export const VOID_FEE_BPS = 150; // 1.5%
 export const RECLAIM_FEE_BPS = 150; // 1.5%
 
 /**
- * FALLBACK fee per closed account, in lamports. Floored, never rounded up.
- *
- * Real burns are priced by `voidFeeFromRentLamports` against the rent actually
- * fetched at plan time. This exists only for render paths with no plan yet, and
- * is derived from the fallback rent so the two can never disagree.
- */
-export const VOID_FEE_LAMPORTS = Number(
-  (BigInt(TOKEN_ACCOUNT_RENT_LAMPORTS) * BigInt(VOID_FEE_BPS)) / 10_000n,
-);
-
-/**
  * Fee taken by Payload, in basis points of the rent its sends reclaim.
  *
  * A send moves the assets; the only value Payload *creates* is the rent freed

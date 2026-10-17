@@ -43,8 +43,8 @@ export function SweepPanel({
   isBusy,
   disabled,
   feeBps,
-  rentLamportsPerAccount,
-  reclaimFeePerAccount,
+  grossRentLamports,
+  reclaimFeeLamports,
   onPreview,
   onSweep,
   onReset,
@@ -72,26 +72,22 @@ export function SweepPanel({
   /** Integrator fee applied to this plan, in basis points. 0 = no fee. */
   feeBps: number;
   /**
-   * Rent-exempt minimum for one token account, taken from the plan that built
-   * these transactions — never a constant, so a change to the network's rent
-   * rate cannot make this label lie.
+   * Rent this batch's closes return, totalled by the planner from each account's
+   * own verified deposit.
    */
-  rentLamportsPerAccount: number;
-  /**
-   * The Spacedust fee for closing one account for its rent, in lamports, from
-   * the same plan. Zero when fees are off, so it can be multiplied by a count.
-   */
-  reclaimFeePerAccount: number;
+  grossRentLamports: number;
+  /** The Spacedust fee on that rent. Zero when fees are off. */
+  reclaimFeeLamports: number;
   onPreview: () => void;
   onSweep: () => void;
   onReset: () => void;
   onRescan: () => void;
 }) {
-  const rentMints = new Set(packed.flatMap((tx) => tx.rentReclaimMints));
-  // One fee transfer is built per closed account, so the fee rides the same
-  // count as the rent. Shown net, because the gross is not what lands.
-  const grossRentLamports = rentMints.size * rentLamportsPerAccount;
-  const reclaimFeeLamports = rentMints.size * reclaimFeePerAccount;
+  // Totals from the plan, which read each account's own deposit. A single
+  // per-account figure multiplied by the count used to stand here, and it
+  // understated both the rent and the fee on any account larger than a 165-byte
+  // legacy one — or older than the network's last rent change. Shown net, because
+  // the gross is not what lands.
   const rentLamports = grossRentLamports - reclaimFeeLamports;
   // Whether the copy below states a fee. Read from the public config rather than
   // from the plan's own per-account figure, so the sentence describes what this

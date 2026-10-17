@@ -11,6 +11,8 @@ import { SweepError } from "@/components/sweep/controls-column";
 import { SimulationReport } from "@/components/sweep/simulation-report";
 import { WarningsList } from "@/components/sweep/warnings-list";
 import { solscanTxUrl } from "@/lib/solana/submit";
+import { voidFeeFromRentLamports } from "@/lib/solana/rent";
+import { sumForMints } from "@/lib/sweep/totals";
 import { getPublicFeeWallet } from "@/lib/config/public-env";
 import { TOAST_READ_MS, VOID_FEE_BPS } from "@/lib/utils/constants";
 import { cn } from "@/lib/utils/cn";
@@ -84,22 +86,27 @@ export function VoidPanel({
   const hasPreview = packed.length > 0;
   const showSuccess = summary !== null;
 
-  // Rent and the fee come from the hook, which takes them from the last plan —
-  // fetched from the chain, so a change to the network's rent rate cannot make
-  // these labels lie. Before any plan exists they fall back to the constants.
+  // Rent and the fee come from the plan, which read **each account's own**
+  // deposit — deposits differ between accounts, so a single figure multiplied by
+  // a count understated both. Before a plan exists there is nothing to read, and
+  // the panel estimates from the network's current minimum instead.
   const rentPerAccount = theVoid.tokenAccountRentLamports;
-  const feePerAccount = theVoid.voidFeeLamportsPerAccount;
-
-  // Fees are on when a valid fee wallet is configured. Read from the public
-  // config because this transfer is built in the browser. A zero per-account
-  // fee also means "off" (unfunded wallet), which the plan already decided.
-  const voidFeeEnabled = getPublicFeeWallet() !== null && feePerAccount > 0;
+  const feeWalletConfigured = getPublicFeeWallet() !== null;
 
   const closedMints = new Set(packed.flatMap((tx) => tx.rentReclaimMints));
-  const accountCount = hasPreview ? closedMints.size : selectedTokens.length;
-  const grossRentLamports = accountCount * rentPerAccount;
-  // The Void's fee, priced per closed account and only while fees are on.
-  const voidFeeLamports = voidFeeEnabled ? accountCount * feePerAccount : 0;
+  const grossRentLamports = hasPreview
+    ? sumForMints(theVoid.rentByMint, closedMints)
+    : selectedTokens.length * rentPerAccount;
+  const voidFeeLamports = !feeWalletConfigured
+    ? 0
+    : hasPreview
+      ? sumForMints(theVoid.feeByMint, closedMints)
+      : selectedTokens.length * voidFeeFromRentLamports(rentPerAccount);
+  // Fees are on when a wallet is configured *and* the plan actually charged
+  // something — a configured but unfunded wallet charges nothing, which the plan
+  // already decided and warned about.
+  const voidFeeEnabled =
+    feeWalletConfigured && (hasPreview ? theVoid.feeByMint.size > 0 : true);
   const rentLamports = grossRentLamports - voidFeeLamports;
   const feeLamports = simulations.reduce(
     (sum, simulation) => sum + (simulation.feeLamports ?? 0),
@@ -254,7 +261,7 @@ export function VoidPanel({
                           </p>
                         </div>
                         <p className="shrink-0 font-mono text-[11px] text-subtle">
-                          +{formatSol(rentPerAccount)} rent
+                          +{formatSol(theVoid.rentByMint.get(token.mint) ?? rentPerAccount)} rent
                         </p>
                       </div>
                     </li>

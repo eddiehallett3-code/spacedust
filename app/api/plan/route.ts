@@ -9,6 +9,7 @@ import { feeAccountExists } from "@/lib/solana/fee.server";
 import { swapFeeAccount } from "@/lib/solana/fee-account";
 import { fetchRentMinimums } from "@/lib/solana/rent";
 import { resolveAmount, type AmountProblem } from "@/lib/sweep/amounts";
+import { nonCanonicalMints } from "@/lib/sweep/canonical";
 import {
   MAX_TOKENS_PER_SWEEP,
   OUTPUT_ASSETS,
@@ -134,6 +135,11 @@ export async function POST(request: Request) {
     );
   }
 
+  // Decided before any upstream call, so a holding a swap cannot reach costs no
+  // Jupiter request and no RPC read. See `nonCanonicalMints` for why the account
+  // Jupiter will drain is not necessarily the one the scanner reported.
+  const unreachable = nonCanonicalMints(owner, sweepable);
+
   const startedAt = Date.now();
 
   try {
@@ -200,6 +206,20 @@ export async function POST(request: Request) {
     const amountFailures: PlanResponse["failures"] = [];
     const toBuild: typeof sweepable = [];
     for (const token of sweepable) {
+      // A balance Jupiter's route cannot reach: the swap drains the wallet's
+      // associated account, not the one the scanner named. Reported rather than
+      // dropped, because The Void can still take it — a burn acts on the reported
+      // account.
+      if (unreachable.has(token.mint)) {
+        amountFailures.push({
+          mint: token.mint,
+          symbol: token.symbol ?? "???",
+          reason:
+            "Held in a non-standard token account, which a swap cannot drain — send it into The Void instead.",
+        });
+        continue;
+      }
+
       const amount = resolveAmount(token.rawAmount, token.swapAmountRaw ?? null);
       if (!amount.ok) {
         amountFailures.push({

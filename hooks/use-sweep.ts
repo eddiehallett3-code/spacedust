@@ -51,10 +51,15 @@ interface SweepState {
   /** What the instruction audit saw in the bytes about to be signed. */
   audit: AuditResult | null;
   /**
-   * The Spacedust fee for closing one account for its rent, in lamports, from
-   * the plan. Zero when fees are off, so the panel can multiply it by a count.
+   * Rent this batch's closes return, in lamports, summed from each account's own
+   * verified deposit.
+   *
+   * Totals rather than a per-account figure: deposits differ, so the panel shows
+   * the sum the closes will actually hand back.
    */
-  reclaimFeeLamportsPerAccount: number;
+  rentLamports: number;
+  /** The Spacedust fee on that rent. Zero when fees are off. */
+  reclaimFeeLamports: number;
   outcomes: TokenOutcome[];
   summary: SweepSummary | null;
   error: FriendlyError | null;
@@ -70,7 +75,8 @@ const INITIAL: SweepState = {
   packed: [],
   simulations: [],
   audit: null,
-  reclaimFeeLamportsPerAccount: 0,
+  rentLamports: 0,
+  reclaimFeeLamports: 0,
   outcomes: [],
   summary: null,
   error: null,
@@ -175,7 +181,8 @@ export function useSweep() {
           simulations: result.simulations,
           audit: result.audit,
           warnings: result.warnings,
-          reclaimFeeLamportsPerAccount: result.reclaimFeeLamportsPerAccount,
+          rentLamports: result.estimatedRentReclaimLamports,
+          reclaimFeeLamports: result.estimatedReclaimFeeLamports,
         });
 
         if (dryRun) {
@@ -188,7 +195,8 @@ export function useSweep() {
               outcomes: [],
               outputAsset: request.outputAsset,
               estimatedFeeLamports: result.estimatedFeeLamports,
-              reclaimFeeLamportsPerAccount: result.reclaimFeeLamportsPerAccount,
+              rentByMint: result.rentByMint,
+              feeByMint: result.feeByMint,
               dryRun: true,
             }),
           });
@@ -369,7 +377,8 @@ export function useSweep() {
         outcomes,
         outputAsset: request.outputAsset,
         estimatedFeeLamports: result.estimatedFeeLamports,
-        reclaimFeeLamportsPerAccount: result.reclaimFeeLamportsPerAccount,
+        rentByMint: result.rentByMint,
+        feeByMint: result.feeByMint,
         dryRun: false,
       });
 

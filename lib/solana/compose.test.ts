@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PublicKey } from "@solana/web3.js";
+import { PublicKey, type Connection } from "@solana/web3.js";
 import { composePackUnits, plannedCloseAccounts } from "@/lib/solana/compose";
 import { createComputeBudgetInstructions } from "@/lib/solana/instructions";
 import { packTransactions } from "@/lib/solana/pack";
@@ -71,6 +71,31 @@ function build(overrides: Partial<SwapBuild> = {}): SwapBuild {
     ...overrides,
   };
 }
+/**
+ * A connection that answers the composer's one batched close-target read.
+ *
+ * The composer now reads each target's **own** deposit and prices the fee from it,
+ * so a test that expects a fee has to supply a deposit — which is the behaviour
+ * worth pinning: the same account holding more earns a proportionally larger fee,
+ * instead of a flat figure that was only right for a 165-byte account.
+ */
+function connectionWith(
+  lamports: number,
+  program: string = TOKEN_PROGRAM_ID,
+): Connection {
+  return {
+    getMultipleAccountsInfo: async (addresses: PublicKey[]) =>
+      addresses.map(() => ({
+        data: Buffer.alloc(0),
+        executable: false,
+        lamports,
+        owner: new PublicKey(program),
+        rentEpoch: 0,
+      })),
+  } as unknown as Connection;
+}
+
+
 
 function accounts(builds: SwapBuild[]): string[] {
   return plannedCloseAccounts({
@@ -248,7 +273,9 @@ describe("plannedCloseAccounts", () => {
  */
 describe("composePackUnits rent-reclaim fee", () => {
   const owner = new PublicKey(OWNER);
+  /** 1.5% of one fresh token account's deposit, floored: 1,488,440 × 150 bps. */
   const closeFee = 22_326;
+  const RENT = 1_488_440;
 
   it("adds one fee transfer, directly after the close that funds it", async () => {
     const { units } = await composePackUnits({
@@ -256,8 +283,9 @@ describe("composePackUnits rent-reclaim fee", () => {
       builds: [swapBuild()],
       skipCloseMints: new Set<string>(),
       tokenPrograms: new Map([[USDC, "legacy"]]),
+      connection: connectionWith(RENT),
       feeWallet: FEE_WALLET,
-      feeLamportsPerAccount: closeFee,
+      reclaimFeeBps: 150,
     });
 
     const instructions = units[0]?.instructions ?? [];
@@ -286,16 +314,18 @@ describe("composePackUnits rent-reclaim fee", () => {
       builds: [swapBuild()],
       skipCloseMints: new Set<string>(),
       tokenPrograms: new Map([[USDC, "legacy"]]),
+      connection: connectionWith(RENT),
       feeWallet: null,
-      feeLamportsPerAccount: closeFee,
+      reclaimFeeBps: 150,
     });
     const zero = await composePackUnits({
       owner,
       builds: [swapBuild()],
       skipCloseMints: new Set<string>(),
       tokenPrograms: new Map([[USDC, "legacy"]]),
+      connection: connectionWith(RENT),
       feeWallet: FEE_WALLET,
-      feeLamportsPerAccount: 0,
+      reclaimFeeBps: 0,
     });
 
     expect(systemTransfers(off.units[0]?.instructions ?? [])).toEqual([]);
@@ -312,8 +342,9 @@ describe("composePackUnits rent-reclaim fee", () => {
       ],
       skipCloseMints: new Set<string>(),
       tokenPrograms: new Map([[USDC, "legacy"]]),
+      connection: connectionWith(RENT),
       feeWallet: FEE_WALLET,
-      feeLamportsPerAccount: closeFee,
+      reclaimFeeBps: 150,
     });
 
     expect(units[0]?.rentReclaim).toBe(false);
@@ -337,7 +368,9 @@ describe("composePackUnits rent-reclaim fee", () => {
 describe("a four-token SOL sweep declares its own closes", () => {
   const owner = new PublicKey(OWNER);
   const wrapped = derivedAta(OWNER, WSOL_MINT);
+  /** 1.5% of one fresh token account's deposit, floored: 1,488,440 × 150 bps. */
   const closeFee = 22_326;
+  const RENT = 1_488_440;
   const mints = [
     USDC,
     BONK,
@@ -372,8 +405,9 @@ describe("a four-token SOL sweep declares its own closes", () => {
 
     const { units } = await composePackUnits({
       ...composeInput,
+      connection: connectionWith(RENT),
       feeWallet: FEE_WALLET,
-      feeLamportsPerAccount: closeFee,
+      reclaimFeeBps: 150,
     });
     const prologue = createComputeBudgetInstructions(800_000, 1_000);
     const packed = packTransactions({

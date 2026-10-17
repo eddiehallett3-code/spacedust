@@ -857,9 +857,11 @@ A wallet that sells a token somewhere else — a DEX, a bridge, a manual
 shows it: the token list has no value to display and a sweep has no swap to
 attach a `closeAccount` to. It just sits there, holding its rent, indefinitely.
 
-That rent is ~0.00203928 SOL per account, and closing the account returns it.
-Spacedust finds these accounts, shows what they are holding, and closes them in
-one approval.
+That rent is read from each account rather than assumed — a fresh 165-byte account
+held 1,488,440 lamports when this was written, and an older account (funded
+before the network's rent change) or a Token-2022 account carrying extensions
+holds more. Spacedust finds these accounts, shows what each one is holding, and
+closes them in one approval.
 
 **This is the only flow with nothing to decide.** There is no route, no price,
 no slippage and no selection — the accounts hold no assets, so there is no value
@@ -1618,7 +1620,10 @@ has already been violated once:
 | `lib/solana/liveness.test.ts` | A missing account is not always a dead asset (a cNFT's id is a leaf, never an account) and a tiny account is not always a live one (a burned Core asset is one zero byte) — and the index's `burnt` flag is believed only when it is literally `true` |
 | `lib/sweep/plan-void.test.ts` | The SOL transfer sent on chain is 22,326 lamports — 1.5% of the rent the chain reports, and a frozen token account is refused before a burn is built for it |
 | `lib/sweep/plan-sweep.test.ts` | A stale blockhash window is refreshed by **re-packing** the batch — the same swaps, the same transactions in the same order, one new blockhash embedded — and not by re-quoting Jupiter, which would move the amounts under a preview the user had already read |
-| `lib/sweep/summary.test.ts` | Reclaimed rent comes from the plan, the fee reported is the one actually applied, and the rent on the success screen is **net** of the reclaim fee — one fee per closed account, never one per transaction |
+| `lib/sweep/summary.test.ts` | Rent is summed from **each close's own deposit** and only from closes that landed — a failed transaction used to credit the user with rent that never arrived — while the integrator fee reported is the one actually applied, not the configured rate |
+| `lib/sweep/totals.test.ts` | Per-account lamports are **summed**, not multiplied: a count times one figure is only right while every account holds the same deposit, which is false for older accounts and Token-2022 ones with extensions |
+| `lib/sweep/canonical.test.ts` | A balance held anywhere but the wallet's associated token account is a balance a swap cannot reach — Jupiter drains the ATA — so it is refused with a reason that points at The Void, and a Token-2022 mint is judged by its own program's derivation |
+| `lib/payload/preview.test.ts` | A Payload preview's figures come from one mapping, used both when the batch is first planned and when it is rebuilt on a fresh blockhash — the rebuild used to store the new plan and leave the old figures on screen |
 | `lib/sweep/void-prompt.test.ts` | "Left behind" means left behind *by this sweep*, not present in the wallet |
 | `lib/sweep/phase.test.ts` | Whatever phase a successful `prepare()` settles on is not a busy one |
 | `lib/security/instruction-audit.test.ts` | Every instruction a plan produces is checked against the program and the destination it is supposed to touch, so a built plan cannot quietly point somewhere else — and each flow's "accepts" case runs through the real builder the app ships, so a change to an instruction layout fails here rather than at a wallet prompt |
@@ -1628,7 +1633,7 @@ has already been violated once:
 | `lib/sweep/plan-nft-burn.test.ts` | A plain NFT is burned through Token Metadata — one instruction naming the metadata and master edition accounts, so nothing is left for an index to describe the asset from — with the SPL fallback taken, and reported, only when that builder fails; a Core asset goes through the Core program's instruction |
 | `lib/sweep/preview.test.ts` | A preview is discarded the moment its selection moves, so the button always describes what will be signed — and that both burn flows are actually wired to that rule |
 | `lib/solana/simulate-error.test.ts` | A program's `Custom` code is only named when we have checked *which* program raised it — `17` means `AccountFrozen` from the token program and something else from anything else |
-| `lib/solana/compose.test.ts` | The audit is told about every close the composer will make — including the derived-ATA fallback for a holding the scanner could not name, and the wrapped-SOL account Jupiter's own cleanup closes on a SOL-output swap, which was the close reported four times over as one "the plan did not name"; a non-canonical account declares nothing, because nothing is closed. The composer's other output is the rent-reclaim fee: exactly one SOL transfer per closed account, sitting directly after the close that funds it, and nothing at all when fees are off, the fee is zero, or no account is closed |
+| `lib/solana/compose.test.ts` | The audit is told about every close the composer will make — including the derived-ATA fallback for a holding the scanner could not name, and the wrapped-SOL account Jupiter's own cleanup closes on a SOL-output swap, which was the close reported four times over as one "the plan did not name"; a non-canonical account declares nothing, because nothing is closed. The composer's other output is the rent-reclaim fee: exactly one SOL transfer per closed account, **priced from that account's own deposit** (read in the same batched call that verifies the close target), sitting directly after the close that funds it, and nothing at all when fees are off, no deposit could be read, or no account is closed |
 | `app/api/plan/route.test.ts` | The money path refuses what the app would never send: an owner that is not an address, an output asset outside the SOL/USDC/JUP allow-list, more tokens than a sweep can carry, slippage outside the band, and a swap amount that is not a whole base-unit string — while both a partial amount and the original whole-balance request still parse |
 | `lib/solana/cnft-burn.test.ts` | A cNFT burn is Bubblegum's `Burn` with each leaf fact at its own offset and the proof appended — and for V2, `burnV2` with the payer and authority as the signers, not the leaf owner |
 | `lib/solana/cnft-transfer.test.ts` | A cNFT send is Bubblegum's `Transfer`, and the one thing that must be right is the destination: the new owner is asserted in its own account slot, for both `transfer` and `transferV2`, because a wrong key there hands the leaf away and nothing gives it back |

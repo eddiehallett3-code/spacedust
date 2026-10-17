@@ -18,7 +18,6 @@ import {
 import { auditPlanBeforeSigning } from "@/lib/security/audit-plan";
 import type { AuditResult } from "@/lib/security/instruction-audit";
 import { loadLookupTables } from "@/lib/solana/connection";
-import { feeFromRentLamports } from "@/lib/solana/rent";
 import {
   createComputeBudgetInstructions,
   getOwnerAta,
@@ -30,6 +29,7 @@ import {
 import { packTransactions, type PackUnit } from "@/lib/solana/pack";
 import { simulateAll } from "@/lib/solana/simulate";
 import { mintsWithoutRentReclaim } from "@/lib/sweep/amounts";
+import { sumForMints } from "@/lib/sweep/totals";
 import type {
   OutputAsset,
   PackedTransaction,
@@ -90,12 +90,15 @@ export interface PlanSweepResult {
   /** Precise fee estimate, based on the real transaction count. */
   estimatedFeeLamports: number;
   /**
-   * The Spacedust fee for closing ONE account for its rent, in lamports, floored.
+   * The deposit each close in this batch returns, per mint, read from the chain.
    *
-   * Zero when fees are off — so a caller can multiply it by a closed-account
-   * count without checking whether fees were charged first.
+   * Per mint rather than one figure: deposits differ between accounts, and the
+   * panel and the success screen both total these instead of multiplying a single
+   * number by a count.
    */
-  reclaimFeeLamportsPerAccount: number;
+  rentByMint: Map<string, number>;
+  /** The Spacedust fee charged on each of those deposits, per mint. */
+  feeByMint: Map<string, number>;
   /** Rent this batch's closes return, before the reclaim fee. */
   estimatedRentReclaimLamports: number;
   /** The Spacedust fee on that rent. Zero when fees are off. */
@@ -234,21 +237,21 @@ export async function planSweep(
       );
     }
   }
-  const reclaimFeePerAccount = feeEnabled
-    ? feeFromRentLamports(plan.tokenAccountRentLamports, RECLAIM_FEE_BPS)
-    : 0;
-
-  const { units, errors: composeErrors, warnings: composeWarnings } =
+  const { units, errors: composeErrors, warnings: composeWarnings, rentByMint, feeByMint } =
     await composePackUnits({
       owner,
       builds: plan.builds,
       skipCloseMints,
       tokenPrograms,
       // Lets the composer confirm a close target exists before we commit to
-      // closing it — a missing account fails the whole transaction on-chain.
+      // closing it — a missing account fails the whole transaction on-chain. It
+      // also reads each target's own deposit, which is what the fee is priced
+      // from.
       connection,
       feeWallet: feeEnabled ? feeWallet : null,
-      feeLamportsPerAccount: reclaimFeePerAccount,
+      // A rate, not an amount: the composer applies it to each account's own
+      // deposit. Zero disables the transfer entirely.
+      reclaimFeeBps: feeEnabled ? RECLAIM_FEE_BPS : 0,
     });
 
   const warnings = [
@@ -309,15 +312,14 @@ export async function planSweep(
 
   // Rent actually reclaimed, and the fee on it. Counted from the accounts that
   // made it into a transaction rather than the ones we set out to close: a
-  // dropped unit returns no rent, and one fee transfer was built per closed
-  // account, so the same count prices the fee.
+  // dropped unit returns no rent — and totalled from each account's own measured
+  // deposit, not from a count multiplied by one figure, so the panel's numbers are
+  // the ones the closes will actually hand back.
   const packedCloseMints = new Set(
     packedResult.transactions.flatMap((tx) => tx.rentReclaimMints),
   );
-  const estimatedRentReclaimLamports =
-    packedCloseMints.size * plan.tokenAccountRentLamports;
-  const estimatedReclaimFeeLamports =
-    packedCloseMints.size * reclaimFeePerAccount;
+  const estimatedRentReclaimLamports = sumForMints(rentByMint, packedCloseMints);
+  const estimatedReclaimFeeLamports = sumForMints(feeByMint, packedCloseMints);
 
   // ── The audit: what is about to be signed, checked before it is simulated ─
   // Runs on the instructions that actually made it into a transaction and on the
@@ -395,7 +397,8 @@ export async function planSweep(
     estimatedFeeLamports,
     hasFailures,
     audit,
-    reclaimFeeLamportsPerAccount: reclaimFeePerAccount,
+    rentByMint,
+    feeByMint,
     estimatedRentReclaimLamports,
     estimatedReclaimFeeLamports,
     estimatedNetRentLamports:
@@ -461,10 +464,8 @@ export async function refreshBlockhash(
   const closedMints = new Set(
     fresh.packed.flatMap((transaction) => transaction.rentReclaimMints),
   );
-  const estimatedRentReclaimLamports =
-    closedMints.size * result.plan.tokenAccountRentLamports;
-  const estimatedReclaimFeeLamports =
-    closedMints.size * result.reclaimFeeLamportsPerAccount;
+  const estimatedRentReclaimLamports = sumForMints(result.rentByMint, closedMints);
+  const estimatedReclaimFeeLamports = sumForMints(result.feeByMint, closedMints);
 
   return {
     ...result,

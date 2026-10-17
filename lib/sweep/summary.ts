@@ -1,5 +1,6 @@
 import { OUTPUT_ASSETS } from "@/lib/utils/constants";
 import { totalOutputRaw } from "@/lib/solana/compose";
+import { sumForMints } from "@/lib/sweep/totals";
 import type {
   OutputAsset,
   PackedTransaction,
@@ -24,14 +25,17 @@ export function buildSummary(params: {
   outputAsset: OutputAsset;
   estimatedFeeLamports: number;
   /**
-   * The Spacedust fee for closing ONE account for its rent, in lamports.
+   * The deposit each close returns, per mint, as the planner read it from the
+   * chain.
    *
-   * Passed in rather than derived, because the planner already resolved it
-   * against the plan's own rent figure and the fee wallet's funding — and the
-   * success screen must report the fee that was actually charged, not a
-   * rate that might have been skipped.
+   * Per mint rather than one per-account figure: deposits differ, and the screen
+   * has to report what the closes actually hand back. Passed in rather than
+   * derived here for the same reason the fee always was — the planner already
+   * resolved it, and the success screen must not invent a second opinion.
    */
-  reclaimFeeLamportsPerAccount: number;
+  rentByMint: ReadonlyMap<string, number>;
+  /** The Spacedust fee charged on each of those deposits, per mint. */
+  feeByMint: ReadonlyMap<string, number>;
   dryRun: boolean;
 }): SweepSummary {
   const {
@@ -41,7 +45,8 @@ export function buildSummary(params: {
     outcomes,
     outputAsset,
     estimatedFeeLamports,
-    reclaimFeeLamportsPerAccount,
+    rentByMint,
+    feeByMint,
     dryRun,
   } = params;
 
@@ -49,20 +54,29 @@ export function buildSummary(params: {
   const totalOut = totalOutputRaw(plan.builds);
   const divisor = 10 ** config.decimals;
 
-  // Count distinct mints, not transactions — one mint can only appear once, but
-  // counting per transaction would double-count if we ever split a mint.
-  const rentReclaimedMints = new Set(
-    packed.flatMap((tx) => tx.rentReclaimMints),
-  );
+  // ── Which closes actually returned rent ───────────────────────────────────
+  // A dry run has no outcomes, so it reports what the plan intends — that is what
+  // "you would receive" means. A real sweep counts only the closes that landed:
+  // a failed transaction closes nothing, and counting its mints (which this used
+  // to) credited the user with rent the wallet never saw.
+  //
+  // Distinct mints, not transactions: one mint can only appear once, but counting
+  // per transaction would double-count if a mint were ever split.
+  const settledRentMints = dryRun
+    ? new Set(packed.flatMap((tx) => tx.rentReclaimMints))
+    : new Set(
+        outcomes
+          .filter(
+            (outcome) => outcome.status === "success" && outcome.rentReclaimed,
+          )
+          .map((outcome) => outcome.mint),
+      );
 
-  // Priced from the rent the chain reported for THIS plan, not a constant. The
-  // fee rides on the same count, because the planner built one transfer per
-  // closed account — so the gross, the fee and the net all come from one number
-  // and cannot disagree.
-  const grossRentLamports =
-    rentReclaimedMints.size * plan.tokenAccountRentLamports;
-  const reclaimFeeLamports =
-    rentReclaimedMints.size * reclaimFeeLamportsPerAccount;
+  // Summed from each account's own deposit. Multiplying one figure by a count was
+  // what made this screen disagree with the chain on any account larger than a
+  // 165-byte legacy one.
+  const grossRentLamports = sumForMints(rentByMint, settledRentMints);
+  const reclaimFeeLamports = sumForMints(feeByMint, settledRentMints);
 
   const successCount = outcomes.filter((o) => o.status === "success").length;
   const failedCount = outcomes.filter((o) => o.status === "failed").length;

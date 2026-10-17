@@ -24,6 +24,7 @@ import {
 } from "@/lib/solana/instructions";
 import { packTransactions, type PackUnit } from "@/lib/solana/pack";
 import { simulateAll } from "@/lib/solana/simulate";
+import { sumForMints } from "@/lib/sweep/totals";
 import type { PackedTransaction, SimulationOutcome } from "@/types/sweep";
 import { auditPlanBeforeSigning } from "@/lib/security/audit-plan";
 import type { DustToken } from "@/types/token";
@@ -62,10 +63,14 @@ export interface PlanVoidResult {
   /** Rent-exempt minimum for one token account, as reported by the chain. */
   tokenAccountRentLamports: number;
   /**
-   * The Void's fee for one closed account, priced against that rent. Zero when
-   * fees are off, so it can be multiplied by a closed-account count blindly.
+   * The deposit each close returns, per mint, read from the account itself.
+   *
+   * Per mint rather than one figure: deposits differ between accounts, and the
+   * panel and the success screen both total these rather than multiplying.
    */
-  voidFeeLamportsPerAccount: number;
+  rentByMint: Map<string, number>;
+  /** The Void's fee on each of those deposits, per mint. */
+  feeByMint: Map<string, number>;
   /** Rent we expect back: one token account closed per burned token. */
   estimatedRentReclaimLamports: number;
   /** Gross rent minus The Void's fee — what actually lands in the wallet. */
@@ -127,11 +132,21 @@ function resolveTokenAccount(
  * leaves those tokens offered, so the simulation stays the judge. Refusing
  * something that is actually fine would be the worse mistake of the two.
  */
-async function frozenTokenAccounts(
+/**
+ * One batched read of the accounts this batch will close.
+ *
+ * Two facts come out of the same call: whether an account is **frozen** (so it is
+ * refused with a reason rather than at simulation) and its own **rent-exempt
+ * deposit** (so the rent promised and The Void's fee are both priced from the
+ * account itself). Pricing from a single constant understated every account that
+ * was larger than a fresh 165-byte one, or funded before the network's rent change.
+ */
+async function readTokenAccounts(
   connection: Connection,
   accounts: PublicKey[],
-): Promise<Set<string>> {
+): Promise<{ frozen: Set<string>; lamportsByAccount: Map<string, number> }> {
   const frozen = new Set<string>();
+  const lamportsByAccount = new Map<string, number>();
   const unique = [...new Set(accounts.map((account) => account.toBase58()))];
 
   for (let start = 0; start < unique.length; start += 100) {
@@ -141,20 +156,23 @@ async function frozenTokenAccounts(
         batch.map((address) => new PublicKey(address)),
       );
       response.value.forEach((info, index) => {
-        const data = info?.data;
+        const address = batch[index];
+        if (!address || !info) return;
+        lamportsByAccount.set(address, info.lamports);
+        const data = info.data;
         const parsed =
           data && typeof data === "object" && "parsed" in data
             ? (data as ParsedAccountData).parsed
             : null;
         const state = (parsed?.info as { state?: unknown } | undefined)?.state;
-        if (state === "frozen") frozen.add(batch[index]!);
+        if (state === "frozen") frozen.add(address);
       });
     } catch {
-      // See the comment above: unknown is not frozen.
+      // Unknown is not frozen, and an unread deposit earns no fee.
     }
   }
 
-  return frozen;
+  return { frozen, lamportsByAccount };
 }
 
 export async function planVoid(
@@ -163,6 +181,12 @@ export async function planVoid(
   const { connection, owner, tokens } = input;
   const warnings: string[] = [];
   const units: PackUnit[] = [];
+  /**
+   * The deposit each close returns, and the fee charged on it, per mint — from
+   * the batched read below, not from one figure multiplied by a count.
+   */
+  const rentByMint = new Map<string, number>();
+  const feeByMint = new Map<string, number>();
 
   // The fee wallet, if fees are switched on. Read from the *public* config
   // because this pipeline runs in the browser and has to build the transfer.
@@ -195,12 +219,6 @@ export async function planVoid(
     }
   }
 
-  // Priced once against real rent, then reused for every account. Zero when
-  // fees are off, so the per-account multiplication stays unconditional.
-  const voidFeePerAccount = feeEnabled
-    ? voidFeeFromRentLamports(rent.tokenAccount)
-    : 0;
-
   // ── 0. Refuse frozen accounts before offering to burn them ───────────────
   // A frozen account can be neither burned nor closed, so offering one is
   // offering a preview that cannot succeed.
@@ -230,7 +248,10 @@ export async function planVoid(
       // message than this pre-pass could give.
     }
   }
-  const frozenAccounts = await frozenTokenAccounts(connection, candidateAccounts);
+  const { frozen: frozenAccounts, lamportsByAccount } = await readTokenAccounts(
+    connection,
+    candidateAccounts,
+  );
 
   // ── 1. One burn + close pair per token ────────────────────────────────────
   // Everything is validated locally: the mint must parse, the amount must fit
@@ -302,6 +323,11 @@ export async function planVoid(
       // the token, so the reclaimed rent *is* the only value in a Void send —
       // there is no output amount to charge a percentage of.
       //
+      // Priced per account, from **that account's own deposit**, which is the
+      // figure the batched read above just returned. A single per-account amount
+      // used to stand here, and it understated both the rent shown and the fee
+      // taken on any account larger than a fresh 165-byte one.
+      //
       // Priced per account rather than per transaction on purpose: the packer
       // decides how many units share a transaction, so a per-transaction fee
       // would be charged once per *packet* and would silently scale with the
@@ -310,19 +336,28 @@ export async function planVoid(
       // It sits after the close, so it can always be funded: the close credits
       // the full rent to `owner` first, and the fee is a floor of 1.5% of it.
       //
-      // Gated on `voidFeePerAccount`, which is already zero unless fees are on
-      // AND the fee wallet is funded — see the checks above.
-      if (feeWallet && voidFeePerAccount > 0) {
+      // A deposit we could not read earns no fee at all — a percentage of a guess
+      // is worse than no charge.
+      const rentLamports = lamportsByAccount.get(account.toBase58()) ?? 0;
+      const accountFee =
+        feeWallet && feeEnabled && rentLamports > 0
+          ? voidFeeFromRentLamports(rentLamports)
+          : 0;
+      if (feeWallet && accountFee > 0) {
         instructions.push(
           SystemProgram.transfer({
             fromPubkey: owner,
             toPubkey: new PublicKey(feeWallet),
-            lamports: voidFeePerAccount,
+            lamports: accountFee,
           }),
         );
       }
 
       units.push({ mint: token.mint, instructions, rentReclaim: true });
+      if (rentLamports > 0) {
+        rentByMint.set(token.mint, rentLamports);
+        if (accountFee > 0) feeByMint.set(token.mint, accountFee);
+      }
     } catch (error) {
       warnings.push(
         `Skipped ${token.symbol}: ${
@@ -387,7 +422,7 @@ export async function planVoid(
       flow: "void",
       owner: owner.toBase58(),
       feeWallet,
-      expectedFeeLamports: auditClosedMints.size * voidFeePerAccount,
+      expectedFeeLamports: sumForMints(feeByMint, auditClosedMints),
     },
   });
 
@@ -417,10 +452,10 @@ export async function planVoid(
     ),
   );
 
-  // One fee transfer per closed account, so the total is exact — and priced
-  // against the rent the chain reported, not a constant.
-  const grossRentLamports = closedMints.size * rent.tokenAccount;
-  const estimatedVoidFeeLamports = closedMints.size * voidFeePerAccount;
+  // One fee transfer per closed account, so the total is a sum over the accounts
+  // that made it into a transaction — each priced from its own deposit.
+  const grossRentLamports = sumForMints(rentByMint, closedMints);
+  const estimatedVoidFeeLamports = sumForMints(feeByMint, closedMints);
 
   return {
     packed: packedResult.transactions,
@@ -430,7 +465,8 @@ export async function planVoid(
     lastValidBlockHeight: blockhashInfo.lastValidBlockHeight,
     estimatedFeeLamports,
     tokenAccountRentLamports: rent.tokenAccount,
-    voidFeeLamportsPerAccount: voidFeePerAccount,
+    rentByMint,
+    feeByMint,
     estimatedRentReclaimLamports: grossRentLamports,
     estimatedNetRentLamports: grossRentLamports - estimatedVoidFeeLamports,
     estimatedVoidFeeLamports,

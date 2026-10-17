@@ -13,6 +13,7 @@ import {
   getOwnerAta,
   tokenProgramFor,
 } from "./instructions";
+import { feeFromRentLamports } from "./rent";
 import type { PackUnit } from "./pack";
 import type { SwapBuild } from "@/types/sweep";
 
@@ -54,10 +55,17 @@ export interface ComposeUnitInput {
    */
   feeWallet: string | null;
   /**
-   * The Spacedust fee for closing one emptied account, in lamports, floored.
-   * Zero when fees are off, so "no transfer" and "no fee" are the same thing.
+   * The rent-reclaim fee rate, in basis points, applied to each account's own
+   * verified deposit. Zero when fees are off.
+   *
+   * A *rate* rather than a flat amount, because deposits differ: an account
+   * funded before the network's rent change holds more than a fresh one, and a
+   * Token-2022 account carrying extensions is larger than 165 bytes. Both the
+   * rent we report and the fee we take have to follow the account, not a constant
+   * — a flat figure understated each, which is how the panel came to disagree
+   * with the chain.
    */
-  feeLamportsPerAccount: number;
+  reclaimFeeBps: number;
 }
 
 export interface ComposeUnitResult {
@@ -66,6 +74,16 @@ export interface ComposeUnitResult {
   errors: Array<{ mint: string; reason: string }>;
   /** Non-fatal notes (for example: rent reclaim skipped). Swaps still run. */
   warnings: string[];
+  /**
+   * The deposit each close will return, per mint, read from the chain.
+   *
+   * Only closed accounts appear. Callers total these rather than multiplying a
+   * single figure by a count, so the numbers on screen match what the closes
+   * actually hand back.
+   */
+  rentByMint: Map<string, number>;
+  /** The fee charged on each of those deposits, per mint, already floored. */
+  feeByMint: Map<string, number>;
 }
 
 /** A resolved close target, or the reason we are not reclaiming rent. */
@@ -92,11 +110,13 @@ export async function composePackUnits({
   tokenPrograms,
   connection,
   feeWallet,
-  feeLamportsPerAccount,
+  reclaimFeeBps,
 }: ComposeUnitInput): Promise<ComposeUnitResult> {
   const units: PackUnit[] = [];
   const errors: Array<{ mint: string; reason: string }> = [];
   const warnings: string[] = [];
+  const rentByMint = new Map<string, number>();
+  const feeByMint = new Map<string, number>();
 
   // ── Rent reclaim ──────────────────────────────────────────────────────────
   // After the swap the user's token account should hold zero. Closing it returns
@@ -122,7 +142,7 @@ export async function composePackUnits({
 
   const plansByMint = new Map<string, ClosePlan>();
   closePlans.forEach((plan, index) => {
-    if (plan.account && verification && !verification[index]) {
+    if (plan.account && verification && !verification[index]?.exists) {
       plansByMint.set(plan.mint, {
         ...plan,
         account: null,
@@ -133,7 +153,9 @@ export async function composePackUnits({
     plansByMint.set(plan.mint, plan);
   });
 
-  for (const build of builds) {
+  // Indexed, because the verification read is keyed by the same position: the
+  // per-account deposit is what the fee is priced from.
+  for (const [index, build] of builds.entries()) {
     try {
       const setup = apiToInstructions(build.bundle.setup);
       const swap = apiToInstruction(build.bundle.swap);
@@ -156,23 +178,36 @@ export async function composePackUnits({
         // the close credits the whole deposit to `owner` first, and the fee is a
         // floor of 1.5% of it.
         //
-        // Priced per account rather than per transaction on purpose. The packer
-        // decides how many swaps share a transaction, so a per-transaction fee
-        // would be charged once per *packet* and would silently scale with the
-        // grouping. This amount is exact however the units are packed.
+        // Priced per account **from that account's own deposit**, which is the
+        // figure `verifyCloseTargets` just read. A flat per-account figure used to
+        // stand here, and it was wrong in both directions at once: an account
+        // funded before the network's rent change holds more than a fresh one, and
+        // a Token-2022 account with extensions is larger than 165 bytes — so the
+        // rent we promised and the fee we took both understated what came back.
         //
-        // Both guards matter: `feeWallet` null means fees are off, and a zero
-        // per-account fee means the planner decided not to charge (the fee
-        // wallet is unfunded, or there is no rent to take a fee from). Either
-        // way, no transfer is built — and the audit is told the same thing.
-        if (feeWallet && feeLamportsPerAccount > 0) {
+        // Pricing per account rather than per transaction is deliberate too: the
+        // packer decides how many swaps share a transaction, so a per-transaction
+        // fee would silently scale with the grouping.
+        //
+        // A deposit we could not read earns no fee at all. A percentage of a guess
+        // is worse than no charge, and it is what made the two disagree.
+        const rentLamports = verification?.[index]?.lamports ?? 0;
+        const accountFee =
+          feeWallet && reclaimFeeBps > 0 && rentLamports > 0
+            ? feeFromRentLamports(rentLamports, reclaimFeeBps)
+            : 0;
+        if (feeWallet && accountFee > 0) {
           postSwap.push(
             SystemProgram.transfer({
               fromPubkey: owner,
               toPubkey: new PublicKey(feeWallet),
-              lamports: feeLamportsPerAccount,
+              lamports: accountFee,
             }),
           );
+        }
+        if (rentLamports > 0) {
+          rentByMint.set(build.mint, rentLamports);
+          if (accountFee > 0) feeByMint.set(build.mint, accountFee);
         }
       } else if (plan?.reason) {
         warnings.push(`Rent reclaim skipped for ${build.symbol}: ${plan.reason}.`);
@@ -197,7 +232,7 @@ export async function composePackUnits({
     }
   }
 
-  return { units, errors, warnings };
+  return { units, errors, warnings, rentByMint, feeByMint };
 }
 
 /**
@@ -357,16 +392,31 @@ export function plannedCloseAccounts(input: {
  * failed lookup degrades to "exists", so a flaky RPC never silently strips
  * rent reclaim from an otherwise working sweep.
  */
+/** What a close target's own account says about itself. */
+interface CloseTarget {
+  exists: boolean;
+  /**
+   * The account's rent-exempt deposit, read from the account itself.
+   *
+   * Zero means "unknown", not "empty": a target whose deposit could not be read
+   * earns no fee and is left out of the rent total, because a percentage of a
+   * guess is how the panel came to disagree with the chain.
+   */
+  lamports: number;
+}
+
 async function verifyCloseTargets(
   connection: Connection,
   plans: ClosePlan[],
-): Promise<boolean[]> {
+): Promise<CloseTarget[]> {
   const wanted = plans
     .map((plan, index) => ({ plan, index }))
     .filter(({ plan }) => plan.account !== null);
-  if (wanted.length === 0) return plans.map(() => true);
+  if (wanted.length === 0) {
+    return plans.map(() => ({ exists: true, lamports: 0 }));
+  }
 
-  const results = plans.map(() => true);
+  const results: CloseTarget[] = plans.map(() => ({ exists: true, lamports: 0 }));
   try {
     const infos = await connection.getMultipleAccountsInfo(
       wanted.map(({ plan }) => plan.account as PublicKey),
@@ -374,17 +424,19 @@ async function verifyCloseTargets(
     wanted.forEach(({ plan, index }, infoIndex) => {
       const account = infos[infoIndex];
       if (!account) {
-        results[index] = false;
+        results[index] = { exists: false, lamports: 0 };
         return;
       }
       // An account owned by anything other than its mint's token program is
       // not something `closeAccount` can act on.
       if (plan.program && !account.owner.equals(plan.program)) {
-        results[index] = false;
+        results[index] = { exists: false, lamports: 0 };
+        return;
       }
+      results[index] = { exists: true, lamports: account.lamports };
     });
   } catch {
-    return plans.map(() => true);
+    return plans.map(() => ({ exists: true, lamports: 0 }));
   }
   return results;
 }

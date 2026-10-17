@@ -55,6 +55,30 @@ function fakeConnection(): Connection {
       size === 165 ? 1_488_440 : 650_240,
     // The fee wallet is funded, so the fee is in scope.
     getAccountInfo: async () => ({ lamports: 10_000_000 }),
+    /**
+     * One parsed token account per address, each holding a fresh 165-byte deposit.
+     *
+     * The planner reads this to learn both whether an account is frozen and what
+     * its own rent-exempt deposit is; the fee is a percentage of that deposit, so
+     * a fake without it would charge nothing and prove nothing.
+     */
+    getMultipleParsedAccounts: async (addresses: PublicKey[]) =>
+      ({
+        context: { slot: 1 },
+        value: addresses.map(() => ({
+          data: {
+            parsed: { info: { state: "initialized" }, type: "account" },
+            program: "spl-token",
+            space: 165,
+          },
+          executable: false,
+          lamports: 1_488_440,
+          owner: new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
+          rentEpoch: 0,
+        })),
+      }) as unknown as Awaited<
+        ReturnType<Connection["getMultipleParsedAccounts"]>
+      >,
   } as unknown as Connection;
 }
 
@@ -94,7 +118,7 @@ describe("planVoid fee", () => {
     });
 
     expect(plan.tokenAccountRentLamports).toBe(1_488_440);
-    expect(plan.voidFeeLamportsPerAccount).toBe(22_326);
+    expect(plan.feeByMint.get(MINT)).toBe(22_326);
 
     // The amount that actually goes on chain.
     const lamports = transferLamports(onlyTx(plan));
@@ -125,7 +149,7 @@ describe("planVoid fee", () => {
         tokens: [token],
       });
 
-      expect(plan.voidFeeLamportsPerAccount).toBe(0);
+      expect(plan.feeByMint.size).toBe(0);
       expect(transferLamports(onlyTx(plan))).toBeNull();
       // The burn itself still happens: with no fee the user just keeps it all.
       expect(plan.estimatedNetRentLamports).toBe(1_488_440);

@@ -10,11 +10,11 @@ import {
   type PlanVoidResult,
 } from "@/lib/sweep/plan-void";
 import { signTransactions, submitTransactions } from "@/lib/solana/submit";
+import { sumForMints } from "@/lib/sweep/totals";
 import { toFriendlyError, type FriendlyError } from "@/lib/utils/errors";
 import { isBusyPhase } from "@/lib/sweep/phase";
 import {
   TOKEN_ACCOUNT_RENT_LAMPORTS,
-  VOID_FEE_LAMPORTS,
 } from "@/lib/utils/constants";
 import type {
   VoidOutcome,
@@ -46,8 +46,12 @@ interface VoidState {
    * Starts at the fallback constant so pre-plan renders have a number.
    */
   tokenAccountRentLamports: number;
-  /** The Void's fee per closed account, from the same source. */
-  voidFeeLamportsPerAccount: number;
+  /**
+   * The deposit each close returns, per mint, read from the account itself by the
+   * plan; and The Void's fee on each. Empty before a preview exists.
+   */
+  rentByMint: Map<string, number>;
+  feeByMint: Map<string, number>;
 }
 
 const INITIAL: VoidState = {
@@ -62,7 +66,8 @@ const INITIAL: VoidState = {
   tokens: [],
   // Fallbacks, replaced by the plan's fetched rent as soon as one exists.
   tokenAccountRentLamports: TOKEN_ACCOUNT_RENT_LAMPORTS,
-  voidFeeLamportsPerAccount: VOID_FEE_LAMPORTS,
+  rentByMint: new Map(),
+  feeByMint: new Map(),
 };
 
 /**
@@ -152,7 +157,8 @@ export function useVoid() {
           simulations: result.simulations,
           warnings: result.warnings,
           tokenAccountRentLamports: result.tokenAccountRentLamports,
-          voidFeeLamportsPerAccount: result.voidFeeLamportsPerAccount,
+          rentByMint: result.rentByMint,
+          feeByMint: result.feeByMint,
         });
         return result.packed.length;
       } catch (caught) {
@@ -285,12 +291,21 @@ export function useVoid() {
       // the same transaction, so the fee is exact rather than estimated — the
       // transaction landing is what proves both the close and its fee happened.
       //
-      // Both figures come from the plan, which fetched rent from the chain. The
-      // fee is NOT recomputed from a constant here: it was priced when the
-      // transfer was built, and restating it from a constant is how the two
-      // drifted apart before.
-      const grossRentLamports = closedCount * result.tokenAccountRentLamports;
-      const voidFeeLamports = closedCount * result.voidFeeLamportsPerAccount;
+      // Both figures come from the plan, which read each account's own deposit.
+      // The fee is NOT recomputed from a constant here: it was priced when the
+      // transfer was built, and restating it is how the two drifted apart before.
+      //
+      // Summed over the closes that landed, per mint — the same rule the sweep
+      // uses, so the two flows cannot report the same wallet differently.
+      const settledRentMints = new Set(
+        outcomes
+          .filter(
+            (outcome) => outcome.status === "burned" && outcome.rentReclaimed,
+          )
+          .map((outcome) => outcome.mint),
+      );
+      const grossRentLamports = sumForMints(result.rentByMint, settledRentMints);
+      const voidFeeLamports = sumForMints(result.feeByMint, settledRentMints);
 
       const summary: VoidSummary = {
         tokenCount: outcomes.length,
@@ -317,7 +332,8 @@ export function useVoid() {
         outcomes,
         summary,
         tokenAccountRentLamports: result.tokenAccountRentLamports,
-        voidFeeLamportsPerAccount: result.voidFeeLamportsPerAccount,
+        rentByMint: result.rentByMint,
+        feeByMint: result.feeByMint,
         progress: { completed: signed.length, total: signed.length },
       });
       return true;

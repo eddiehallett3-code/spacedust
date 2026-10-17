@@ -14,7 +14,7 @@ import type { FriendlyError } from "@/lib/utils/errors";
 import type { EmptyTokenAccount } from "@/types/token";
 import type { useSweep } from "@/hooks/use-sweep";
 import { SweepHistoryPanel } from "@/components/sweep/sweep-history-panel";
-import { OUTPUT_ASSETS, TOKEN_ACCOUNT_RENT_LAMPORTS } from "@/lib/utils/constants";
+import { OUTPUT_ASSETS } from "@/lib/utils/constants";
 import { baseAmountToNumber, parseBaseAmount } from "@/lib/utils/sanitize";
 import { pluralize } from "@/lib/utils/format";
 
@@ -137,14 +137,11 @@ export function ControlsColumn({
             isBusy={sweep.isBusy}
             disabled={selectedCount === 0}
             feeBps={sweep.plan?.feeBps ?? 0}
-            // From the plan, so the label tracks the network's actual rent.
-            // The constant is only here for the pre-plan window.
-            rentLamportsPerAccount={
-              sweep.plan?.tokenAccountRentLamports ?? TOKEN_ACCOUNT_RENT_LAMPORTS
-            }
-            // The rent-reclaim fee the plan resolved, per closed account. Zero
-            // when fees are off, so the panel can multiply it by a count.
-            reclaimFeePerAccount={sweep.reclaimFeeLamportsPerAccount}
+            // Totalled by the planner from each account's own verified deposit.
+            // Zero before a preview exists, which is exactly when the panel hides
+            // the rent figures anyway.
+            grossRentLamports={sweep.rentLamports}
+            reclaimFeeLamports={sweep.reclaimFeeLamports}
             onPreview={() => void onPreview()}
             onSweep={() => void onSweep()}
             onReset={sweep.reset}
