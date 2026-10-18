@@ -1,6 +1,6 @@
 "use client";
 
-import { useFlowSound } from "@/lib/ui/sound";
+import { playFlowSound } from "@/lib/ui/sound";
 
 import { useCallback, useRef, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
@@ -118,11 +118,6 @@ export function usePayload() {
 
   const [state, setState] = useState<PayloadState>(INITIAL);
 
-  // One sound per flow, played when it comes to rest — not per batch.
-  useFlowSound(
-    state.phase,
-    (state.summary?.failedCount ?? 0) + (state.summary?.skippedCount ?? 0),
-  );
 
   const patch = useCallback((next: Partial<PayloadState>): void => {
     setState((previous) => ({ ...previous, ...next }));
@@ -420,6 +415,7 @@ export function usePayload() {
             .map((submit) => submit.signature as string),
         };
 
+        playFlowSound("success", summary.failedCount + summary.skippedCount);
         patch({
           phase: "success",
           executions,
@@ -436,6 +432,7 @@ export function usePayload() {
         preparedRef.current = null;
         return true;
       } catch (caught) {
+        playFlowSound("error");
         patch({ phase: "error", error: toFriendlyError(caught) });
         return false;
       } finally {

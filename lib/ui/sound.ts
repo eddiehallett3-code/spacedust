@@ -1,7 +1,5 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-
 /**
  * The four interface sounds, and the rules they play by.
  *
@@ -42,17 +40,20 @@ export const SOUND_FILES: Record<SoundName, string> = {
 };
 
 /**
- * Each at its own level, because they are not equally welcome.
+ * Each at its own level, because the files are not recorded at the same one.
  *
- * A failure should be audible. A dialog opening should be felt more than heard —
- * it happens far more often than a transaction lands, and a pop on every menu
- * would be the first thing anyone turns off.
+ * Measured peaks: success 0.84, warning 0.97, error 0.17, popup 0.17 — the last
+ * two are roughly 14 dB quieter than the first two straight out of the encoder.
+ * Matching the multipliers would have kept that gap, so `error` and `popup` are
+ * pushed up to close it. `popup` still ends up the quietest on purpose: it fires
+ * far more often than a transaction lands, and a pop on every menu is the first
+ * thing anyone turns off.
  */
 const SOUND_VOLUMES: Record<SoundName, number> = {
-  success: 0.5,
-  error: 0.45,
+  success: 0.55,
+  error: 0.9,
   warning: 0.45,
-  popup: 0.28,
+  popup: 0.6,
 };
 
 const MUTE_KEY = "spacedust:sound-muted";
@@ -147,24 +148,23 @@ export function primeSounds(): void {
 }
 
 /**
- * Play the sound a flow has earned when its phase comes to rest.
+ * Play the sound a flow has earned, at the moment it has earned it.
  *
- * `problems` is the number of items that did not come through. A flow that sent
- * seven of eight gets the warning tone, which is the same distinction the result
+ * Called from the hook that owns the flow, immediately before the state that
+ * ends it, not from an effect watching for that state. The difference is not
+ * style: an effect can be skipped when the final render is coalesced with a
+ * reset, or when the component that owns it unmounts on the same tick — and the
+ * one moment the user has been waiting for is the one that goes silent. The
+ * patch is the event; the sound belongs beside it.
+ *
+ * `problems` is the number of items that did not come through. Seven sends out
+ * of eight gets the warning tone, which is the same distinction the result
  * screens draw in words.
  */
-export function useFlowSound(phase: string, problems = 0): void {
-  const previous = useRef(phase);
-
-  useEffect(() => {
-    const from = previous.current;
-    previous.current = phase;
-    if (from === phase) return;
-
-    if (phase === "error") {
-      playSound("error");
-    } else if (phase === "success") {
-      playSound(problems > 0 ? "warning" : "success");
-    }
-  }, [phase, problems]);
+export function playFlowSound(phase: "success" | "error", problems = 0): void {
+  if (phase === "error") {
+    playSound("error");
+    return;
+  }
+  playSound(problems > 0 ? "warning" : "success");
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useFlowSound } from "@/lib/ui/sound";
+import { playFlowSound } from "@/lib/ui/sound";
 
 import { useCallback, useRef, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
@@ -95,11 +95,6 @@ export function useVoid() {
 
   const [state, setState] = useState<VoidState>(INITIAL);
 
-  // One sound per flow, played when it comes to rest — not per batch.
-  useFlowSound(
-    state.phase,
-    state.outcomes.filter((outcome) => outcome.status !== "burned").length,
-  );
 
   const patch = useCallback((next: Partial<VoidState>): void => {
     setState((previous) => ({ ...previous, ...next }));
@@ -351,6 +346,10 @@ export function useVoid() {
           .map((submit) => submit.signature as string),
       };
 
+      playFlowSound(
+        "success",
+        outcomes.filter((outcome) => outcome.status !== "burned").length,
+      );
       patch({
         phase: "success",
         outcomes,
@@ -362,6 +361,7 @@ export function useVoid() {
       });
       return true;
     } catch (caught) {
+      playFlowSound("error");
       patch({ phase: "error", error: toFriendlyError(caught) });
       return false;
     } finally {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useFlowSound } from "@/lib/ui/sound";
+import { playFlowSound } from "@/lib/ui/sound";
 
 import { useCallback, useRef, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
@@ -98,11 +98,6 @@ export function useClose() {
 
   const [state, setState] = useState<CloseState>(INITIAL);
 
-  // One sound per flow, played when it comes to rest — not per batch.
-  useFlowSound(
-    state.phase,
-    state.outcomes.filter((outcome) => outcome.status !== "closed").length,
-  );
 
   const patch = useCallback((next: Partial<CloseState>): void => {
     setState((previous) => ({ ...previous, ...next }));
@@ -335,6 +330,10 @@ export function useClose() {
           .map((submit) => submit.signature as string),
       };
 
+      playFlowSound(
+        "success",
+        outcomes.filter((outcome) => outcome.status !== "closed").length,
+      );
       patch({
         phase: "success",
         outcomes,
@@ -343,6 +342,7 @@ export function useClose() {
       });
       return true;
     } catch (caught) {
+      playFlowSound("error");
       patch({ phase: "error", error: toFriendlyError(caught) });
       return false;
     } finally {

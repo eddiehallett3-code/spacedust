@@ -1,6 +1,6 @@
 "use client";
 
-import { useFlowSound } from "@/lib/ui/sound";
+import { playFlowSound } from "@/lib/ui/sound";
 
 import { useCallback, useRef, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
@@ -110,11 +110,6 @@ export function useSweep() {
 
   const [state, setState] = useState<SweepState>(INITIAL);
 
-  // One sound per flow, played when it comes to rest — not per batch.
-  useFlowSound(
-    state.phase,
-    state.outcomes.filter((outcome) => outcome.status !== "success").length,
-  );
 
   const patch = useCallback((next: Partial<SweepState>): void => {
     setState((previous) => ({ ...previous, ...next }));
@@ -410,6 +405,10 @@ export function useSweep() {
         dryRun: false,
       });
 
+      playFlowSound(
+        "success",
+        outcomes.filter((outcome) => outcome.status !== "success").length,
+      );
       patch({
         phase: "success",
         isDryRun: false,
@@ -420,6 +419,7 @@ export function useSweep() {
 
       return true;
     } catch (caught) {
+      playFlowSound("error");
       patch({ phase: "error", error: toFriendlyError(caught) });
       return false;
     } finally {

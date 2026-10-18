@@ -10,18 +10,28 @@ export const Dialog = DialogPrimitive.Root;
 export const DialogTrigger = DialogPrimitive.Trigger;
 export const DialogClose = DialogPrimitive.Close;
 
-export const DialogContent = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(function DialogContent({ className, children, ...props }, ref) {
-  // Every dialog in the app is this component — wallet picker, mobile menu, asset
-  // picker, QR scanner — so one call here covers all of them. Radix mounts the
-  // content on open and unmounts it on close, which makes mount a reliable "a
-  // panel just appeared" signal, unlike watching `open` from outside.
+/**
+ * The pop, played from *inside* the primitive content.
+ *
+ * It used to be an effect on `DialogContent` itself, and that was wrong in a way
+ * that only shows on a page with a closed dialog in the tree: Radix's `Root`
+ * renders its children whether it is open or not, and only the inner `Content`
+ * is presence-gated. So the wrapper mounted on every page load and popped for a
+ * dialog nobody had opened. Moving the effect inside the gated content makes
+ * "mounted" mean "a panel is actually on screen".
+ */
+function PopOnOpen() {
   React.useEffect(() => {
     playSound("popup");
   }, []);
 
+  return null;
+}
+
+export const DialogContent = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
+>(function DialogContent({ className, children, ...props }, ref) {
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay
@@ -41,6 +51,7 @@ export const DialogContent = React.forwardRef<
         )}
         {...props}
       >
+        <PopOnOpen />
         {children}
         <DialogPrimitive.Close
           className={cn(

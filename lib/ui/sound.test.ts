@@ -135,6 +135,39 @@ describe("playSound", () => {
   });
 });
 
+describe("playFlowSound", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("celebrates a clean run and warns on a partial one", async () => {
+    const { created, window: fake } = fakeWindow();
+    vi.stubGlobal("window", fake);
+    const { playFlowSound } = await load();
+
+    playFlowSound("success", 0);
+    expect(created.map((player) => player.src)).toEqual([
+      "/sounds/success.mp3",
+    ]);
+
+    created.length = 0;
+    // One asset failed. That is not a success, whatever the transaction did.
+    playFlowSound("success", 1);
+    expect(created.map((player) => player.src)).toEqual([
+      "/sounds/warning.mp3",
+    ]);
+  });
+
+  it("plays the error tone for a failure", async () => {
+    const { created, window: fake } = fakeWindow();
+    vi.stubGlobal("window", fake);
+    const { playFlowSound } = await load();
+
+    playFlowSound("error");
+    expect(created.map((player) => player.src)).toEqual(["/sounds/error.mp3"]);
+  });
+});
+
 describe("mute preference", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
