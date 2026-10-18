@@ -1649,10 +1649,12 @@ npm run test:watch  # vitest, watching
   pulled in by `merkletreejs` are affected by the `<4.12.3` infinite-loop
   advisory; 4.12.3 is a patch release.
 
-`@bonfida/spl-name-service` was removed because nothing imports it. The
-remaining audit findings are dev-only (Vitest/tinypool), optional React Native
-peers that are installed but never bundled, or upstream packages with no
-patched release yet (`bigint-buffer`; `jayson` → `stream-json`/`uuid`).
+`@bonfida/spl-name-service` is no longer a dependency: only the manual SNS
+rent probe used it, and the app no longer deletes `.sol` names. Reinstall it
+ad hoc (`npm install --no-save @bonfida/spl-name-service`) if that probe is run
+again. The remaining audit findings are dev-only (Vitest/tinypool), optional
+React Native peers that are installed but never bundled, or upstream packages
+with no patched release yet (`bigint-buffer`; `jayson` → `stream-json`/`uuid`).
 `app/api/tokens/route.ts` refuses to decode a mint account shorter than
 `MintLayout.span`, which keeps the `bigint-buffer` crash path out of reach.
 

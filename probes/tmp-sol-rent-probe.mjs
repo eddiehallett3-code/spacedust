@@ -35,8 +35,20 @@ import {
 // interop. `createRequire` is how a probe reaches them — and the names are not
 // the ones the published snippets use (`getSnsDomainKeySync`, not
 // `getDomainKeySync`), which is worth knowing before writing any of this.
+//
+// This manual probe is the only thing that ever used the SNS SDK, and the app
+// no longer deletes .sol names, so it is not a dependency. Install it ad hoc
+// before running this file:
+//   npm install --no-save @bonfida/spl-name-service
 const require = createRequire(import.meta.url);
-const sns = require("@bonfida/spl-name-service");
+let sns;
+try {
+  sns = require("@bonfida/spl-name-service");
+} catch {
+  throw new Error(
+    "Install the SNS SDK first: npm install --no-save @bonfida/spl-name-service",
+  );
+}
 
 const env = fs.readFileSync(".env.local", "utf8");
 const key = env.match(/HELIUS_API_KEY=(.+)/)?.[1]?.trim();
