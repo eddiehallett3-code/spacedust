@@ -300,6 +300,18 @@ export function DustApp() {
     [voidCandidates, noRouteMints],
   );
 
+  /**
+   * Holdings kept out of the list for the other reason: no price to value them.
+   *
+   * Disjoint from `unroutableCount` on purpose, so the two prompts never count
+   * the same token twice and never claim the same thing about it.
+   */
+  const unpricedCount = useMemo(
+    () =>
+      illiquidTokens.filter((token) => !noRouteMints.has(token.mint)).length,
+    [illiquidTokens, noRouteMints],
+  );
+
   // Tokens the Void has claimed must not be swappable here: a token Jupiter
   // could not even route has no business in a swap preview, and the two flows
   // are deliberately kept in separate transactions.
@@ -686,6 +698,7 @@ export function DustApp() {
           onSmartFilterChange={setSmartFilter}
           deselectAll={deselectAll}
           unroutableCount={unroutableCount}
+          unpricedCount={unpricedCount}
           emptyAccounts={scan?.emptyAccounts ?? []}
           emptyAccountsError={scan?.emptyAccountsError ?? null}
           onRentReclaimed={handleRescan}

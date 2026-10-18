@@ -198,3 +198,43 @@ describe("buildSummary reclaim fee", () => {
   });
 });
 
+describe("buildSummary — tokens that were never sent", () => {
+  it("lists every refusal the planner returned, with its reason", () => {
+    // These never become outcomes — there is no transaction to attribute them to
+    // — which is why they used to vanish from the screen that reports what
+    // happened, leaving "2 failed" with no cause.
+    const summary = summaryFor({
+      plan: build({
+        failures: [
+          {
+            mint: "APES",
+            symbol: "APES",
+            reason: 'Jupiter responded 400: {"error":"No routes found"}',
+          },
+          {
+            mint: "BAD",
+            symbol: "BAD",
+            reason: "Held in a non-standard token account, which a swap cannot drain",
+          },
+        ],
+      }),
+    });
+
+    expect(summary.notSent).toEqual([
+      {
+        mint: "APES",
+        symbol: "APES",
+        reason: 'Jupiter responded 400: {"error":"No routes found"}',
+      },
+      {
+        mint: "BAD",
+        symbol: "BAD",
+        reason: "Held in a non-standard token account, which a swap cannot drain",
+      },
+    ]);
+  });
+
+  it("has nothing to report when every token was built", () => {
+    expect(summaryFor({}).notSent).toEqual([]);
+  });
+});

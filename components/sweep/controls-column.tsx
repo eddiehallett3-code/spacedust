@@ -41,6 +41,7 @@ export function ControlsColumn({
   onSmartFilterChange,
   deselectAll,
   unroutableCount,
+  unpricedCount,
   emptyAccounts,
   emptyAccountsError,
   onRentReclaimed,
@@ -66,6 +67,15 @@ export function ControlsColumn({
    * routing fact.
    */
   unroutableCount: number;
+  /**
+   * Holdings kept out of the swap list because there is no price to value them.
+   *
+   * A different fact from `unroutableCount` and deliberately counted separately:
+   * no price is not proof of no route. The list still leaves them out — quoting
+   * a swap against an unvalued mint is quoting a number nobody stands behind —
+   * but the copy says that, rather than declaring the asset unsellable.
+   */
+  unpricedCount: number;
   /** Empty token accounts the scan found, whose rent is still locked up. */
   emptyAccounts: EmptyTokenAccount[];
   /** Set when the scan could not check for those accounts at all. */
@@ -163,6 +173,8 @@ export function ControlsColumn({
         <div id="the-void" className="scroll-mt-24">
           <VoidPrompt count={unroutableCount} />
         </div>
+      ) : unpricedCount > 0 ? (
+        <UnpricedPrompt count={unpricedCount} />
       ) : null}
 
       {/* Rent left behind — the one flow with no selection, no price and no
@@ -218,6 +230,47 @@ export function SweepError({ error }: { error: FriendlyError | null }) {
         </motion.div>
       ) : null}
     </AnimatePresence>
+  );
+}
+
+/**
+ * Holdings the swap list does not show, because there is no price to value them.
+ *
+ * This is the *standing* version of the prompt: `VoidPrompt` only appears after a
+ * route was actually refused, so before a first sweep an unvalued token simply
+ * vanished from the list with no explanation. It still vanishes — a swap quoted
+ * against an unvalued mint is a number nobody stands behind — but now it says so,
+ * and says which flow can act on it.
+ *
+ * The wording is the honest half of the rule: no price, not "cannot be swapped".
+ * A token can be sellable elsewhere and merely unvalued here, and the app does not
+ * get to claim otherwise just because its price source returned nothing.
+ */
+function UnpricedPrompt({ count }: { count: number }) {
+  const one = count === 1;
+  return (
+    <div className="rounded-2xl border border-violet-core/25 bg-violet-core/6 p-4">
+      <p className="flex items-center gap-2 text-sm font-medium">
+        <span className="flex size-8 items-center justify-center rounded-lg bg-violet-core/12 text-violet-glow ring-1 ring-inset ring-violet-core/20">
+          <Orbit className="size-4" aria-hidden />
+        </span>
+        {pluralize(count, "token")} not listed here
+      </p>
+      <p className="mt-2 text-xs leading-relaxed text-muted">
+        There is no price to value {one ? "it" : "them"}, so a swap would be a
+        number nobody stands behind and {one ? "it is" : "they are"} left out.
+        The Void still takes {one ? "it" : "them"} — it burns the balance and
+        returns the rent {one ? "its account is" : "their accounts are"} holding.
+      </p>
+      <div className="mt-3">
+        <Button asChild size="sm" variant="outline" className="w-full">
+          <Link href="/void">
+            Open The Void
+            <ArrowRight className="size-3.5" aria-hidden />
+          </Link>
+        </Button>
+      </div>
+    </div>
   );
 }
 

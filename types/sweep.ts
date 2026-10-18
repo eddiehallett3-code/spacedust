@@ -285,6 +285,16 @@ export interface SweepSummary {
   feeLamports: number;
   signatures: string[];
   routeLabels: string[];
+  /**
+   * Tokens the planner refused outright — never built, never signed.
+   *
+   * Distinct from `failedCount`, which counts transactions that were submitted
+   * and did not land. These were refused before any transaction existed: no
+   * route, an unusable account, an amount the planner would not send. Listed
+   * with their reason, because "2 failed" without a cause is a report without a
+   * fix.
+   */
+  notSent: Array<{ mint: string; symbol: string; reason: string }>;
   /** Set when the user ran a Dry Run instead of a real sweep. */
   dryRun: boolean;
 }

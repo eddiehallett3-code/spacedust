@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import {
   ArrowUpRight,
   CheckCircle2,
+  CircleSlash2,
   ExternalLink,
   Orbit,
   PartyPopper,
@@ -280,6 +281,44 @@ export function SuccessSummary({
             <RotateCcw className="size-3.5" aria-hidden />
             Retry {pluralize(summary.failedCount, "token")}
           </Button>
+        </div>
+      ) : null}
+
+      {/* Tokens a plan refused outright: never built, never signed.
+
+          Distinct from "didn't go" above, and the distinction is the point:
+          those were submitted and lost a race, so retrying helps. These were
+          refused before any transaction existed — no route, an unusable
+          account, an amount the planner would not send — and retrying would
+          fail again. So the reason is shown, and the way out is The Void. */}
+      {summary.notSent.length > 0 ? (
+        <div className="relative mt-4 rounded-xl border border-border bg-white/2 p-3">
+          <p className="flex items-center gap-1.5 text-sm font-medium">
+            <CircleSlash2 className="size-4 shrink-0 text-subtle" aria-hidden />
+            {pluralize(summary.notSent.length, "token")} not sent
+          </p>
+          <ul className="mt-2 space-y-1.5">
+            {summary.notSent.map((row) => (
+              <li
+                key={row.mint}
+                className="flex flex-wrap items-baseline gap-x-2 text-xs leading-relaxed"
+              >
+                <span className="font-medium">{row.symbol}</span>
+                <span className="text-muted">{row.reason}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-[11px] leading-relaxed text-subtle">
+            Nothing was signed for these, so nothing was spent. Where the reason
+            is a missing route, The Void can still burn the balance and return
+            the rent its account is holding.
+          </p>
+          <div className="mt-2.5">
+            <Button size="sm" variant="outline" onClick={onEnterVoid}>
+              <Orbit className="size-3.5" aria-hidden />
+              Open The Void
+            </Button>
+          </div>
         </div>
       ) : null}
 

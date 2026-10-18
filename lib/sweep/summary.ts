@@ -116,6 +116,14 @@ export function buildSummary(params: {
     routeLabels: Array.from(
       new Set(plan.builds.flatMap((build) => build.routeLabels)),
     ).slice(0, 8),
+    // Every refusal the plan returned, verbatim. These never become outcomes —
+    // there is no transaction to attribute them to — which is exactly why they
+    // used to disappear from the screen that reports what happened.
+    notSent: plan.failures.map((failure) => ({
+      mint: failure.mint,
+      symbol: failure.symbol,
+      reason: failure.reason,
+    })),
     dryRun,
   };
 }
