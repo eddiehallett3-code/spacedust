@@ -35,6 +35,7 @@ import {
   type WalletConnectWalletId,
 } from "@/components/wallet/walletconnect-adapter";
 import { cn } from "@/lib/utils/cn";
+import { playSound } from "@/lib/ui/sound";
 
 /**
  * Wallets whose own in-app browser we can open directly.
@@ -107,6 +108,8 @@ export function WalletModalProvider({ children }: { children: ReactNode }) {
   // Lock body scroll and close on Escape while the picker is open.
   useEffect(() => {
     if (!open) return;
+    // Not a Radix dialog, so it does not get the pop from `DialogContent`.
+    playSound("popup");
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const onKeyDown = (event: KeyboardEvent): void => {

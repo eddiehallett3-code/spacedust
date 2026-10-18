@@ -1,5 +1,7 @@
 "use client";
 
+import { useFlowSound } from "@/lib/ui/sound";
+
 import { useCallback, useRef, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
@@ -115,6 +117,12 @@ export function usePayload() {
   } | null>(null);
 
   const [state, setState] = useState<PayloadState>(INITIAL);
+
+  // One sound per flow, played when it comes to rest — not per batch.
+  useFlowSound(
+    state.phase,
+    (state.summary?.failedCount ?? 0) + (state.summary?.skippedCount ?? 0),
+  );
 
   const patch = useCallback((next: Partial<PayloadState>): void => {
     setState((previous) => ({ ...previous, ...next }));

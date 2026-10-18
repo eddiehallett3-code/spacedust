@@ -187,7 +187,6 @@ describe("summariseRecoverable", () => {
 
     // It is part of the *wallet* total, which answers a different question.
     expect(result.walletValueUsd).toBe(2); // 1 of tokens + 1 of native
-    expect(result.walletValueSol).toBeCloseTo(2 / SOL_PRICE, 10);
   });
 
   it("has no wallet total when native SOL could not be priced", () => {
@@ -197,7 +196,6 @@ describe("summariseRecoverable", () => {
     });
 
     expect(result.walletValueUsd).toBeNull();
-    expect(result.walletValueSol).toBeNull();
     // The token side is still known; only the total is withheld.
     expect(result.heldValueUsd).toBe(1);
   });

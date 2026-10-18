@@ -4,6 +4,7 @@ import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { playSound } from "@/lib/ui/sound";
 
 export const Dialog = DialogPrimitive.Root;
 export const DialogTrigger = DialogPrimitive.Trigger;
@@ -13,6 +14,14 @@ export const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
 >(function DialogContent({ className, children, ...props }, ref) {
+  // Every dialog in the app is this component — wallet picker, mobile menu, asset
+  // picker, QR scanner — so one call here covers all of them. Radix mounts the
+  // content on open and unmounts it on close, which makes mount a reliable "a
+  // panel just appeared" signal, unlike watching `open` from outside.
+  React.useEffect(() => {
+    playSound("popup");
+  }, []);
+
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay

@@ -3,6 +3,7 @@ import { Code2, ShieldCheck } from "lucide-react";
 import { getGitHubUrl, getTwitterHandle, getTwitterUrl } from "@/lib/config/social";
 import { RECLAIM_FEE_BPS } from "@/lib/utils/constants";
 import { Container } from "./container";
+import { SoundToggle } from "./sound-toggle";
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "Spacedust";
 
@@ -174,6 +175,7 @@ export function Footer() {
               </>
             ) : null}
           </p>
+          <SoundToggle />
         </div>
       </Container>
     </footer>

@@ -1,5 +1,7 @@
 "use client";
 
+import { useFlowSound } from "@/lib/ui/sound";
+
 import { useCallback, useRef, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { getConnection } from "@/lib/solana/connection";
@@ -92,6 +94,12 @@ export function useNftBurn() {
   const assetsRef = useRef<NonFungibleAsset[]>([]);
 
   const [state, setState] = useState<NftBurnState>(INITIAL);
+
+  // One sound per flow, played when it comes to rest — not per batch.
+  useFlowSound(
+    state.phase,
+    state.outcomes.filter((outcome) => outcome.status !== "burned").length,
+  );
 
   const patch = useCallback((next: Partial<NftBurnState>): void => {
     setState((previous) => ({ ...previous, ...next }));

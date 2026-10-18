@@ -129,8 +129,6 @@ export interface RecoverableBreakdown {
    * wallet's native value could not be priced.
    */
   walletValueUsd: number | null;
-  /** The same figure in SOL, at the price the tokens were valued at. */
-  walletValueSol: number | null;
   /** `sweepableValueUsd` + `rentUsd`. Null when there is no SOL price. */
   totalUsd: number | null;
   /** The SOL price used for conversion, so the UI can state its basis. */
@@ -219,12 +217,7 @@ export function summariseRecoverable(
   // Native value comes from the scan, which priced it with the same SOL price —
   // so the two halves of this total cannot disagree about what SOL is worth.
   const nativeUsd = scan.native.valueUsd;
-  const walletValueUsd =
-    nativeUsd == null ? null : heldValueUsd + nativeUsd;
-  const walletValueSol =
-    walletValueUsd == null || solPriceUsd == null
-      ? null
-      : walletValueUsd / solPriceUsd;
+  const walletValueUsd = nativeUsd == null ? null : heldValueUsd + nativeUsd;
 
   return {
     closableAccounts,
@@ -235,7 +228,6 @@ export function summariseRecoverable(
     sweepableValueUsd,
     heldValueUsd,
     walletValueUsd,
-    walletValueSol,
     totalUsd,
     solPriceUsd,
     limitations,

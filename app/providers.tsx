@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { ConnectionProvider, WalletProvider } from "@solana/wallet-adapter-react";
 import { PhantomWalletAdapter } from "@solana/wallet-adapter-phantom";
@@ -11,6 +11,7 @@ import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { MobileWalletAdapter } from "@/components/wallet/mobile-wallet-adapter";
 import { WalletModalProvider } from "@/components/wallet/wallet-modal";
+import { primeSounds } from "@/lib/ui/sound";
 
 /**
  * Client-side providers.
@@ -89,6 +90,20 @@ export function Providers({ children }: { children: ReactNode }) {
   // Built once per browser session; the WalletConnect adapters (generic, plus
   // Jupiter Mobile) are appended when their chunk finishes loading.
   const [walletConnect, setWalletConnect] = useState<Adapter[]>([]);
+
+  /**
+   * Warm the four mp3s on the first click, not on mount.
+   *
+   * `pointerdown` is a gesture, which is what the browser wants before it will
+   * decode audio; doing it on mount would fetch ~200 KB for visitors who never
+   * finish a flow, and doing it lazily would delay the first success sound by its
+   * own download.
+   */
+  useEffect(() => {
+    const prime = () => primeSounds();
+    window.addEventListener("pointerdown", prime, { once: true });
+    return () => window.removeEventListener("pointerdown", prime);
+  }, []);
 
   const wallets = useMemo(() => {
     const adapters: WalletAdapter[] = buildAdapters();
