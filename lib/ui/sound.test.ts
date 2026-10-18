@@ -24,11 +24,13 @@ interface FakePlayer {
 function fakeWindow(play?: () => Promise<void>) {
   const created: FakePlayer[] = [];
   const store = new Map<string, string>();
+  const listeners: Record<string, () => void> = {};
 
   class FakeAudio {
     src: string;
     volume = 1;
     currentTime = 0;
+    readyState = 0;
     preload = "";
     play = vi.fn(play ?? (() => Promise.resolve()));
     load = vi.fn();
@@ -42,11 +44,15 @@ function fakeWindow(play?: () => Promise<void>) {
   return {
     created,
     store,
+    listeners,
     window: {
       Audio: FakeAudio,
       localStorage: {
         getItem: (key: string) => store.get(key) ?? null,
         setItem: (key: string, value: string) => store.set(key, value),
+      },
+      addEventListener: (type: string, handler: () => void) => {
+        listeners[type] = handler;
       },
     },
   };
@@ -132,6 +138,28 @@ describe("playSound", () => {
     playSound("success");
 
     expect(created).toHaveLength(0);
+  });
+
+  it("retries a refused sound on the next interaction", async () => {
+    // What a hidden tab or a missing gesture does: `play()` rejects and the
+    // sound is lost. The flow has already finished, so the only way the user
+    // hears the confirmation is a second attempt when they touch the page.
+    let refuse = true;
+    const { created, listeners, window: fake } = fakeWindow(() =>
+      refuse ? Promise.reject(new Error("NotAllowedError")) : Promise.resolve(),
+    );
+    vi.stubGlobal("window", fake);
+    const { playSound } = await load();
+
+    playSound("success");
+    // Let the rejection settle.
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(created[0]?.play).toHaveBeenCalledTimes(1);
+
+    refuse = false;
+    listeners["pointerdown"]?.();
+    expect(created[0]?.play).toHaveBeenCalledTimes(2);
   });
 });
 

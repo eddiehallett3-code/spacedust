@@ -107,6 +107,43 @@ function audio(name: SoundName): HTMLAudioElement | null {
   }
 }
 
+/** Sounds refused by the browser, with when they were refused. */
+const blocked = new Map<SoundName, number>();
+
+/**
+ * How long a refused sound stays worth retrying.
+ *
+ * Short on purpose: a confirmation heard twenty seconds later is noise, not
+ * feedback. Long enough to cover the case that matters — a tab that was hidden
+ * while the transaction landed, and is clicked again when the user comes back.
+ */
+const RETRY_WINDOW_MS = 20_000;
+
+let retryBound = false;
+
+function retryBlocked(): void {
+  const now = Date.now();
+  for (const [name, refusedAt] of blocked) {
+    blocked.delete(name);
+    if (now - refusedAt <= RETRY_WINDOW_MS) playSound(name);
+  }
+}
+
+/**
+ * Play the refused sounds on the next interaction.
+ *
+ * A browser refuses audio in a hidden tab or without a gesture, and the refusal
+ * is a rejected promise — so a confirmation that lands while the user is in the
+ * wallet app would otherwise be lost with no trace. The next click is the first
+ * moment it is allowed, and usually the click on "Done".
+ */
+function bindRetry(): void {
+  if (retryBound || typeof window === "undefined") return;
+  retryBound = true;
+  window.addEventListener("pointerdown", retryBlocked, { passive: true });
+  window.addEventListener("keydown", retryBlocked);
+}
+
 /**
  * Play one sound, restarting it if it is already going.
  *
@@ -118,13 +155,29 @@ export function playSound(name: SoundName): void {
   if (typeof window === "undefined" || isSoundMuted()) return;
   const player = audio(name);
   if (!player) return;
+
   try {
-    player.currentTime = 0;
-    // A blocked play rejects. That is not an error worth surfacing: silence is
-    // already what "no sound" looks like.
-    void player.play().catch(() => {});
-  } catch {
-    // Some embedded browsers throw synchronously instead.
+    // Rewind only what has metadata. Assigning `currentTime` before the first
+    // `loadedmetadata` throws `InvalidStateError` in some browsers — and because
+    // the assignment came first, the throw skipped `play()` entirely and the
+    // sound was lost with no error anywhere.
+    if (player.readyState > 0) player.currentTime = 0;
+
+    const started = player.play();
+    if (started && typeof started.catch === "function") {
+      started.catch(() => {
+        blocked.set(name, Date.now());
+        bindRetry();
+        console.debug(
+          `[spacedust] ${name} sound was blocked; it will play on the next input`,
+        );
+      });
+    }
+  } catch (error) {
+    // Some embedded browsers throw synchronously instead of rejecting.
+    blocked.set(name, Date.now());
+    bindRetry();
+    console.debug("[spacedust] sound failed:", error);
   }
 }
 

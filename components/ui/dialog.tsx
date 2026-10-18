@@ -30,8 +30,16 @@ function PopOnOpen() {
 
 export const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(function DialogContent({ className, children, ...props }, ref) {
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
+    /**
+     * Play the open sound. On by default; the navigation menu turns it off.
+     *
+     * A menu is not a popup, and it opens far more often than anything else in
+     * the app — a pop every time is the noise that makes people mute the site.
+     */
+    sound?: boolean;
+  }
+>(function DialogContent({ className, children, sound = true, ...props }, ref) {
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay
@@ -51,7 +59,7 @@ export const DialogContent = React.forwardRef<
         )}
         {...props}
       >
-        <PopOnOpen />
+        {sound ? <PopOnOpen /> : null}
         {children}
         <DialogPrimitive.Close
           className={cn(

@@ -137,6 +137,8 @@ export function Navbar() {
               </DialogTrigger>
 
               <DialogContent
+                // A menu, not a popup: silent by design.
+                sound={false}
                 // No `id` here on purpose: Radix wires the trigger's
                 // aria-controls to an id it generates, so overriding it would
                 // point that attribute at nothing.

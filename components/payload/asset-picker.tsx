@@ -184,9 +184,7 @@ export function AssetPicker({
                     checked={solSelected}
                     onCheckedChange={() => onToggleSol()}
                   />
-                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-white/8 text-[9px] font-semibold tracking-wide">
-                    SOL
-                  </span>
+                  <TokenLogo src="/tokens/sol.png" symbol="SOL" size={28} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium">SOL</span>
                     <span className="block truncate text-xs text-muted">
