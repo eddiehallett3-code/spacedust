@@ -11,7 +11,7 @@ import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { MobileWalletAdapter } from "@/components/wallet/mobile-wallet-adapter";
 import { WalletModalProvider } from "@/components/wallet/wallet-modal";
-import { primeSounds } from "@/lib/ui/sound";
+import { preloadSounds, primeSounds } from "@/lib/ui/sound";
 
 /**
  * Client-side providers.
@@ -92,17 +92,26 @@ export function Providers({ children }: { children: ReactNode }) {
   const [walletConnect, setWalletConnect] = useState<Adapter[]>([]);
 
   /**
-   * Warm the four mp3s on the first click, not on mount.
+   * Warm the four mp3s on the first gesture, and the success cue after the
+   * first paint.
    *
-   * `pointerdown` is a gesture, which is what the browser wants before it will
-   * decode audio; doing it on mount would fetch ~200 KB for visitors who never
-   * finish a flow, and doing it lazily would delay the first success sound by its
-   * own download.
+   * The first gesture is what lets the browser unlock audio for later playback;
+   * it also fetches the three sounds a flow may need. The success cue is only
+   * 29 KB, so it is fetched shortly after mount: a transaction that lands a
+   * second after the click must not be waiting on its own download. The rest of
+   * the ~200 KB still waits for a visitor who has shown intent.
    */
   useEffect(() => {
     const prime = () => primeSounds();
     window.addEventListener("pointerdown", prime, { once: true });
-    return () => window.removeEventListener("pointerdown", prime);
+    window.addEventListener("keydown", prime, { once: true });
+    const timer = window.setTimeout(() => preloadSounds(["success"]), 1500);
+
+    return () => {
+      window.removeEventListener("pointerdown", prime);
+      window.removeEventListener("keydown", prime);
+      window.clearTimeout(timer);
+    };
   }, []);
 
   const wallets = useMemo(() => {

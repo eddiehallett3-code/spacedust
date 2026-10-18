@@ -28,9 +28,11 @@ export default function manifest(): MetadataRoute.Manifest {
     display: "standalone",
     background_color: "#04050c",
     theme_color: "#04050c",
-    // `logo-512.png` first: it is the one with the size the platform asks for,
-    // and an SVG is accepted "as any" rather than pinned to a pixel size.
+    // 192 first: Android's install prompt and several in-wallet browsers ask
+    // for it specifically. 512 covers the rest, and the SVG is accepted "as
+    // any" rather than pinned to a pixel size.
     icons: [
+      { src: "/logo-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
       { src: "/logo-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
       { src: "/icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
     ],

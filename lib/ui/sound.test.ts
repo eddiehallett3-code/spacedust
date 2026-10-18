@@ -17,7 +17,9 @@ interface FakePlayer {
   volume: number;
   currentTime: number;
   preload: string;
+  muted: boolean;
   play: ReturnType<typeof vi.fn>;
+  pause: ReturnType<typeof vi.fn>;
   load: ReturnType<typeof vi.fn>;
 }
 
@@ -32,7 +34,9 @@ function fakeWindow(play?: () => Promise<void>) {
     currentTime = 0;
     readyState = 0;
     preload = "";
+    muted = false;
     play = vi.fn(play ?? (() => Promise.resolve()));
+    pause = vi.fn();
     load = vi.fn();
 
     constructor(src: string) {
@@ -160,6 +164,102 @@ describe("playSound", () => {
     refuse = false;
     listeners["pointerdown"]?.();
     expect(created[0]?.play).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries a refused sound when the tab becomes visible", async () => {
+    // The wallet app took the user away; the confirmation landed while the
+    // page was hidden. Returning to the tab should be enough, without a click.
+    let refuse = true;
+    const { created, window: fake } = fakeWindow(() =>
+      refuse ? Promise.reject(new Error("NotAllowedError")) : Promise.resolve(),
+    );
+    const docListeners: Record<string, () => void> = {};
+    vi.stubGlobal("document", {
+      hidden: false,
+      addEventListener: (type: string, handler: () => void) => {
+        docListeners[type] = handler;
+      },
+    });
+    vi.stubGlobal("window", fake);
+    const { playSound } = await load();
+
+    playSound("success");
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(created[0]?.play).toHaveBeenCalledTimes(1);
+
+    refuse = false;
+    docListeners["visibilitychange"]?.();
+    expect(created[0]?.play).toHaveBeenCalledTimes(2);
+  });
+
+  it("waits for a hidden tab to come back before playing", async () => {
+    const { created, window: fake } = fakeWindow();
+    const docListeners: Record<string, () => void> = {};
+    const doc = {
+      hidden: true,
+      addEventListener: (type: string, handler: () => void) => {
+        docListeners[type] = handler;
+      },
+    };
+    vi.stubGlobal("document", doc);
+    vi.stubGlobal("window", fake);
+    const { playSound } = await load();
+
+    playSound("success");
+    expect(created).toHaveLength(0);
+
+    doc.hidden = false;
+    docListeners["visibilitychange"]?.();
+    expect(created[0]?.play).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("preload and unlock", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("preloads a cue once, without playing it", async () => {
+    const { created, window: fake } = fakeWindow();
+    vi.stubGlobal("window", fake);
+    const { preloadSounds } = await load();
+
+    preloadSounds(["success"]);
+    expect(created).toHaveLength(1);
+    expect(created[0]?.load).toHaveBeenCalledTimes(1);
+    expect(created[0]?.play).not.toHaveBeenCalled();
+
+    // A second call must not reload — and therefore must not rewind — a player
+    // that is already loaded or playing.
+    preloadSounds(["success"]);
+    expect(created[0]?.load).toHaveBeenCalledTimes(1);
+  });
+
+  it("unlocks every player with a muted play on the first gesture", async () => {
+    const { created, window: fake } = fakeWindow();
+    vi.stubGlobal("window", fake);
+    const { primeSounds } = await load();
+
+    primeSounds();
+    expect(created).toHaveLength(4);
+    for (const player of created) {
+      expect(player.play).toHaveBeenCalledTimes(1);
+    }
+
+    // The unlock play resolves, pauses, rewinds and unmutes.
+    await Promise.resolve();
+    await Promise.resolve();
+    for (const player of created) {
+      expect(player.pause).toHaveBeenCalled();
+      expect(player.muted).toBe(false);
+    }
+
+    // A second gesture must not replay the muted unlock.
+    primeSounds();
+    for (const player of created) {
+      expect(player.play).toHaveBeenCalledTimes(1);
+    }
   });
 });
 

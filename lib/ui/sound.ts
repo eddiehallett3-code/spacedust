@@ -10,10 +10,12 @@
  *
  * Three rules, each of them a consequence of how browsers and people behave:
  *
- *  - **Nothing plays before a gesture.** Autoplay policy blocks it, and the
- *    refusal arrives as a rejected promise, not an exception. Every call site
- *    here runs after a click, so the promise resolves; if it ever does not, the
- *    sound is silently absent rather than an error on screen.
+ *  - **Nothing plays before a gesture, and a gesture is not enough forever.**
+ *    Autoplay policy blocks playback until the page has been activated, and a
+ *    transaction confirmation often lands after the wallet app took the user
+ *    away from the tab. The first pointer/key gesture therefore *unlocks* each
+ *    element with a muted play, and a refused sound is retried when the tab
+ *    becomes visible again — not only on the next click.
  *  - **Muting is remembered.** `localStorage`, because a preference that resets
  *    on navigation is not a preference. Storage can throw (private mode, blocked
  *    cookies), and the fallback is sound on rather than off: failing to read a
@@ -110,14 +112,20 @@ function audio(name: SoundName): HTMLAudioElement | null {
 /** Sounds refused by the browser, with when they were refused. */
 const blocked = new Map<SoundName, number>();
 
+/** Players whose muted unlock play has not finished yet. */
+const priming = new Set<SoundName>();
+
+/** Players whose source has already been asked to load. */
+const preloaded = new Set<SoundName>();
+
 /**
  * How long a refused sound stays worth retrying.
  *
- * Short on purpose: a confirmation heard twenty seconds later is noise, not
- * feedback. Long enough to cover the case that matters — a tab that was hidden
- * while the transaction landed, and is clicked again when the user comes back.
+ * Long enough to cover a wallet-app switch: confirmations often land while the
+ * tab is hidden, and the user can take more than twenty seconds to come back.
+ * A minute still feels tied to the action; anything longer is noise.
  */
-const RETRY_WINDOW_MS = 20_000;
+const RETRY_WINDOW_MS = 60_000;
 
 let retryBound = false;
 
@@ -134,14 +142,22 @@ function retryBlocked(): void {
  *
  * A browser refuses audio in a hidden tab or without a gesture, and the refusal
  * is a rejected promise — so a confirmation that lands while the user is in the
- * wallet app would otherwise be lost with no trace. The next click is the first
- * moment it is allowed, and usually the click on "Done".
+ * wallet app would otherwise be lost with no trace. The next click used to be
+ * the only retry; returning to the tab is the moment that actually matters,
+ * because the click on "Done" may never come.
  */
 function bindRetry(): void {
   if (retryBound || typeof window === "undefined") return;
   retryBound = true;
   window.addEventListener("pointerdown", retryBlocked, { passive: true });
   window.addEventListener("keydown", retryBlocked);
+  window.addEventListener("focus", retryBlocked);
+  window.addEventListener("pageshow", retryBlocked);
+  if (typeof document !== "undefined") {
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) retryBlocked();
+    });
+  }
 }
 
 /**
@@ -153,8 +169,30 @@ function bindRetry(): void {
  */
 export function playSound(name: SoundName): void {
   if (typeof window === "undefined" || isSoundMuted()) return;
+
+  // A hidden tab may let `play()` resolve and then swallow the audio before the
+  // user returns. Queue it instead; `visibilitychange` is the moment the user
+  // can actually hear it.
+  if (typeof document !== "undefined" && document.hidden) {
+    blocked.set(name, Date.now());
+    bindRetry();
+    return;
+  }
+
   const player = audio(name);
   if (!player) return;
+
+  // A real cue arriving while the muted unlock is still pending takes over.
+  // Cancel the unlock first, or its `pause()` would stop this play and its
+  // `muted = false` would land after the cue had already started silently.
+  if (priming.delete(name)) {
+    try {
+      player.pause();
+    } catch {
+      // Nothing to pause yet.
+    }
+    player.muted = false;
+  }
 
   try {
     // Rewind only what has metadata. Assigning `currentTime` before the first
@@ -181,23 +219,95 @@ export function playSound(name: SoundName): void {
   }
 }
 
+/** Whether a first gesture has already unlocked the players. */
+let unlocked = false;
+
 /**
  * Fetch and decode the files before they are needed.
  *
- * Called on the first pointerdown — inside a gesture — so the browser permits
- * both the decode and the playback that follows. Without it the first success
- * arrives late, because the mp3 is still downloading at the moment it should
- * already be playing.
+ * Called on mount for the success cue and on the first gesture for the rest, so
+ * a transaction that lands a second after the click is not waiting on a
+ * download. This only fetches; it never plays.
  */
-export function primeSounds(): void {
+export function preloadSounds(
+  names: SoundName[] = Object.keys(SOUND_FILES) as SoundName[],
+): void {
   if (typeof window === "undefined") return;
-  for (const name of Object.keys(SOUND_FILES) as SoundName[]) {
+  for (const name of names) {
+    if (preloaded.has(name)) continue;
+    const player = audio(name);
+    if (!player) continue;
+    preloaded.add(name);
     try {
-      audio(name)?.load();
+      player.load();
     } catch {
       // The first play will try again.
+      preloaded.delete(name);
     }
   }
+}
+
+/**
+ * Unlock every player inside the first user gesture.
+ *
+ * Loading is not permission. Safari — and the webview in some wallet apps —
+ * grants playback per element, and only while the page is handling a gesture.
+ * A muted `play()` is the smallest thing that qualifies; pausing it immediately
+ * leaves the element allowed, with no sound. If a real cue starts while the
+ * muted play is still pending, `playSound` cancels the unlock first, so the cue
+ * is not swallowed by the element still being muted.
+ */
+function unlockPlayers(): void {
+  if (unlocked) return;
+  unlocked = true;
+
+  for (const name of Object.keys(SOUND_FILES) as SoundName[]) {
+    const player = audio(name);
+    if (!player) continue;
+
+    const release = () => {
+      // A real cue took over and already cancelled the unlock.
+      if (!priming.has(name)) return;
+      priming.delete(name);
+      try {
+        player.pause();
+        player.currentTime = 0;
+      } catch {
+        // A player that never reached metadata has nothing to rewind.
+      }
+      player.muted = false;
+    };
+
+    try {
+      player.muted = true;
+      priming.add(name);
+      const started = player.play();
+      if (started && typeof started.then === "function") {
+        started.then(release, () => {
+          if (!priming.delete(name)) return;
+          player.muted = false;
+        });
+      } else {
+        release();
+      }
+    } catch {
+      priming.delete(name);
+      player.muted = false;
+    }
+  }
+}
+
+/**
+ * Warm and unlock all four sounds on the first gesture.
+ *
+ * Kept as the single entry point `app/providers.tsx` calls: preload is cheap
+ * once a visitor has shown intent, and the muted play is what makes the later
+ * success cue work in Safari and embedded wallet browsers.
+ */
+export function primeSounds(): void {
+  if (typeof window === "undefined" || unlocked) return;
+  preloadSounds();
+  unlockPlayers();
 }
 
 /**
