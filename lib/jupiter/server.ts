@@ -10,6 +10,7 @@ import {
   JUPITER_SWAP_BASE,
 } from "@/lib/config/env";
 import { UpstreamError } from "@/lib/utils/errors";
+import { runWithConcurrency } from "@/lib/utils/concurrency";
 import { PRICE_BATCH_SIZE } from "@/lib/utils/constants";
 
 /**
@@ -266,36 +267,5 @@ export async function buildSwapsSerial<T>(
   options: { concurrency?: number; gapMs?: number } = {},
 ): Promise<Array<{ item: T; result?: JupiterBuildResponse; error?: string }>> {
   const { concurrency = 4, gapMs = 120 } = options;
-  const results: Array<{
-    item: T;
-    result?: JupiterBuildResponse;
-    error?: string;
-  }> = new Array(items.length);
-  let cursor = 0;
-
-  async function runLane(): Promise<void> {
-    while (cursor < items.length) {
-      const index = cursor;
-      cursor += 1;
-      const item = items[index];
-      if (item === undefined) continue;
-      try {
-        const result = await worker(item);
-        results[index] = { item, result };
-      } catch (error) {
-        results[index] = {
-          item,
-          error: error instanceof Error ? error.message : "Unknown error",
-        };
-      }
-      if (gapMs > 0) {
-        await new Promise((resolve) => setTimeout(resolve, gapMs));
-      }
-    }
-  }
-
-  const laneCount = Math.max(1, Math.min(concurrency, items.length));
-  await Promise.all(Array.from({ length: laneCount }, () => runLane()));
-
-  return results;
+  return runWithConcurrency(items, worker, { concurrency, gapMs });
 }

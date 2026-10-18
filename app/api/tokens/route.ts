@@ -10,12 +10,14 @@ import {
 } from "@/lib/token-source/collectible-shape";
 import { fetchTokenMetadata, type TokenMetadata } from "@/lib/token-source/metadata.server";
 import { fetchPrices } from "@/lib/jupiter/server";
+import { runWithConcurrency } from "@/lib/utils/concurrency";
+import { priceAllMints } from "@/lib/token-source/prices";
 import { getServerRpcUrl, MissingEnvError } from "@/lib/config/env";
 import { isPoolPosition } from "@/lib/sweep/pool-positions";
 import { stakedTokenFor } from "@/lib/staking/staked-tokens";
 import { readNativeStakeAccounts } from "@/lib/staking/native-stake.server";
 import { fetchRentMinimums } from "@/lib/solana/rent";
-import { PRICE_BATCH_SIZE, OUTPUT_ASSETS } from "@/lib/utils/constants";
+import { OUTPUT_ASSETS } from "@/lib/utils/constants";
 import {
   baseAmountToNumber,
   isValidSolanaAddress,
@@ -38,11 +40,12 @@ export const runtime = "nodejs";
 /**
  * How long this function may run before the platform cuts it.
  *
- * A wallet with thousands of holdings legitimately takes ~50 seconds: the scan
- * prices every mint 50 at a time and reads every mint authority 100 at a time,
- * and both are sequential. Without an explicit budget the ceiling is whatever the
- * platform happens to default to, and a default that changes would start cutting
- * real scans at a number nobody chose.
+ * A wallet with thousands of holdings is genuinely expensive: every mint is
+ * priced 50 at a time and every mint authority read 100 at a time. Both loops now
+ * run four batches at a time rather than one after another, which is most of a
+ * 49-second scan back — but the budget is still declared rather than inherited,
+ * because the work remains proportional to the wallet and a platform default that
+ * changed would start cutting scans at a number nobody chose.
  *
  * The client waits 90 seconds (`hooks/use-wallet-scan.ts`), deliberately longer
  * than this: the server should be the one to give up, with an error the user can
@@ -56,31 +59,6 @@ const QuerySchema = z.object({
     .string()
     .refine(isValidSolanaAddress, { message: "Not a valid Solana address" }),
 });
-
-/** Price lookups are capped at 50 ids per Jupiter call. */
-async function priceAllMints(
-  mints: string[],
-): Promise<Record<string, { usdPrice: number; priceChange24h: number }>> {
-  const all: Record<string, { usdPrice: number; priceChange24h: number }> = {};
-
-  for (let i = 0; i < mints.length; i += PRICE_BATCH_SIZE) {
-    const batch = mints.slice(i, i + PRICE_BATCH_SIZE);
-    try {
-      const prices = await fetchPrices(batch);
-      for (const [mint, entry] of Object.entries(prices)) {
-        all[mint] = {
-          usdPrice: entry.usdPrice,
-          priceChange24h: entry.priceChange24h,
-        };
-      }
-    } catch {
-      // A failed price batch must not fail the whole scan. Those tokens simply
-      // arrive without a price and the Smart Filter hides them.
-      continue;
-    }
-  }
-  return all;
-}
 
 export async function GET(request: Request) {
   // Before the scan, not after: this route runs a DAS wallet scan plus metadata
@@ -113,7 +91,10 @@ export async function GET(request: Request) {
       emptyAccountsError,
     } = await scanWallet(parsed.data.owner);
 
-    const prices = await priceAllMints(holdings.map((h) => h.mint));
+    const prices = await priceAllMints(
+      holdings.map((holding) => holding.mint),
+      fetchPrices,
+    );
 
     /**
      * Enrich metadata, but only where it is actually needed.
@@ -136,36 +117,73 @@ export async function GET(request: Request) {
     let poolLikeError: string | null = null;
     const connection = new Connection(getServerRpcUrl(), "confirmed");
     try {
-      const mints = holdings.map((holding) => holding.mint);
-      const holdingByMint = new Map(holdings.map((holding) => [holding.mint, holding]));
-      for (let i = 0; i < mints.length; i += 100) {
-        const batch = mints.slice(i, i + 100).map((mint) => new PublicKey(mint));
-        const infos = await connection.getMultipleAccountsInfo(batch);
-        infos.forEach((info, index) => {
-          if (!info) return;
-          try {
-            // The same 82 bytes for both token programs, so one decode covers
-            // SPL and Token-2022 alike.
-            const decoded = MintLayout.decode(info.data);
-            const mint = mints[i + index];
-            if (!mint) return;
+      const holdingByMint = new Map(
+        holdings.map((holding) => [holding.mint, holding]),
+      );
+      const authorityBatches: string[][] = [];
+      for (let i = 0; i < holdings.length; i += 100) {
+        authorityBatches.push(
+          holdings.slice(i, i + 100).map((holding) => holding.mint),
+        );
+      }
 
-            // A price is direct evidence of a market, and a market is what makes
-            // a token sellable — a program-controlled mint *with* a price is a
-            // normal token whose authority happens to be a PDA, not a claim. That
-            // distinction is not academic: Pudgy Penguins is exactly this shape,
-            // and treating the shape alone as a verdict hid it from the sweeper.
-            // See `isPoolPosition`.
-            const price = prices[mint]?.usdPrice ?? holdingByMint.get(mint)?.dasPriceUsd ?? null;
-            const hasMarket = price != null && price > 0;
+      // 100 mints per call, four calls in flight. Sequentially this was ~31
+      // round-trips on a 3,000-holding wallet — most of what made the scan slow.
+      const authorityReads = await runWithConcurrency(
+        authorityBatches,
+        async (batch) => {
+          const infos = await connection.getMultipleAccountsInfo(
+            batch.map((mint) => new PublicKey(mint)),
+          );
+          const flagged: string[] = [];
 
-            if (isPoolPosition(decoded.mintAuthority?.toBase58() ?? null, hasMarket)) {
-              poolLike.add(mint);
+          infos.forEach((info, index) => {
+            if (!info) return;
+            try {
+              // The same 82 bytes for both token programs, so one decode covers
+              // SPL and Token-2022 alike.
+              const decoded = MintLayout.decode(info.data);
+              const mint = batch[index];
+              if (!mint) return;
+
+              // A price is direct evidence of a market, and a market is what
+              // makes a token sellable — a program-controlled mint *with* a price
+              // is a normal token whose authority happens to be a PDA, not a
+              // claim. That distinction is not academic: Pudgy Penguins is
+              // exactly this shape, and treating the shape alone as a verdict hid
+              // it from the sweeper. See `isPoolPosition`.
+              const price =
+                prices[mint]?.usdPrice ??
+                holdingByMint.get(mint)?.dasPriceUsd ??
+                null;
+              const hasMarket = price != null && price > 0;
+
+              if (
+                isPoolPosition(
+                  decoded.mintAuthority?.toBase58() ?? null,
+                  hasMarket,
+                )
+              ) {
+                flagged.push(mint);
+              }
+            } catch {
+              // An undecodable mint is not a position we can name.
             }
-          } catch {
-            // An undecodable mint is not a position we can name.
-          }
-        });
+          });
+
+          return flagged;
+        },
+        { concurrency: 4 },
+      );
+
+      for (const read of authorityReads) {
+        if (read.error !== undefined) {
+          // One failed batch no longer takes the rest with it: whatever was read
+          // still counts, and the first error is the one reported.
+          poolLikeError ??= read.error;
+          continue;
+        }
+        for (const mint of read.result ?? []) poolLike.add(mint);
       }
     } catch (error) {
       poolLikeError =
