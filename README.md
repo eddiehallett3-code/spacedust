@@ -1652,9 +1652,13 @@ npm run test:watch  # vitest, watching
 `@bonfida/spl-name-service` is no longer a dependency: only the manual SNS
 rent probe used it, and the app no longer deletes `.sol` names. Reinstall it
 ad hoc (`npm install --no-save @bonfida/spl-name-service`) if that probe is run
-again. The remaining audit findings are dev-only (Vitest/tinypool), optional
-React Native peers that are installed but never bundled, or upstream packages
-with no patched release yet (`bigint-buffer`; `jayson` → `stream-json`/`uuid`).
+again. The remaining audit findings are optional React Native peers that are
+installed but never bundled, or upstream packages with no patched release yet
+(`bigint-buffer`; `jayson` → `stream-json`/`uuid`; `sprintf-js`).
+
+Vitest is on v4. Install dev dependencies with **npm ≥ 11.6.0**: older npm
+versions crash in Arborist (`Cannot read properties of null (reading
+'edgesOut')`) while resolving Vitest 4's optional peers.
 `app/api/tokens/route.ts` refuses to decode a mint account shorter than
 `MintLayout.span`, which keeps the `bigint-buffer` crash path out of reach.
 
