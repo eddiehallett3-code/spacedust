@@ -128,14 +128,80 @@ const preloaded = new Set<SoundName>();
 const RETRY_WINDOW_MS = 60_000;
 
 let retryBound = false;
+let pollTimer: number | null = null;
+let pollStartedAt = 0;
 
-function retryBlocked(force = false): void {
+/** Queue a refused sound without extending its original retry window. */
+function block(name: SoundName): void {
+  const refusedAt = blocked.get(name);
+  if (refusedAt === undefined || Date.now() - refusedAt > RETRY_WINDOW_MS) {
+    blocked.set(name, Date.now());
+  }
+  if (blocked.size === 1 && pollStartedAt === 0) pollStartedAt = Date.now();
+  bindRetry();
+  scheduleRetryPoll();
+}
+
+/**
+ * Poll while a sound is queued.
+ *
+ * Some in-app wallet browsers never fire `visibilitychange` or `focus` when the
+ * approval sheet closes. Without a poll the queued cue waits for the next tap —
+ * the success screen's "Done" button — even though the page is usable again.
+ * This watches for the webview to come back and plays without an event; the
+ * retry window still ends after `RETRY_WINDOW_MS`.
+ */
+function scheduleRetryPoll(): void {
+  if (
+    typeof window === "undefined" ||
+    typeof window.setTimeout !== "function"
+  ) {
+    return;
+  }
+  if (pollTimer !== null || blocked.size === 0) return;
+  if (pollStartedAt === 0) pollStartedAt = Date.now();
+  if (Date.now() - pollStartedAt > RETRY_WINDOW_MS) return;
+
+  const tick = () => {
+    pollTimer = null;
+    if (blocked.size === 0) {
+      pollStartedAt = 0;
+      return;
+    }
+    if (Date.now() - pollStartedAt > RETRY_WINDOW_MS) {
+      pollStartedAt = 0;
+      return;
+    }
+
+    const awake =
+      typeof document === "undefined" ||
+      !document.hidden ||
+      (typeof document.hasFocus === "function" && document.hasFocus());
+    if (awake) retryBlocked();
+
+    if (blocked.size === 0) {
+      pollStartedAt = 0;
+      return;
+    }
+    if (pollTimer === null) pollTimer = window.setTimeout(tick, 750);
+  };
+
+  pollTimer = window.setTimeout(tick, 750);
+}
+
+function retryBlocked(): void {
+  if (isSoundMuted()) {
+    blocked.clear();
+    return;
+  }
+
   const now = Date.now();
-  for (const [name, refusedAt] of blocked) {
-    blocked.delete(name);
-    if (now - refusedAt > RETRY_WINDOW_MS) continue;
-    if (force) playNow(name);
-    else playSound(name);
+  for (const [name, refusedAt] of [...blocked]) {
+    if (now - refusedAt > RETRY_WINDOW_MS) {
+      blocked.delete(name);
+      continue;
+    }
+    playSound(name);
   }
 }
 
@@ -151,14 +217,13 @@ function retryBlocked(force = false): void {
 function bindRetry(): void {
   if (retryBound || typeof window === "undefined") return;
   retryBound = true;
-  const gestureRetry = () => retryBlocked(true);
-  window.addEventListener("pointerdown", gestureRetry, { passive: true });
-  window.addEventListener("keydown", gestureRetry);
-  window.addEventListener("focus", () => retryBlocked(false));
-  window.addEventListener("pageshow", () => retryBlocked(false));
+  window.addEventListener("pointerdown", retryBlocked, { passive: true });
+  window.addEventListener("keydown", retryBlocked);
+  window.addEventListener("focus", retryBlocked);
+  window.addEventListener("pageshow", retryBlocked);
   if (typeof document !== "undefined") {
     document.addEventListener("visibilitychange", () => {
-      if (!document.hidden) retryBlocked(false);
+      if (!document.hidden) retryBlocked();
     });
   }
 }
@@ -173,15 +238,11 @@ function bindRetry(): void {
 export function playSound(name: SoundName): void {
   if (typeof window === "undefined" || isSoundMuted()) return;
 
-  // A hidden tab may let `play()` resolve and then swallow the audio before the
-  // user returns. Queue it instead; `visibilitychange` is the moment the user
-  // can actually hear it. A gesture bypasses this through `playNow`.
-  if (typeof document !== "undefined" && document.hidden) {
-    blocked.set(name, Date.now());
-    bindRetry();
-    return;
-  }
-
+  // Try at the moment the flow confirms. A hidden tab may refuse playback, but
+  // `playNow` records the refusal and the listeners/poll retry it as soon as
+  // the webview is usable again. Pre-emptively queueing on `document.hidden`
+  // was wrong for in-app browsers that leave the flag stale: it delayed the
+  // Void success cue until the user tapped "Done".
   playNow(name);
 }
 
@@ -210,6 +271,11 @@ function playNow(name: SoundName): void {
     player.muted = false;
   }
 
+  // A real cue is never muted. The unlock play may still be in flight, or a
+  // previous unlock may have left the element muted if its promise never
+  // settled while the wallet app had the webview suspended.
+  player.muted = false;
+
   try {
     // Rewind only what has metadata. Assigning `currentTime` before the first
     // `loadedmetadata` throws `InvalidStateError` in some browsers — and because
@@ -218,19 +284,24 @@ function playNow(name: SoundName): void {
     if (player.readyState > 0) player.currentTime = 0;
 
     const started = player.play();
-    if (started && typeof started.catch === "function") {
-      started.catch(() => {
-        blocked.set(name, Date.now());
-        bindRetry();
-        console.debug(
-          `[spacedust] ${name} sound was blocked; it will play on the next input`,
-        );
-      });
+    if (started && typeof started.then === "function") {
+      started
+        .then(() => {
+          blocked.delete(name);
+        })
+        .catch(() => {
+          block(name);
+          console.debug(
+            `[spacedust] ${name} sound was blocked; retrying when the page is awake`,
+          );
+        });
+    } else {
+      // Older media elements return undefined from play(); assume it started.
+      blocked.delete(name);
     }
   } catch (error) {
     // Some embedded browsers throw synchronously instead of rejecting.
-    blocked.set(name, Date.now());
-    bindRetry();
+    block(name);
     console.debug("[spacedust] sound failed:", error);
   }
 }

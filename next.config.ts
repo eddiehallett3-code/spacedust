@@ -51,6 +51,24 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        /**
+         * The success cue must be ready the instant a transaction lands.
+         *
+         * Vercel serves files under `public/` with `max-age=0`, so a WebView
+         * that was suspended while the wallet app approved can re-fetch the
+         * 29 KB mp3 and start it seconds late. A one-week cache keeps the cue
+         * local. The filenames are stable, so replacing an audio file is
+         * deliberately a rename-and-update rather than an in-place overwrite.
+         */
+        source: "/sounds/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=604800, stale-while-revalidate=86400",
+          },
+        ],
+      },
+      {
         source: "/:path*",
         headers: [
           { key: "X-Content-Type-Options", value: "nosniff" },

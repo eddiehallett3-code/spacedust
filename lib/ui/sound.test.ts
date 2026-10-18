@@ -27,6 +27,7 @@ function fakeWindow(play?: () => Promise<void>) {
   const created: FakePlayer[] = [];
   const store = new Map<string, string>();
   const listeners: Record<string, () => void> = {};
+  const timers: Array<() => void> = [];
 
   class FakeAudio {
     src: string;
@@ -49,11 +50,16 @@ function fakeWindow(play?: () => Promise<void>) {
     created,
     store,
     listeners,
+    timers,
     window: {
       Audio: FakeAudio,
       localStorage: {
         getItem: (key: string) => store.get(key) ?? null,
         setItem: (key: string, value: string) => store.set(key, value),
+      },
+      setTimeout: (handler: () => void) => {
+        timers.push(handler);
+        return timers.length;
       },
       addEventListener: (type: string, handler: () => void) => {
         listeners[type] = handler;
@@ -193,41 +199,66 @@ describe("playSound", () => {
     expect(created[0]?.play).toHaveBeenCalledTimes(2);
   });
 
-  it("waits for a hidden tab to come back before playing", async () => {
+  it("attempts playback at confirmation even when the tab reports hidden", async () => {
     const { created, window: fake } = fakeWindow();
-    const docListeners: Record<string, () => void> = {};
-    const doc = {
-      hidden: true,
-      addEventListener: (type: string, handler: () => void) => {
-        docListeners[type] = handler;
-      },
-    };
-    vi.stubGlobal("document", doc);
-    vi.stubGlobal("window", fake);
-    const { playSound } = await load();
-
-    playSound("success");
-    expect(created).toHaveLength(0);
-
-    doc.hidden = false;
-    docListeners["visibilitychange"]?.();
-    expect(created[0]?.play).toHaveBeenCalledTimes(1);
-  });
-
-  it("plays on a gesture even when the hidden flag is stale", async () => {
-    const { created, listeners, window: fake } = fakeWindow();
     const doc = { hidden: true, addEventListener: () => {} };
     vi.stubGlobal("document", doc);
     vi.stubGlobal("window", fake);
     const { playSound } = await load();
 
     playSound("success");
-    expect(created).toHaveLength(0);
 
-    // The user taps "Done" on the success screen; the WebView still reports
-    // hidden for a moment. The gesture is authoritative.
-    listeners["pointerdown"]?.();
+    // The old code queued this and waited for visibility; some in-app browsers
+    // never fire it, so the cue only played on the Done click.
+    expect(created).toHaveLength(1);
     expect(created[0]?.play).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries a refused sound on a gesture when the tab still reports hidden", async () => {
+    let refuse = true;
+    const { created, listeners, window: fake } = fakeWindow(() =>
+      refuse ? Promise.reject(new Error("NotAllowedError")) : Promise.resolve(),
+    );
+    const doc = { hidden: true, addEventListener: () => {} };
+    vi.stubGlobal("document", doc);
+    vi.stubGlobal("window", fake);
+    const { playSound } = await load();
+
+    playSound("success");
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(created[0]?.play).toHaveBeenCalledTimes(1);
+
+    refuse = false;
+    listeners["pointerdown"]?.();
+    expect(created[0]?.play).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries from the poll when the page has focus but hidden is stale", async () => {
+    let refuse = true;
+    const { created, timers, window: fake } = fakeWindow(() =>
+      refuse ? Promise.reject(new Error("NotAllowedError")) : Promise.resolve(),
+    );
+    const doc = {
+      hidden: true,
+      hasFocus: () => true,
+      addEventListener: () => {},
+    };
+    vi.stubGlobal("document", doc);
+    vi.stubGlobal("window", fake);
+    const { playSound } = await load();
+
+    playSound("success");
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(created[0]?.play).toHaveBeenCalledTimes(1);
+    expect(timers.length).toBeGreaterThan(0);
+
+    // The wallet sheet closes, but no visibility/focus event arrives. The poll
+    // sees that the document itself has focus and tries again.
+    refuse = false;
+    timers[0]?.();
+    expect(created[0]?.play).toHaveBeenCalledTimes(2);
   });
 });
 
