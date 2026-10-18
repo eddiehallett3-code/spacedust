@@ -13,9 +13,9 @@
  *  - **Nothing plays before a gesture, and a gesture is not enough forever.**
  *    Autoplay policy blocks playback until the page has been activated, and a
  *    transaction confirmation often lands after the wallet app took the user
- *    away from the tab. The first pointer/key gesture therefore *unlocks* each
- *    element with a muted play, and a refused sound is retried when the tab
- *    becomes visible again — not only on the next click.
+ *    away from the tab. The first pointer/key gesture therefore *unlocks* the
+ *    audio context and each element with a silent play; a refused sound is
+ *    retried when the page is usable again — not only on the next click.
  *  - **Muting is remembered.** `localStorage`, because a preference that resets
  *    on navigation is not a preference. Storage can throw (private mode, blocked
  *    cookies), and the fallback is sound on rather than off: failing to read a
@@ -107,6 +107,134 @@ function audio(name: SoundName): HTMLAudioElement | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Web Audio fallback for confirmation cues.
+ *
+ * HTMLMediaElement playback is blocked in some in-app wallet browsers until a
+ * *new* gesture, even after a muted unlock. A decoded `AudioBuffer` played
+ * through an `AudioContext` that was resumed inside the first gesture is not
+ * subject to that per-play gate. The HTML players below remain the fallback.
+ */
+let audioContext: AudioContext | null = null;
+const buffers = new Map<SoundName, AudioBuffer>();
+const webAudioSources = new Map<SoundName, AudioBufferSourceNode>();
+let decoding: Promise<void> | null = null;
+
+function getAudioContext(): AudioContext | null {
+  if (typeof window === "undefined") return null;
+  const Ctor =
+    window.AudioContext ??
+    (window as typeof window & { webkitAudioContext?: typeof AudioContext })
+      .webkitAudioContext;
+  if (typeof Ctor !== "function") return null;
+  try {
+    audioContext ??= new Ctor();
+  } catch {
+    return null;
+  }
+  return audioContext;
+}
+
+function decodeSounds(ctx: AudioContext): void {
+  if (decoding) return;
+  decoding = (async () => {
+    for (const name of Object.keys(SOUND_FILES) as SoundName[]) {
+      if (buffers.has(name)) continue;
+      try {
+        const response = await fetch(SOUND_FILES[name], {
+          cache: "force-cache",
+        });
+        if (!response.ok) continue;
+        buffers.set(
+          name,
+          await ctx.decodeAudioData(await response.arrayBuffer()),
+        );
+      } catch {
+        // The HTML player is still available.
+      }
+    }
+  })();
+}
+
+function unlockWebAudio(): void {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  if (ctx.state === "suspended") void ctx.resume().catch(() => {});
+  decodeSounds(ctx);
+}
+
+function startWebAudio(name: SoundName): boolean {
+  const ctx = audioContext;
+  const buffer = buffers.get(name);
+  if (!ctx || !buffer) return false;
+
+  try {
+    const previous = webAudioSources.get(name);
+    try {
+      previous?.stop();
+    } catch {
+      // Already stopped.
+    }
+
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    const gain = ctx.createGain();
+    gain.gain.value = SOUND_VOLUMES[name];
+    source.connect(gain).connect(ctx.destination);
+    source.start();
+    webAudioSources.set(name, source);
+    source.onended = () => {
+      if (webAudioSources.get(name) === source) webAudioSources.delete(name);
+    };
+    blocked.delete(name);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Try the decoded buffer before the media element.
+ *
+ * A suspended context is resumed in place. Some WebViews hold that resume until
+ * the page is foregrounded again; the one-second fallback then hands the cue to
+ * the HTML path, which has its own retry queue.
+ */
+function playWebAudio(name: SoundName): boolean {
+  const ctx = audioContext;
+  const buffer = buffers.get(name);
+  if (!ctx || !buffer) return false;
+
+  if (ctx.state === "running") return startWebAudio(name);
+
+  if (ctx.state === "suspended") {
+    let settled = false;
+    const fallback = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      playHtml(name);
+    }, 1000);
+
+    void ctx
+      .resume()
+      .then(() => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(fallback);
+        if (!startWebAudio(name)) playHtml(name);
+      })
+      .catch(() => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(fallback);
+        playHtml(name);
+      });
+    return true;
+  }
+
+  return false;
 }
 
 /** Sounds refused by the browser, with when they were refused. */
@@ -257,6 +385,21 @@ export function playSound(name: SoundName): void {
  */
 function playNow(name: SoundName): void {
   if (typeof window === "undefined" || isSoundMuted()) return;
+
+  // A running AudioContext plays from a decoded buffer without needing a new
+  // gesture. That is the only path that can start while the wallet sheet has
+  // just closed but the user has not tapped the dApp again.
+  if (playWebAudio(name)) return;
+
+  playHtml(name);
+}
+
+/**
+ * The HTMLMediaElement path, used when Web Audio is unavailable or its buffer
+ * has not decoded yet. It carries the retry queue.
+ */
+function playHtml(name: SoundName): void {
+  if (typeof window === "undefined" || isSoundMuted()) return;
   const player = audio(name);
   if (!player) return;
 
@@ -276,6 +419,7 @@ function playNow(name: SoundName): void {
   // previous unlock may have left the element muted if its promise never
   // settled while the wallet app had the webview suspended.
   player.muted = false;
+  player.volume = SOUND_VOLUMES[name];
 
   try {
     // Rewind only what has metadata. Assigning `currentTime` before the first
@@ -340,10 +484,12 @@ export function preloadSounds(
  *
  * Loading is not permission. Safari — and the webview in some wallet apps —
  * grants playback per element, and only while the page is handling a gesture.
- * A muted `play()` is the smallest thing that qualifies; pausing it immediately
- * leaves the element allowed, with no sound. If a real cue starts while the
- * muted play is still pending, `playSound` cancels the unlock first, so the cue
- * is not swallowed by the element still being muted.
+ * A silent `play()` at volume 0 is the smallest thing that qualifies — notably
+ * not `muted = true`, which some webviews allow without granting audible
+ * playback. Pausing it immediately leaves the element allowed, with no sound.
+ * If a real cue starts while the silent play is still pending, `playSound`
+ * cancels the unlock first, so the cue is not swallowed by the element still
+ * being silent.
  */
 function unlockPlayers(): void {
   if (unlocked) return;
@@ -364,16 +510,19 @@ function unlockPlayers(): void {
         // A player that never reached metadata has nothing to rewind.
       }
       player.muted = false;
+      player.volume = SOUND_VOLUMES[name];
     };
 
     try {
-      player.muted = true;
+      player.muted = false;
+      player.volume = 0;
       priming.add(name);
       const started = player.play();
       if (started && typeof started.then === "function") {
         started.then(release, () => {
           if (!priming.delete(name)) return;
           player.muted = false;
+          player.volume = SOUND_VOLUMES[name];
         });
       } else {
         release();
@@ -381,6 +530,7 @@ function unlockPlayers(): void {
     } catch {
       priming.delete(name);
       player.muted = false;
+      player.volume = SOUND_VOLUMES[name];
     }
   }
 }
@@ -393,7 +543,9 @@ function unlockPlayers(): void {
  * success cue work in Safari and embedded wallet browsers.
  */
 export function primeSounds(): void {
-  if (typeof window === "undefined" || unlocked) return;
+  if (typeof window === "undefined") return;
+  unlockWebAudio();
+  if (unlocked) return;
   preloadSounds();
   unlockPlayers();
 }

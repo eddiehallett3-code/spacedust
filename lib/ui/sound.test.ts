@@ -23,7 +23,10 @@ interface FakePlayer {
   load: ReturnType<typeof vi.fn>;
 }
 
-function fakeWindow(play?: () => Promise<void>) {
+function fakeWindow(
+  play?: () => Promise<void>,
+  AudioContextCtor?: new () => unknown,
+) {
   const created: FakePlayer[] = [];
   const store = new Map<string, string>();
   const listeners: Record<string, () => void> = {};
@@ -53,6 +56,7 @@ function fakeWindow(play?: () => Promise<void>) {
     timers,
     window: {
       Audio: FakeAudio,
+      AudioContext: AudioContextCtor,
       localStorage: {
         getItem: (key: string) => store.get(key) ?? null,
         setItem: (key: string, value: string) => store.set(key, value),
@@ -283,7 +287,7 @@ describe("preload and unlock", () => {
     expect(created[0]?.load).toHaveBeenCalledTimes(1);
   });
 
-  it("unlocks every player with a muted play on the first gesture", async () => {
+  it("unlocks every player with a silent play on the first gesture", async () => {
     const { created, window: fake } = fakeWindow();
     vi.stubGlobal("window", fake);
     const { primeSounds } = await load();
@@ -300,6 +304,7 @@ describe("preload and unlock", () => {
     for (const player of created) {
       expect(player.pause).toHaveBeenCalled();
       expect(player.muted).toBe(false);
+      expect(player.volume).toBeGreaterThan(0);
     }
 
     // A second gesture must not replay the muted unlock.
@@ -307,6 +312,69 @@ describe("preload and unlock", () => {
     for (const player of created) {
       expect(player.play).toHaveBeenCalledTimes(1);
     }
+  });
+});
+
+describe("Web Audio", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  class FakeAudioContext {
+    state = "running";
+    destination = {};
+    sources: Array<{
+      start: ReturnType<typeof vi.fn>;
+      stop: ReturnType<typeof vi.fn>;
+    }> = [];
+    resume = vi.fn(() => Promise.resolve());
+
+    createBufferSource() {
+      const source = {
+        buffer: null as unknown,
+        connect: () => ({ connect: () => ({}) }),
+        start: vi.fn(),
+        stop: vi.fn(),
+        onended: null as null | (() => void),
+      };
+      this.sources.push(source);
+      return source;
+    }
+
+    createGain() {
+      return {
+        gain: { value: 0 },
+        connect: () => ({ connect: () => ({}) }),
+      };
+    }
+
+    decodeAudioData = vi.fn(async () => ({}));
+  }
+
+  it("plays the confirmation cue from a decoded buffer", async () => {
+    const ctx = new FakeAudioContext();
+    const { window: fake } = fakeWindow(
+      undefined,
+      function () {
+        return ctx;
+      } as unknown as new () => unknown,
+    );
+    vi.stubGlobal("window", fake);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        arrayBuffer: async () => new ArrayBuffer(8),
+      })),
+    );
+    const { primeSounds, playSound } = await load();
+
+    primeSounds();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    playSound("success");
+
+    expect(ctx.sources.length).toBeGreaterThan(0);
+    expect(ctx.sources[0]?.start).toHaveBeenCalled();
   });
 });
 
