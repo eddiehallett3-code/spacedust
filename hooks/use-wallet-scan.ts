@@ -27,7 +27,7 @@ export function useWalletScan() {
   // Guards against a stale response landing after a newer scan started.
   const requestIdRef = useRef(0);
 
-  const scan_ = useCallback(async (): Promise<void> => {
+  const scan_ = useCallback(async (options?: { fresh?: boolean }): Promise<void> => {
     if (!owner) {
       setScan(null);
       return;
@@ -64,8 +64,10 @@ export function useWalletScan() {
            */
           timeoutMs: 90_000,
           // Wallets rarely change within a few seconds, and this is the single
-          // most expensive call in the app.
-          cacheMs: 10_000,
+          // most expensive call in the app. A manual refresh passes `fresh`, so
+          // the button means "read the chain again" rather than "show me the
+          // scan from ten seconds ago".
+          cacheMs: options?.fresh ? 0 : 10_000,
         },
       );
 
@@ -101,7 +103,7 @@ export function useWalletScan() {
   const rescan = useCallback(async (): Promise<void> => {
     abortRef.current?.abort();
     requestIdRef.current += 1; // invalidate any in-flight response
-    await scan_();
+    await scan_({ fresh: true });
   }, [scan_]);
 
   return {

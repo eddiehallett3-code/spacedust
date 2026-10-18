@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolvePreparationGate, type PreparationInput } from "./preparation";
+import { payloadRequestKey, resolvePreparationGate, type PreparationInput } from "./preparation";
 
 /**
  * The gate on Payload's two buttons.
@@ -124,5 +124,81 @@ describe("resolvePreparationGate", () => {
     });
 
     expect(gate.sendBlockedReason).toBeNull();
+  });
+});
+
+/**
+ * The key that decides whether a preview still describes the request on screen.
+ *
+ * `execute()` signs the prepared batch, so a key that misses one input is not a
+ * cosmetic bug: it is the difference between unticking a token and still sending
+ * it. Each assertion below is one of those inputs.
+ */
+describe("payloadRequestKey", () => {
+  const request = {
+    recipient: "6W2V5zMkwRmb7jiYavSJ1RS9Kh2Yg76wgzcNySuUGx2Z",
+    tokens: [
+      { mint: "MINT_A", rawAmount: "1000" },
+      { mint: "MINT_B", rawAmount: "2000" },
+    ],
+    assets: ["ASSET_1"],
+    solLamports: "25000000",
+    solSelected: true,
+  };
+
+  it("is stable across a selection reordered by a rescan", () => {
+    const reordered = {
+      ...request,
+      tokens: [...request.tokens].reverse(),
+      assets: [...request.assets].reverse(),
+    };
+
+    expect(payloadRequestKey(reordered)).toBe(payloadRequestKey(request));
+  });
+
+  it("changes when a token is added or removed", () => {
+    expect(
+      payloadRequestKey({ ...request, tokens: [request.tokens[0]!] }),
+    ).not.toBe(payloadRequestKey(request));
+  });
+
+  it("changes when a typed amount changes, even for the same token", () => {
+    const partial = {
+      ...request,
+      tokens: [{ mint: "MINT_A", rawAmount: "1" }, request.tokens[1]!],
+    };
+
+    expect(payloadRequestKey(partial)).not.toBe(payloadRequestKey(request));
+  });
+
+  it("changes when an NFT or cNFT is selected", () => {
+    expect(payloadRequestKey({ ...request, assets: [] })).not.toBe(
+      payloadRequestKey(request),
+    );
+  });
+
+  it("distinguishes SOL unselected, selected with an amount, and selected with a bad one", () => {
+    const keys = new Set([
+      payloadRequestKey({ ...request, solSelected: false }),
+      payloadRequestKey(request),
+      payloadRequestKey({ ...request, solLamports: null }),
+    ]);
+
+    expect(keys.size).toBe(3);
+  });
+
+  it("ignores whitespace around a pasted address, as the field does", () => {
+    expect(
+      payloadRequestKey({ ...request, recipient: `  ${request.recipient}  ` }),
+    ).toBe(payloadRequestKey(request));
+  });
+
+  it("changes when the destination changes", () => {
+    expect(
+      payloadRequestKey({
+        ...request,
+        recipient: "9qDz4uC7M7oJdhCErKEtLzm4pkdjdc7uQAFggy5jYrmt",
+      }),
+    ).not.toBe(payloadRequestKey(request));
   });
 });

@@ -3,6 +3,7 @@ import {
   approvalFromParsedAccount,
   isUnlimitedApproval,
   revocableApprovals,
+  revokeSelectionKey,
   type TokenApproval,
 } from "@/lib/solana/approvals";
 
@@ -198,5 +199,30 @@ describe("revocableApprovals", () => {
 
   it("handles an empty list", () => {
     expect(revocableApprovals([])).toEqual({ revocable: [], frozen: [] });
+  });
+});
+
+/**
+ * The key that lets a revoke preview be discarded when the selection moves.
+ *
+ * Order-independent (a rescan can return the same accounts differently), and
+ * sensitive to every add or remove (preview revokes A and B, untick B, and B was
+ * revoked anyway).
+ */
+describe("revokeSelectionKey", () => {
+  const A = "7ZY8izSSAn7VFo5dyVxpf6xwXWemxMGJNbxthQiXVxeK";
+  const B = "FUTLE3UD1rjyJo4mYxtgJCSiK1AE4umsGuenMFayqNMY";
+
+  it("is stable when the same accounts come back in another order", () => {
+    expect(revokeSelectionKey([B, A])).toBe(revokeSelectionKey([A, B]));
+  });
+
+  it("changes when a row is added or removed", () => {
+    expect(revokeSelectionKey([A])).not.toBe(revokeSelectionKey([A, B]));
+  });
+
+  it("distinguishes the empty selection", () => {
+    expect(revokeSelectionKey([])).toBe("");
+    expect(revokeSelectionKey([A])).not.toBe("");
   });
 });

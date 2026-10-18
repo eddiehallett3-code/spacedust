@@ -10,6 +10,7 @@ import {
   AuthorityType,
   createApproveInstruction,
   createAssociatedTokenAccountIdempotentInstruction,
+  createBurnCheckedInstruction,
   createBurnInstruction,
   createRevokeInstruction,
   createSetAuthorityInstruction,
@@ -20,6 +21,7 @@ import {
 } from "@/lib/solana/instructions";
 import {
   COMPUTE_BUDGET_PROGRAM_ID,
+  LOADED_ACCOUNTS_DATA_SIZE_LIMIT,
   TOKEN_PROGRAM_ID,
 } from "@/lib/utils/constants";
 import { buildSend, recipientTokenAccount } from "@/lib/solana/transfer";
@@ -426,6 +428,63 @@ describe("a burn and a revoke", () => {
     ).toEqual(["burn of your own balance", "close → rent to you"]);
   });
 
+  it("accepts a BurnChecked of your own balance", () => {
+    // BurnChecked's account list is `[account, mint, owner]` — the same first
+    // three as Burn. The audit used to read `keys[3]` for code 15, found
+    // nothing, and refused every checked burn.
+    const result = auditInstructions(
+      [
+        ...budget(400_000),
+        createBurnCheckedInstruction(
+          new PublicKey(SOURCE),
+          new PublicKey(MINT),
+          owner,
+          1_000n,
+          6,
+          [],
+          tokenProgram,
+        ),
+      ],
+      {
+        flow: "void",
+        owner: OWNER,
+        feeWallet: FEE_WALLET,
+        expectedFeeLamports: 0,
+      },
+    );
+
+    expect(result.ok).toBe(true);
+    expect(
+      result.calls.find((call) => call.programName === "SPL Token")?.notes,
+    ).toEqual(["burn of your own balance"]);
+  });
+
+  it("refuses a BurnChecked authorised by someone else", () => {
+    const result = auditInstructions(
+      [
+        ...budget(400_000),
+        createBurnCheckedInstruction(
+          new PublicKey(SOURCE),
+          new PublicKey(MINT),
+          new PublicKey(STRANGER),
+          1_000n,
+          6,
+          [],
+          tokenProgram,
+        ),
+      ],
+      {
+        flow: "void",
+        owner: OWNER,
+        feeWallet: FEE_WALLET,
+        expectedFeeLamports: 0,
+      },
+    );
+
+    expect(result.ok).toBe(false);
+    expect(refusal(result)?.code).toBe("burn-foreign-authority");
+  });
+
   it("refuses a burn in a flow that is not a burn", () => {
     const result = auditInstructions(
       [
@@ -540,10 +599,16 @@ describe("the compute budget", () => {
   });
 
   it("refuses a loaded-account-data limit above the app's own", () => {
-    // The builder clamps to the runtime maximum, so a larger value can only have
-    // come from somewhere other than this app's planner.
+    // The builder clamps to the runtime maximum, which is also the app's own
+    // declaration, so a larger value can only be hand-built. The audit refuses it
+    // before a wallet sees it.
+    const limitOnly = budget()[0] as TransactionInstruction;
     const result = auditInstructions(
-      [...budget(800_000, 1_000, 2_000_000), jupiterSwap()],
+      [
+        limitOnly,
+        loadedData(LOADED_ACCOUNTS_DATA_SIZE_LIMIT + 1),
+        jupiterSwap(),
+      ],
       sweep(),
     );
 
@@ -564,7 +629,11 @@ describe("the compute budget", () => {
 
   it("refuses two loaded-account-data declarations", () => {
     const result = auditInstructions(
-      [...budget(), loadedData(1_048_576), jupiterSwap()],
+      [
+        ...budget(),
+        loadedData(LOADED_ACCOUNTS_DATA_SIZE_LIMIT),
+        jupiterSwap(),
+      ],
       sweep(),
     );
 

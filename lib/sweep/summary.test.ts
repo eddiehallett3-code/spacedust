@@ -53,6 +53,36 @@ function closedTx(mint: string, index = 0): PackedTransaction {
   };
 }
 
+/** The only part of a build `buildSummary` reads: its quoted output. */
+function quotedBuild(mint: string, outAmount: string): SwapBuild {
+  return {
+    mint,
+    symbol: mint,
+    logoUri: null,
+    inAmount: "1",
+    tokenAccount: null,
+    outAmount,
+    otherAmountThreshold: "0",
+    outputMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    priceImpactPct: null,
+    routeLabels: [],
+    computeBudgetInstructions: [],
+    bundle: {
+      setup: [],
+      swap: {
+        programId: "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+        accounts: [],
+        data: "",
+      },
+      cleanup: null,
+      other: [],
+    },
+    addressesByLookupTableAddress: null,
+    lastValidBlockHeight: 0,
+    error: null,
+  };
+}
+
 function outcome(
   mint: string,
   status: TokenOutcome["status"],
@@ -195,6 +225,80 @@ describe("buildSummary reclaim fee", () => {
 
     expect(summary.reclaimFeeLamports).toBe(0);
     expect(summary.rentReclaimedLamports).toBe(RENT);
+  });
+});
+
+describe("buildSummary — what actually landed", () => {
+  const usdcPlan = build({
+    builds: [
+      quotedBuild("A", "1000000"), // 1 USDC at 6 decimals
+      quotedBuild("B", "5000000"), // 5 USDC, never sold
+    ],
+    totalExpectedOutUsd: 6,
+  });
+
+  it("reports successful output, not the quote, when part of the batch failed", () => {
+    // This is the bug the screen shipped with: "You received" was the sum of the
+    // plan's quotes, so a batch that said "1 succeeded, 1 failed" beside it still
+    // claimed the failed token's output — and wrote the same overstatement into
+    // the local history.
+    const summary = summaryFor({
+      plan: usdcPlan,
+      outputAsset: "USDC",
+      outcomes: [
+        {
+          ...outcome("A", "success", false),
+          outputAmount: "1000000",
+          outputAmountFormatted: 1,
+          valueUsd: 1,
+        },
+        {
+          ...outcome("B", "failed", false),
+          outputAmount: null,
+          outputAmountFormatted: null,
+          valueUsd: 1,
+          error: "Not submitted",
+        },
+      ],
+    });
+
+    expect(summary.totalOutput).toBe(1); // not 6
+    expect(summary.totalValueUsd).toBe(1); // the failed token recovered nothing
+    expect(summary.successCount).toBe(1);
+    expect(summary.failedCount).toBe(1);
+  });
+
+  it("excludes a skipped outcome from both totals as well", () => {
+    const summary = summaryFor({
+      plan: usdcPlan,
+      outputAsset: "USDC",
+      outcomes: [
+        {
+          ...outcome("A", "success", false),
+          outputAmount: "1000000",
+          outputAmountFormatted: 1,
+          valueUsd: 1,
+        },
+        {
+          ...outcome("B", "skipped", false),
+          valueUsd: 1,
+        },
+      ],
+    });
+
+    expect(summary.totalOutput).toBe(1);
+    expect(summary.totalValueUsd).toBe(1);
+  });
+
+  it("keeps the plan's intended totals on a dry run, where there are no outcomes", () => {
+    const summary = summaryFor({
+      plan: usdcPlan,
+      outputAsset: "USDC",
+      dryRun: true,
+    });
+
+    expect(summary.totalOutput).toBe(6);
+    expect(summary.totalValueUsd).toBe(6);
   });
 });
 

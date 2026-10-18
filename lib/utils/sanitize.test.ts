@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toBaseAmount } from "./sanitize";
+import { baseAmountToNumber, toBaseAmount } from "./sanitize";
 
 /**
  * Whole units to base units — the conversion every typed amount goes through.
@@ -67,5 +67,34 @@ describe("toBaseAmount", () => {
 
   it("refuses an absurdly long input instead of building a giant integer", () => {
     expect(toBaseAmount("9".repeat(41), 9)).toBeNull();
+  });
+});
+
+/**
+ * The other direction, used everywhere a balance or output is displayed.
+ *
+ * The bug this locks: the divisor was clamped at 10^15 while decimals up to 30
+ * were accepted, so an 18-decimal amount came back 1000× too large. No SPL mint
+ * has more than nine decimals today, which is exactly why the error could sit
+ * there unnoticed — the function's contract says "scale by the decimals it was
+ * given", so it must.
+ */
+describe("baseAmountToNumber", () => {
+  it("scales by the real decimals", () => {
+    expect(baseAmountToNumber(1_000_000n, 6)).toBe(1);
+    expect(baseAmountToNumber(1_000_000_000n, 9)).toBe(1);
+  });
+
+  it("does not cap the divisor at 15 decimals", () => {
+    expect(baseAmountToNumber(1_000_000_000_000_000_000n, 18)).toBe(1);
+    expect(baseAmountToNumber(1_000_000_000_000_000_000_000_000n, 24)).toBe(
+      1,
+    );
+  });
+
+  it("rejects a decimals count that is not a real one", () => {
+    expect(baseAmountToNumber(1n, -1)).toBeNull();
+    expect(baseAmountToNumber(1n, 31)).toBeNull();
+    expect(baseAmountToNumber(1n, 1.5)).toBeNull();
   });
 });

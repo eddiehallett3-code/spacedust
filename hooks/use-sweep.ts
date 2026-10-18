@@ -417,6 +417,10 @@ export function useSweep() {
         progress: { completed: signed.length, total: signed.length },
       });
 
+      // A signed sweep is finished. Re-signing the same batch could only
+      // re-report transactions the chain already saw; a retry builds a new plan.
+      preparedRef.current = null;
+
       return true;
     } catch (caught) {
       playFlowSound("error");

@@ -706,8 +706,11 @@ export function auditInstructions(
             );
             return;
           }
-          const authority =
-            code === 8 ? instruction.keys[2] : instruction.keys[3];
+          // Burn and BurnChecked share the same first three accounts:
+          // `[account, mint, owner]`. The authority is always the third, for
+          // both instructions — reading the fourth on BurnChecked found either
+          // nothing or a multisig signer, and refused a legitimate burn.
+          const authority = instruction.keys[2];
           if (authority?.pubkey.toBase58() !== owner) {
             noteProgram(into, programId);
             refuse(

@@ -340,6 +340,9 @@ export function useClose() {
         summary,
         progress: { completed: signed.length, total: signed.length },
       });
+      // The accounts are closed; signing this batch again could only fail and
+      // cost fees. A rescan is how the user finds what is left.
+      preparedRef.current = null;
       return true;
     } catch (caught) {
       playFlowSound("error");

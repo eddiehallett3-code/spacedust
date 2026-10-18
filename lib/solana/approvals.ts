@@ -247,6 +247,19 @@ export function revocableApprovals(approvals: TokenApproval[]): {
   return { revocable, frozen };
 }
 
+/**
+ * A stable key for the set of approvals a revoke preview was built from.
+ *
+ * Order-independent, because the RPC's list order is not a property of the
+ * request: a rescan that returns the same accounts in a different order must not
+ * throw away a preview the user is reading. Any actual move — a row added or
+ * removed — changes the key, which is what lets the panel discard a preview
+ * before its "Sign & revoke" button can act on a selection it no longer shows.
+ */
+export function revokeSelectionKey(tokenAccounts: readonly string[]): string {
+  return [...tokenAccounts].sort().join(",");
+}
+
 export interface PlanRevokeInput {
   connection: Connection;
   owner: PublicKey;

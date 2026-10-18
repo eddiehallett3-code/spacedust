@@ -180,7 +180,10 @@ export function parseBaseAmount(value: unknown): bigint | null {
  */
 export function baseAmountToNumber(amount: bigint, decimals: number): number | null {
   if (!Number.isInteger(decimals) || decimals < 0 || decimals > 30) return null;
-  const divisor = 10 ** Math.min(decimals, 15);
+  // Scale by the real decimals. This used to clamp the divisor at 10^15 while
+  // still accepting up to 30, which returned an amount 10^(decimals-15) times
+  // too large — silently wrong money for any mint beyond 15 decimals.
+  const divisor = 10 ** decimals;
   const value = Number(amount) / divisor;
   return Number.isFinite(value) ? value : null;
 }

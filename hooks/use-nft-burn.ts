@@ -335,6 +335,8 @@ export function useNftBurn() {
         summary,
         progress: { completed: signed.length, total: signed.length },
       });
+      // Nothing here is signable twice: a burned asset has no account left.
+      preparedRef.current = null;
       // Only the ones that landed. A failed burn leaves a live asset, and
       // hiding that would hide something the user still owns.
       return outcomes

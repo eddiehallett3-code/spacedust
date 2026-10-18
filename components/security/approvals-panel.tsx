@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import {
   AlertTriangle,
@@ -18,6 +18,7 @@ import { SimulationReport } from "@/components/sweep/simulation-report";
 import { WarningsList } from "@/components/sweep/warnings-list";
 import { ConnectWalletCta } from "@/components/wallet/wallet-button";
 import { useRevoke } from "@/hooks/use-revoke";
+import { previewAction } from "@/lib/sweep/preview";
 import { solscanAccountUrl } from "@/lib/solana/submit";
 import { cn } from "@/lib/utils/cn";
 import {
@@ -27,7 +28,7 @@ import {
   truncateAddress,
 } from "@/lib/utils/format";
 import type { TokenApproval } from "@/lib/solana/approvals";
-import { revocableApprovals } from "@/lib/solana/approvals";
+import { revocableApprovals, revokeSelectionKey } from "@/lib/solana/approvals";
 
 /**
  * Revoke token approvals.
@@ -86,6 +87,36 @@ export function ApprovalsPanel() {
     () => approvals.filter((approval) => selected.has(approval.tokenAccount)),
     [approvals, selected],
   );
+
+  /**
+   * A preview must never outlive the selection it was built from.
+   *
+   * `execute()` signs the batch that was *prepared*, not what is ticked now. The
+   * panel already pruned selections when the approvals list changed, but not when
+   * the user unticked a row: preview revokes A and B, untick B to keep a listing
+   * alive, and B was revoked anyway. The same guard the two burn flows use
+   * (`lib/sweep/preview.ts`) closes that gap.
+   */
+  const selectionKey = useMemo(
+    () =>
+      revokeSelectionKey(
+        selectedApprovals.map((approval) => approval.tokenAccount),
+      ),
+    [selectedApprovals],
+  );
+  const selectionKeyRef = useRef(selectionKey);
+  useEffect(() => {
+    const action = previewAction({
+      previousKey: selectionKeyRef.current,
+      currentKey: selectionKey,
+      isBusy,
+      hasSummary: summary !== null,
+      hasPreview: packed.length > 0,
+    });
+    if (action === "none") return;
+    selectionKeyRef.current = selectionKey;
+    if (action === "discard") reset();
+  }, [selectionKey, isBusy, packed.length, summary, reset]);
 
   const toggle = useCallback((account: string, next: boolean): void => {
     setSelected((previous) => {

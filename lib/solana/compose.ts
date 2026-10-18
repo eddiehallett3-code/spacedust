@@ -165,10 +165,16 @@ export async function composePackUnits({
   const plansByMint = new Map<string, ClosePlan>();
   closePlans.forEach((plan, index) => {
     if (plan.account && verification && !verification[index]?.exists) {
+      const problem = verification[index]?.problem;
       plansByMint.set(plan.mint, {
         ...plan,
         account: null,
-        reason: "its token account no longer exists — rescan and try again",
+        reason:
+          problem === "unreadable"
+            ? "its token account could not be checked right now — rescan and try again"
+            : problem === "wrong-owner"
+              ? "its token account is not owned by the mint's token program"
+              : "its token account no longer exists — rescan and try again",
       });
       return;
     }
@@ -425,6 +431,8 @@ interface CloseTarget {
    * guess is how the panel came to disagree with the chain.
    */
   lamports: number;
+  /** Why the target cannot be closed, or null when it can. */
+  problem: "missing" | "unreadable" | "wrong-owner" | null;
 }
 
 async function verifyCloseTargets(
@@ -435,10 +443,14 @@ async function verifyCloseTargets(
     .map((plan, index) => ({ plan, index }))
     .filter(({ plan }) => plan.account !== null);
   if (wanted.length === 0) {
-    return plans.map(() => ({ exists: true, lamports: 0 }));
+    return plans.map(() => ({ exists: true, lamports: 0, problem: null }));
   }
 
-  const results: CloseTarget[] = plans.map(() => ({ exists: true, lamports: 0 }));
+  const results: CloseTarget[] = plans.map(() => ({
+    exists: true,
+    lamports: 0,
+    problem: null,
+  }));
   try {
     const infos = await connection.getMultipleAccountsInfo(
       wanted.map(({ plan }) => plan.account as PublicKey),
@@ -446,19 +458,38 @@ async function verifyCloseTargets(
     wanted.forEach(({ plan, index }, infoIndex) => {
       const account = infos[infoIndex];
       if (!account) {
-        results[index] = { exists: false, lamports: 0 };
+        results[index] = { exists: false, lamports: 0, problem: "missing" };
         return;
       }
       // An account owned by anything other than its mint's token program is
       // not something `closeAccount` can act on.
       if (plan.program && !account.owner.equals(plan.program)) {
-        results[index] = { exists: false, lamports: 0 };
+        results[index] = {
+          exists: false,
+          lamports: 0,
+          problem: "wrong-owner",
+        };
         return;
       }
-      results[index] = { exists: true, lamports: account.lamports };
+      results[index] = {
+        exists: true,
+        lamports: account.lamports,
+        problem: null,
+      };
     });
   } catch {
-    return plans.map(() => ({ exists: true, lamports: 0 }));
+    // A failed lookup cannot prove a close is safe. Closing an account that is
+    // not there fails the *whole* packed transaction, so an unverified target
+    // is skipped with its own reason rather than closed on a hope. This is the
+    // safe direction: the swap still runs, and the user is told why its rent
+    // was left behind.
+    for (const { index } of wanted) {
+      results[index] = {
+        exists: false,
+        lamports: 0,
+        problem: "unreadable",
+      };
+    }
   }
   return results;
 }

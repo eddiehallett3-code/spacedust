@@ -359,6 +359,9 @@ export function useVoid() {
         feeByMint: result.feeByMint,
         progress: { completed: signed.length, total: signed.length },
       });
+      // The batch is finished: its accounts are gone, so it must not be
+      // signable again. A retry builds a new plan from the remaining balances.
+      preparedRef.current = null;
       return true;
     } catch (caught) {
       playFlowSound("error");

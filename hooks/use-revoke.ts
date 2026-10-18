@@ -351,6 +351,9 @@ export function useRevoke() {
         ),
         progress: { completed: signed.length, total: signed.length },
       });
+      // A signed revoke is finished; the delegate is gone. Re-signing it would
+      // only fail on chain and cost a fee.
+      preparedRef.current = null;
       return true;
     } catch (caught) {
       playFlowSound("error");

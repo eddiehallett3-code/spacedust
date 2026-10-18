@@ -1,12 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PublicKey, TransactionMessage, VersionedTransaction } from "@solana/web3.js";
-import { bytesToBase64 } from "@/lib/utils/base64";
+import { base64ToBytes, bytesToBase64 } from "@/lib/utils/base64";
 import type { PackedTransaction } from "@/types/sweep";
 import {
   SIGNING_TIMEOUT_MS,
   SigningTimeoutError,
   settleTransaction,
   signTransactions,
+  submitTransactions,
   type SettleVerdict,
   type SigningCapableWallet,
 } from "./submit";
@@ -284,5 +285,107 @@ describe("signTransactions — a wallet that never answers", () => {
     await expect(signTransactions(wallet, [packed(0)])).rejects.toThrow(
       "User rejected the request",
     );
+  });
+
+  it("refuses a batch the wallet answers with fewer transactions than requested", async () => {
+    // `submitTransactions` pairs signed[i] with packed[i], so a short answer
+    // would silently shift the rest onto the wrong tokens.
+    const wallet = {
+      signAllTransactions: async (transactions: VersionedTransaction[]) => [
+        signed(transactions[0]!),
+      ],
+    } as unknown as SigningCapableWallet;
+
+    await expect(
+      signTransactions(wallet, [packed(0), packed(1)]),
+    ).rejects.toThrow(/returned 1 signed transaction for 2/);
+  });
+});
+
+/**
+ * The batch settle path.
+ *
+ * It used to treat **any** non-null status as a result, so a transaction seen
+ * only as `processed` was removed from the watchlist and reported as landed.
+ * `readStatus` (the one-transaction path) has always known better: processed is a
+ * fork's working set, not a result. These pin the same rule for a batch, and the
+ * final `getTransaction` read that keeps a lagging status poll from turning a
+ * landed batch into "never included".
+ */
+describe("settling a batch", () => {
+  const lastValidBlockHeight = 1_000_000;
+
+  function signedPacked(): { meta: PackedTransaction; transaction: VersionedTransaction } {
+    const meta = packed(0);
+    const transaction = signed(
+      VersionedTransaction.deserialize(base64ToBytes(meta.base64)),
+    );
+    return { meta, transaction };
+  }
+
+  it("keeps watching a processed-only transaction, then reads it back when the blockhash dies", async () => {
+    const { meta, transaction } = signedPacked();
+    let blockHeight = 1;
+    let transactionReads = 0;
+    const connection = {
+      getBlockHeight: async () => blockHeight,
+      sendRawTransaction: async () => {
+        // The send consumed the window, so the settle loop must fall back to
+        // reading the transaction itself.
+        blockHeight = 2_000_000;
+        return "sig";
+      },
+      getSignatureStatuses: async () => ({
+        value: [{ err: null, confirmationStatus: "processed", confirmations: 0 }],
+      }),
+      getTransaction: async () => {
+        transactionReads += 1;
+        return { meta: { err: null } };
+      },
+    } as never;
+
+    const results = await submitTransactions(
+      connection,
+      [transaction],
+      [meta],
+      {
+        blockhash: "11111111111111111111111111111111",
+        lastValidBlockHeight,
+      },
+    );
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.ok).toBe(true);
+    // The processed status alone was not accepted; the chain was asked.
+    expect(transactionReads).toBe(1);
+  });
+
+  it("accepts a confirmed status without asking for the transaction again", async () => {
+    const { meta, transaction } = signedPacked();
+    let transactionReads = 0;
+    const connection = {
+      getBlockHeight: async () => 1,
+      sendRawTransaction: async () => "sig",
+      getSignatureStatuses: async () => ({
+        value: [{ err: null, confirmationStatus: "confirmed", confirmations: 1 }],
+      }),
+      getTransaction: async () => {
+        transactionReads += 1;
+        return null;
+      },
+    } as never;
+
+    const results = await submitTransactions(
+      connection,
+      [transaction],
+      [meta],
+      {
+        blockhash: "11111111111111111111111111111111",
+        lastValidBlockHeight,
+      },
+    );
+
+    expect(results[0]?.ok).toBe(true);
+    expect(transactionReads).toBe(0);
   });
 });

@@ -351,6 +351,38 @@ describe("composePackUnits rent-reclaim fee", () => {
     expect(units[0]?.rentReclaim).toBe(false);
     expect(systemTransfers(units[0]?.instructions ?? [])).toEqual([]);
   });
+
+  it("skips the close, with an honest reason, when the account check fails", async () => {
+    // A failed lookup cannot prove a close is safe. Closing an account that is
+    // not there fails the whole packed transaction, so an unverified target is
+    // skipped and the swap still runs.
+    const failing = {
+      getMultipleAccountsInfo: async () => {
+        throw new Error("RPC down");
+      },
+    } as unknown as Connection;
+
+    const { units, warnings } = await composePackUnits({
+      owner,
+      builds: [swapBuild()],
+      skipCloseMints: new Set<string>(),
+      tokenPrograms: new Map([[USDC, "legacy"]]),
+      connection: failing,
+      feeWallet: FEE_WALLET,
+      reclaimFeeBps: 150,
+    });
+
+    const instructions = units[0]?.instructions ?? [];
+    const closes = instructions.filter(
+      (ix) => ix.programId.toBase58() === TOKEN_PROGRAM_ID && ix.data[0] === 9,
+    );
+
+    expect(closes).toEqual([]);
+    expect(units[0]?.rentReclaim).toBe(false);
+    expect(warnings.join(" ")).toMatch(/could not be checked right now/);
+    // No close means no rent was read, so no fee can be charged on it.
+    expect(systemTransfers(instructions)).toEqual([]);
+  });
 });
 
 /**

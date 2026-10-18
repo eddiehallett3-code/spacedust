@@ -71,3 +71,20 @@ describe("both burn flows are wired to the guard", () => {
     });
   }
 });
+
+/**
+ * The approvals screen had the same gap, in the other direction: the preview was
+ * built from a selection the user could still edit, so unticking an approval (to
+ * keep a listing alive) did not stop it being revoked. It now consults the same
+ * guard.
+ */
+describe("the approvals screen is wired to the guard", () => {
+  it("consults previewAction and acts on the verdict", () => {
+    const source = readFileSync(
+      new URL("../../components/security/approvals-panel.tsx", import.meta.url),
+      "utf8",
+    );
+    expect(source).toContain("previewAction({");
+    expect(source).toMatch(/action === "discard"/);
+  });
+});

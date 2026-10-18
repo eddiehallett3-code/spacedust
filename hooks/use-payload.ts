@@ -149,11 +149,17 @@ export function usePayload() {
         return 0;
       }
 
-      if (request.tokens.length === 0 && request.assets.length === 0) {
+      // SOL is a selection too: the UI offers it as its own row, and an
+      // SOL-only batch is a legitimate request.
+      if (
+        request.tokens.length === 0 &&
+        request.assets.length === 0 &&
+        !request.solLamports
+      ) {
         patch({
           error: {
             title: "Nothing selected",
-            message: "Choose at least one token or NFT to send.",
+            message: "Choose at least one token, NFT or SOL amount to send.",
           },
         });
         return 0;
@@ -296,6 +302,12 @@ export function usePayload() {
             assets: request.assets,
             requireVerification: request.requireVerification,
             verifiedAddress: request.verifiedAddress,
+            // A rebuild is the same request packed against a fresh blockhash.
+            // Leaving these out silently dropped native SOL from the batch (and
+            // threw "Nothing is selected" for an SOL-only batch), so both are
+            // carried across exactly as the preview carried them.
+            solLamports: request.solLamports,
+            solBalanceLamports: request.solBalanceLamports,
           });
           preparedRef.current = { result, request };
           // The panel has to describe the plan that will actually be signed: this

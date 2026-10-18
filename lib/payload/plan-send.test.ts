@@ -1,14 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { sendEmptiesAccount } from "@/lib/solana/transfer";
-import { PublicKey } from "@solana/web3.js";
+import { PublicKey, type Connection } from "@solana/web3.js";
 import { SYSTEM_PROGRAM_ID } from "@/lib/utils/constants";
 import {
   buildSolTransferUnit,
   computeBudgetForUnits,
+  planSend,
   resolveSolSend,
+  SendError,
   unsendableAssetReason,
+  type PlanSendInput,
 } from "./plan-send";
-import type { NonFungibleAsset } from "@/types/token";
+import type { DustToken, NonFungibleAsset } from "@/types/token";
 
 /**
  * The parts of planning that need no chain.
@@ -254,5 +257,216 @@ describe("buildSolTransferUnit", () => {
     // The distinction the summary reads: a SOL send frees no rent, so it must
     // never be counted among the closes the fee is charged on.
     expect(buildSolTransferUnit(owner, recipient, 1n).rentReclaim).toBe(false);
+  });
+});
+
+/**
+ * The planner against a fake chain.
+ *
+ * These cover the rules that only appear once a real plan is built: the fee is
+ * reported only when an instruction pays it, native SOL is its own kind of item,
+ * an unreadable account is not a missing one, and a repeated mint is one row.
+ * Each was a bug found in review, and none needs a network.
+ */
+describe("planSend against a fake chain", () => {
+  const OWNER = "Fq9auFr6JAd5FDZDMFBikzqAycFKMryvkQUB71VTLbqi";
+  const RECIPIENT = "9qDz4uC7M7oJdhCErKEtLzm4pkdjdc7uQAFggy5jYrmt";
+  const MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+  const SOURCE = "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU";
+  const FEE_WALLET = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM";
+  const RENT = 1_488_440;
+  /** `floor(1_488_440 × 150 / 10_000)`. */
+  const FEE = 22_326;
+
+  afterEach(() => {
+    delete process.env.NEXT_PUBLIC_FEE_WALLET;
+  });
+
+  const token = (): DustToken => ({
+    mint: MINT,
+    name: "USD Coin",
+    symbol: "USDC",
+    logoUri: null,
+    rawAmount: "1000000",
+    balance: 1,
+    decimals: 6,
+    priceUsd: 1,
+    priceChange24h: null,
+    valueUsd: 1,
+    program: "legacy",
+    tokenAccount: SOURCE,
+    hasNoPrice: false,
+    hasTransferHook: false,
+    hasTransferFee: false,
+    frozen: false,
+    poolLike: false,
+    staked: null,
+  });
+
+  const request = (connection: Connection): PlanSendInput => ({
+    connection,
+    owner: new PublicKey(OWNER),
+    recipient: new PublicKey(RECIPIENT),
+    tokens: [token()],
+    assets: [],
+  });
+
+  /**
+   * Just enough of a connection to plan one send: a source account holding the
+   * whole balance, no destination account (so the sender pays its rent), and a
+   * simulation that passes. The fee wallet is whatever the test says it is.
+   */
+  function fakeConnection(
+    options: { feeAccountLamports?: number | null; readFails?: boolean } = {},
+  ): Connection {
+    const feeAccountLamports = options.feeAccountLamports ?? null;
+
+    return {
+      getMinimumBalanceForRentExemption: async (size: number) =>
+        size === 0 ? 650_240 : size === 1 ? 655_320 : RENT,
+      getLatestBlockhash: async () => ({
+        blockhash: "11111111111111111111111111111111",
+        lastValidBlockHeight: 1_000,
+      }),
+      getMultipleParsedAccounts: async (addresses: PublicKey[]) => {
+        if (options.readFails) throw new Error("RPC down");
+        return {
+          context: { slot: 1 },
+          value: addresses.map((address) =>
+            address.toBase58() === SOURCE
+              ? {
+                  lamports: RENT,
+                  data: {
+                    parsed: {
+                      info: {
+                        state: "initialized",
+                        tokenAmount: { amount: "1000000", decimals: 6 },
+                      },
+                    },
+                  },
+                }
+              : null,
+          ),
+        };
+      },
+      getAccountInfo: async () =>
+        feeAccountLamports === null ? null : { lamports: feeAccountLamports },
+      simulateTransaction: async () => ({
+        context: { slot: 1 },
+        value: { err: null, logs: [], accounts: null, unitsConsumed: 15_243 },
+      }),
+    } as unknown as Connection;
+  }
+
+  it("charges nothing, on screen or on chain, when no fee wallet is configured", async () => {
+    delete process.env.NEXT_PUBLIC_FEE_WALLET;
+
+    const result = await planSend(request(fakeConnection()));
+
+    expect(result.estimatedFeeOnRentLamports).toBe(0);
+    expect(
+      result.outcomes.find((outcome) => outcome.sending)?.feeLamports,
+    ).toBe(0);
+    // The net is the rent, less what the destination's account costs to create.
+    expect(result.estimatedNetLamports).toBe(
+      result.estimatedRentLamports - result.estimatedRecipientAccountLamports,
+    );
+  });
+
+  it("charges nothing when the fee wallet is configured but unfunded", async () => {
+    process.env.NEXT_PUBLIC_FEE_WALLET = FEE_WALLET;
+
+    const result = await planSend(
+      request(fakeConnection({ feeAccountLamports: 0 })),
+    );
+
+    expect(result.estimatedFeeOnRentLamports).toBe(0);
+    expect(
+      result.outcomes.find((outcome) => outcome.sending)?.feeLamports,
+    ).toBe(0);
+  });
+
+  it("still charges, and reports, the fee when the fee wallet is funded", async () => {
+    process.env.NEXT_PUBLIC_FEE_WALLET = FEE_WALLET;
+
+    const result = await planSend(
+      request(fakeConnection({ feeAccountLamports: 10_000_000 })),
+    );
+
+    expect(result.estimatedFeeOnRentLamports).toBe(FEE);
+    expect(
+      result.outcomes.find((outcome) => outcome.sending)?.feeLamports,
+    ).toBe(FEE);
+  });
+
+  it("plans an SOL-only batch, which is a real selection", async () => {
+    // The opening guard only knew about tokens and NFTs, so an SOL-only batch
+    // threw "Nothing is selected" before it ever reached the SOL row.
+    const result = await planSend({
+      ...request(fakeConnection()),
+      tokens: [],
+      assets: [],
+      solLamports: "25000000",
+      solBalanceLamports: 100_000_000,
+    });
+
+    const sol = result.outcomes.find((outcome) => outcome.kind === "sol");
+    expect(sol?.sending).toBe(true);
+    expect(sol?.amount).toBe(25_000_000n);
+    expect(result.packed).toHaveLength(1);
+    // SOL is not a token account, so it frees no rent and closes nothing.
+    expect(result.estimatedRentLamports).toBe(0);
+  });
+
+  it("refuses an SOL-only batch whose amount cannot be sent, instead of building zero", async () => {
+    const error = await planSend({
+      ...request(fakeConnection()),
+      tokens: [],
+      assets: [],
+      solLamports: "0",
+      solBalanceLamports: 1_000_000_000,
+    }).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(SendError);
+    expect((error as SendError).hint).toMatch(/no SOL to send/i);
+  });
+
+  it("refuses a SOL amount that would leave nothing for the destination accounts", async () => {
+    // The token row runs first and creates the recipient's account for
+    // 1,488,440 lamports. Sending this much SOL leaves only the 1,000,000
+    // reserve, so the combined batch could not pay for its own creates.
+    const result = await planSend({
+      ...request(fakeConnection()),
+      solLamports: "100000000",
+      solBalanceLamports: 101_000_000,
+    });
+
+    const sol = result.outcomes.find((outcome) => outcome.kind === "sol");
+    expect(sol?.sending).toBe(false);
+    expect(sol?.refused).toMatch(/recipient's accounts/i);
+    // The token itself is unaffected.
+    expect(
+      result.outcomes.find((outcome) => outcome.kind === "token")?.sending,
+    ).toBe(true);
+  });
+
+  it("reports a failed read as unreadable, not as an account that no longer exists", async () => {
+    const error = await planSend(
+      request(fakeConnection({ readFails: true })),
+    ).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(SendError);
+    expect((error as SendError).hint).toMatch(/could not be read right now/i);
+    expect((error as SendError).hint).not.toMatch(/no longer exists/i);
+  });
+
+  it("plans one row per mint when the request repeats a token", async () => {
+    const result = await planSend({
+      ...request(fakeConnection()),
+      tokens: [token(), token()],
+    });
+
+    expect(result.outcomes).toHaveLength(1);
+    expect(result.outcomes[0]?.sending).toBe(true);
   });
 });

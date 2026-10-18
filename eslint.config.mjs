@@ -10,7 +10,19 @@ const compat = new FlatCompat({ baseDirectory: __dirname });
 const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
-    ignores: [".next/**", "node_modules/**", "out/**", "build/**", "next-env.d.ts"],
+    ignores: [
+      ".next/**",
+      // `NEXT_DIST_DIR` builds (see `next.config.ts`) write to their own folder
+      // so they never disturb a dev server. They are generated output, not
+      // source, and linting them reports thousands of errors from compiled JS.
+      ".next-verify/**",
+      ".next-audit/**",
+      ".next-csp/**",
+      "node_modules/**",
+      "out/**",
+      "build/**",
+      "next-env.d.ts",
+    ],
   },
   {
     rules: {

@@ -22,11 +22,6 @@ import type { EmptyTokenAccount, TokenProgramKind } from "@/types/token";
 const TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
 const TOKEN_2022_PROGRAM = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
 
-/** Accounts returned per call. Well under the 100k account limit. */
-const ACCOUNT_PAGE = 1000;
-/** Hard cap so one wallet can never run unbounded. */
-const MAX_PAGES = 10;
-
 /** Token-2022 extensions as jsonParsed reports them on a token account. */
 type ParsedExtensions = Array<{
   extension?: string;
@@ -70,62 +65,69 @@ function withheldFeesOn(extensions: ParsedExtensions | undefined): number {
   return Math.trunc(value);
 }
 
-/** Every empty account for one owner under one token program. */
+/**
+ * Every empty account for one owner under one token program.
+ *
+ * One request. `getTokenAccountsByOwner` has no page parameter, so this used to
+ * re-send the identical read up to ten times — appending the same accounts each
+ * time, and never reaching one the first response did not contain. De-duplicating
+ * by address is the only page-like behaviour available, and it is the one that
+ * matters: a duplicate row would become a second `closeAccount` for the same
+ * account, and the second one fails the whole transaction.
+ */
 async function fetchEmptyAccounts(
   owner: string,
   programId: string,
   program: TokenProgramKind,
 ): Promise<EmptyTokenAccount[]> {
   const empty: EmptyTokenAccount[] = [];
+  const seen = new Set<string>();
 
-  for (let page = 1; page <= MAX_PAGES; page += 1) {
-    const result = await rpcCall<{ value?: ParsedTokenAccount[] }>(
-      "getTokenAccountsByOwner",
-      [owner, { programId }, { encoding: "jsonParsed" }],
-    );
-    const accounts = result.value ?? [];
+  const result = await rpcCall<{ value?: ParsedTokenAccount[] }>(
+    "getTokenAccountsByOwner",
+    [owner, { programId }, { encoding: "jsonParsed" }],
+  );
 
-    for (const entry of accounts) {
-      const info = entry.account?.data?.parsed?.info;
-      const mint = info?.mint;
-      if (!mint || !isValidSolanaAddress(mint)) continue;
+  for (const entry of result.value ?? []) {
+    const info = entry.account?.data?.parsed?.info;
+    const mint = info?.mint;
+    if (!mint || !isValidSolanaAddress(mint)) continue;
 
-      // Only a zero balance. Anything with a balance belongs to the token list,
-      // where it is valued and can be sold or burned.
-      if ((info?.tokenAmount?.amount ?? null) !== "0") continue;
+    // Only a zero balance. Anything with a balance belongs to the token list,
+    // where it is valued and can be sold or burned.
+    if ((info?.tokenAmount?.amount ?? null) !== "0") continue;
 
-      // `uninitialized` accounts have no owner recorded, so nothing can
-      // authorise a close for them. `frozen` is kept: freezing blocks a
-      // transfer, a burn and a revoke, but it does not block a close.
-      const state = info?.state;
-      if (state !== "initialized" && state !== "frozen") continue;
+    // `uninitialized` accounts have no owner recorded, so nothing can
+    // authorise a close for them. `frozen` is kept: freezing blocks a
+    // transfer, a burn and a revoke, but it does not block a close.
+    const state = info?.state;
+    if (state !== "initialized" && state !== "frozen") continue;
 
-      // Defensive: `getTokenAccountsByOwner` filters on this field already, so
-      // a mismatch means we misread the response and should not act on it.
-      if (info?.owner !== owner) continue;
+    // Defensive: `getTokenAccountsByOwner` filters on this field already, so
+    // a mismatch means we misread the response and should not act on it.
+    if (info?.owner !== owner) continue;
 
-      const address = entry.pubkey;
-      if (typeof address !== "string" || !isValidSolanaAddress(address)) continue;
+    const address = entry.pubkey;
+    if (typeof address !== "string" || !isValidSolanaAddress(address)) continue;
+    if (seen.has(address)) continue;
+    seen.add(address);
 
-      const lamports = entry.account?.lamports;
-      if (typeof lamports !== "number" || !Number.isFinite(lamports)) continue;
+    const lamports = entry.account?.lamports;
+    if (typeof lamports !== "number" || !Number.isFinite(lamports)) continue;
 
-      const closeAuthority = info?.closeAuthority;
-      empty.push({
-        address,
-        mint,
-        program,
-        lamports: Math.trunc(lamports),
-        frozen: state === "frozen",
-        closeAuthority:
-          typeof closeAuthority === "string" && isValidSolanaAddress(closeAuthority)
-            ? closeAuthority
-            : null,
-        withheldFees: withheldFeesOn(info?.extensions),
-      });
-    }
-
-    if (accounts.length < ACCOUNT_PAGE) break;
+    const closeAuthority = info?.closeAuthority;
+    empty.push({
+      address,
+      mint,
+      program,
+      lamports: Math.trunc(lamports),
+      frozen: state === "frozen",
+      closeAuthority:
+        typeof closeAuthority === "string" && isValidSolanaAddress(closeAuthority)
+          ? closeAuthority
+          : null,
+      withheldFees: withheldFeesOn(info?.extensions),
+    });
   }
 
   return empty;

@@ -134,6 +134,21 @@ export async function signTransactions(
   if (batch) {
     const signed = await withSigningTimeout(() => batch(decoded as VTx[]));
 
+    // A wallet must answer with one transaction per request, in the same order.
+    // A shorter (or longer) answer would silently drop or mis-pair transactions:
+    // `submitTransactions` pairs signed[i] with packed[i], so a missing entry
+    // must stop the batch rather than shift the rest onto the wrong tokens.
+    if (!Array.isArray(signed) || signed.length !== decoded.length) {
+      const count = Array.isArray(signed) ? signed.length : 0;
+      throw new Error(
+        `The wallet returned ${
+          Array.isArray(signed) ? count : "no"
+        } signed transaction${count === 1 ? "" : "s"} for ${
+          decoded.length
+        }. Nothing was sent.`,
+      );
+    }
+
     // Some wallets silently return the input unchanged when the user declines.
     // Detect that instead of broadcasting garbage.
     const unsigned = signed.findIndex(isUnsigned);
@@ -157,6 +172,11 @@ export async function signTransactions(
         );
       }
       signed.push(result);
+    }
+    if (signed.length !== decoded.length) {
+      throw new Error(
+        `The wallet signed ${signed.length} of ${decoded.length} transactions. Nothing was sent.`,
+      );
     }
     return signed;
   }
@@ -202,6 +222,33 @@ function toResult(
 }
 
 /**
+ * Is this status a result, or merely a sighting?
+ *
+ * `processed` is not a result: the transaction is in a fork's working set and
+ * can still disappear, so the batch poll must keep watching it. `confirmed`,
+ * `finalized`, and a null `confirmations` (how RPCs that omit
+ * `confirmationStatus` spell finalized) are results. A reported error is final
+ * in either direction — a failed transaction cannot later succeed.
+ *
+ * `readStatus` below has always made this distinction for one transaction; the
+ * batch path used to treat every non-null status as settled, so a
+ * processed-only transaction was removed from the watchlist and reported as
+ * landed without ever being confirmed.
+ */
+function isSettledStatus(status: {
+  err?: unknown;
+  confirmationStatus?: string;
+  confirmations?: number | null;
+}): boolean {
+  if (status.err != null) return true;
+  return (
+    status.confirmationStatus === "confirmed" ||
+    status.confirmationStatus === "finalized" ||
+    status.confirmations === null
+  );
+}
+
+/**
  * Get a verdict for every broadcast transaction, one batched poll per tick.
  *
  * `getSignatureStatuses` takes an array, so keeping an eye on twenty
@@ -231,7 +278,11 @@ async function settleSignatures(
   for (;;) {
     const signatures = [...pending.keys()];
 
-    let statuses: Array<{ err?: unknown } | null> = [];
+    let statuses: Array<{
+      err?: unknown;
+      confirmationStatus?: string;
+      confirmations?: number | null;
+    } | null> = [];
     try {
       const response = await connection.getSignatureStatuses(signatures, {
         searchTransactionHistory: true,
@@ -248,6 +299,8 @@ async function settleSignatures(
       signatures.forEach((signature, index) => {
         const status = statuses[index];
         if (!status) return;
+        // Keep watching a processed-only transaction; it is not final yet.
+        if (!isSettledStatus(status)) return;
         const entry = pending.get(signature);
         if (!entry) return;
         pending.delete(signature);
@@ -298,6 +351,26 @@ async function settleSignatures(
     0,
   );
   for (const { signature, meta } of pending.values()) {
+    // The status poll can miss a transaction that landed — a lagging replica, a
+    // restarted node, a signature that aged out of a recent cache — so ask for
+    // the transaction itself before reporting a negative. This is the rule
+    // `settleTransaction` already applies to one transaction; the batch path
+    // used to skip straight to "never included".
+    let onChain: Awaited<ReturnType<Connection["getTransaction"]>> = null;
+    try {
+      onChain = await connection.getTransaction(signature, {
+        commitment: "confirmed",
+        maxSupportedTransactionVersion: 0,
+      });
+    } catch {
+      onChain = null;
+    }
+
+    if (onChain) {
+      out.push(toResult({ signature, meta }, onChain.meta?.err ?? null));
+      continue;
+    }
+
     out.push({
       index: meta.index,
       ok: false,

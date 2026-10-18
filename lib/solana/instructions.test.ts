@@ -43,6 +43,30 @@ describe("createComputeBudgetInstructions", () => {
     }
   });
 
+  it("declares room for the program binaries these flows load", () => {
+    // Measured on mainnet from each invoked program's upgradeable-loader
+    // ProgramData account. Executable program data counts toward the loaded-data
+    // figure, and the old 1 MiB declaration was below Jupiter's 2.89 MB binary
+    // by itself — every swap failed simulation with
+    // `MaxLoadedAccountsDataSizeExceeded`.
+    const jupiter = 2_892_269;
+    const token2022 = 1_382_061;
+    const token = 108_645;
+    const associatedToken = 105_032;
+    // A sweep invokes Jupiter, a token program and the ATA program. Counting both
+    // token programs is deliberately conservative.
+    const sweepPrograms = jupiter + token2022 + token + associatedToken;
+    // A packed Void transaction can also load Metadata, Core, Bubblegum and the
+    // compression program.
+    const voidPrograms =
+      sweepPrograms + 794_036 + 848_365 + 1_349_853 + 2_349_085;
+
+    const [, loaded] = decoded(createComputeBudgetInstructions());
+
+    expect(loaded?.value).toBeGreaterThan(sweepPrograms);
+    expect(loaded?.value).toBeGreaterThan(voidPrograms);
+  });
+
   it("adds the priority fee between them, and only when it is charged", () => {
     const paid = decoded(createComputeBudgetInstructions(800_000, 1_000));
     expect(paid).toEqual([

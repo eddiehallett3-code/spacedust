@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { Card } from "@/components/ui/card";
 import { ConnectWalletCta } from "@/components/wallet/wallet-button";
@@ -16,7 +16,8 @@ import {
   destinationIsVerified,
   validateDestination,
 } from "@/lib/payload/destination";
-import { resolvePreparationGate } from "@/lib/payload/preparation";
+import { resolvePreparationGate, payloadRequestKey } from "@/lib/payload/preparation";
+import { previewAction } from "@/lib/sweep/preview";
 import { SOL_SEND_FEE_RESERVE_LAMPORTS } from "@/lib/utils/constants";
 import { parseBaseAmount, toBaseAmount } from "@/lib/utils/sanitize";
 import { truncateAddress } from "@/lib/utils/format";
@@ -239,6 +240,50 @@ export function PayloadApp() {
     preparedFor: payload.request?.recipient ?? null,
     recipient,
   });
+
+  /**
+   * A preview belongs to one request, not to the page.
+   *
+   * `execute()` signs the batch that was prepared. Every control that changes
+   * what that batch would contain — a tickbox, a typed amount, the SOL switch —
+   * therefore has to discard the preview the moment it moves, or the wallet is
+   * asked to sign a batch the screen no longer describes. That is the same rule
+   * the sweep and the two burn flows apply (`lib/sweep/preview.ts`); Payload was
+   * the one flow that only re-checked the destination.
+   *
+   * The key is order-independent: a rescan that merely reorders the same
+   * holdings is the same request, and must not throw away a preview being read.
+   */
+  const requestKey = useMemo(
+    () =>
+      payloadRequestKey({
+        recipient,
+        tokens: selectedTokenList,
+        assets: selectedAssetList.map((asset) => asset.id),
+        solLamports: solRequest.lamports,
+        solSelected,
+      }),
+    [
+      recipient,
+      selectedTokenList,
+      selectedAssetList,
+      solRequest.lamports,
+      solSelected,
+    ],
+  );
+  const requestKeyRef = useRef(requestKey);
+  useEffect(() => {
+    const action = previewAction({
+      previousKey: requestKeyRef.current,
+      currentKey: requestKey,
+      isBusy: payload.isBusy,
+      hasSummary: payload.summary !== null,
+      hasPreview: payload.packed.length > 0,
+    });
+    if (action === "none") return;
+    requestKeyRef.current = requestKey;
+    if (action === "discard") payload.reset();
+  }, [requestKey, payload]);
 
   const toggle = (
     current: Set<string>,

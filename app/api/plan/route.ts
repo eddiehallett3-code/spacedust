@@ -117,9 +117,17 @@ export async function POST(request: Request) {
     );
   }
 
+  // One row per mint. The schema allows a repeated entry, and two builds for
+  // one mint would produce two swaps and two closes for the same account — the
+  // second close fails the whole packed transaction. First entry wins, which is
+  // also the rule the scanner's own ranking applies.
+  const uniqueTokens = [
+    ...new Map(tokens.map((token) => [token.mint, token])).values(),
+  ];
+
   // Re-validate amounts after parsing. Zod matched the shape; this confirms each
   // one is a non-zero value we will actually swap.
-  const sweepable = tokens.filter((token) => {
+  const sweepable = uniqueTokens.filter((token) => {
     const amount = parseBaseAmount(token.rawAmount);
     return amount != null && amount > 0n;
   });
@@ -160,9 +168,8 @@ export async function POST(request: Request) {
     }
 
     const outputDecimals =
-      outputMint === OUTPUT_ASSETS.SOL.mint
-        ? OUTPUT_ASSETS.SOL.decimals
-        : OUTPUT_ASSETS.USDC.decimals;
+      Object.values(OUTPUT_ASSETS).find((asset) => asset.mint === outputMint)
+        ?.decimals ?? OUTPUT_ASSETS.USDC.decimals;
     const outputPriceUsd = prices[outputMint]?.usdPrice ?? null;
 
     // Resolve what each token will actually swap, once. The build, the USD

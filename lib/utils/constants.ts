@@ -251,25 +251,44 @@ export const CNFT_TRANSFER_COMPUTE_UNITS = 60_000;
 /** Solana's own ceiling on one transaction's compute budget. */
 export const MAX_COMPUTE_UNIT_LIMIT = 1_400_000;
 
-/**
- * Explicit ceiling on the account data a transaction may load, in bytes (1 MiB).
- *
- * A transaction can declare this with a Compute Budget instruction. Without one,
- * the runtime allows its 64 MiB maximum — which tells a wallet's simulator
- * nothing about what the transaction actually needs. Phantom's guidance for
- * avoiding simulation warnings is to state both budgets explicitly, so we do.
- *
- * 1 MiB is a declaration rather than a guess. Our largest transaction is packed
- * to 1,232 bytes and expands through address lookup tables, so it references at
- * most a few hundred accounts; real account data is small (a token account is
- * 165 bytes, a mint 82, a pool state one or two kilobytes). A route that ever
- * needed more would fail our own pre-sign simulation loudly, before a wallet is
- * asked to sign anything — not silently on chain.
- */
-export const LOADED_ACCOUNTS_DATA_SIZE_LIMIT = 1_048_576;
-
 /** The runtime's hard ceiling on loaded account data, used to clamp at encode. */
 export const MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES = 67_108_864;
+
+/**
+ * Explicit ceiling on the account data a transaction may load, in bytes (64 MiB).
+ *
+ * This is the runtime's own maximum, declared explicitly rather than left
+ * implicit. A transaction can set it with a Compute Budget instruction; Phantom's
+ * guidance for avoiding simulation warnings is to state both budgets, so we do.
+ *
+ * WHY THE PREVIOUS 1 MiB WAS WRONG: the loaded-account-data figure includes the
+ * **executable program accounts**, not just the token accounts and pool state a
+ * route touches. Measured on mainnet from the upgradeable loader's ProgramData
+ * accounts:
+ *
+ *   Jupiter              2,892,269 B
+ *   Account Compression  2,349,085 B
+ *   Token-2022           1,382,061 B
+ *   Bubblegum            1,349,853 B
+ *   Core                   848,365 B
+ *   Token Metadata         794,036 B
+ *   SPL Token              108,645 B
+ *   Associated Token       105,032 B
+ *
+ * A single Jupiter swap therefore loads ~2.9 MB before it reads an account, and
+ * a packed Void transaction can load several Metaplex routes at once — ~9.8 MB
+ * from the programs above alone. Both flows failed simulation with
+ * `MaxLoadedAccountsDataSizeExceeded` under the 1 MiB declaration.
+ *
+ * WHY THE CEILING, NOT A TIGHTER MEASURED NUMBER: a Jupiter route also CPI-calls
+ * whichever AMM programs it picked at quote time, and those binaries count too.
+ * They are not knowable here, so any static cap is a guess about a program this
+ * app does not choose. A guess below the real load is exactly the failure this
+ * replaces. Declaring the ceiling costs nothing — it is a cap, not a purchase;
+ * the fee is charged on compute units, not on this limit.
+ */
+export const LOADED_ACCOUNTS_DATA_SIZE_LIMIT =
+  MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES;
 
 
 // ── Scanning ────────────────────────────────────────────────────────────────

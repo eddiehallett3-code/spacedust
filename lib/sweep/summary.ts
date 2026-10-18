@@ -51,7 +51,6 @@ export function buildSummary(params: {
   } = params;
 
   const config = OUTPUT_ASSETS[outputAsset];
-  const totalOut = totalOutputRaw(plan.builds);
   const divisor = 10 ** config.decimals;
 
   // ── Which closes actually returned rent ───────────────────────────────────
@@ -78,7 +77,8 @@ export function buildSummary(params: {
   const grossRentLamports = sumForMints(rentByMint, settledRentMints);
   const reclaimFeeLamports = sumForMints(feeByMint, settledRentMints);
 
-  const successCount = outcomes.filter((o) => o.status === "success").length;
+  const landedOutcomes = outcomes.filter((o) => o.status === "success");
+  const successCount = landedOutcomes.length;
   const failedCount = outcomes.filter((o) => o.status === "failed").length;
 
   // Prefer the fee the simulation actually reported; fall back to the estimate
@@ -89,13 +89,28 @@ export function buildSummary(params: {
   );
   const feeLamports = simulatedFee > 0 ? simulatedFee : estimatedFeeLamports;
 
+  // ── What landed, not what was quoted ──────────────────────────────────────
+  // A real run reports only the outcomes that succeeded. The quote describes
+  // every build the server returned — including tokens that failed on chain and
+  // units the packer dropped — so using it here made "You received" disagree
+  // with the "N failed" line beside it, and wrote the overstated figure into the
+  // local history. A dry run has no outcomes, so the plan's own intended totals
+  // are exactly what "You would receive" means.
+  const totalOutput = dryRun
+    ? Number(totalOutputRaw(plan.builds)) / divisor
+    : landedOutcomes.reduce(
+        (sum, outcome) => sum + (outcome.outputAmountFormatted ?? 0),
+        0,
+      );
+
   // For a real sweep, value is measured from what landed, not from the quote.
+  // The same rule as the output figure above: a failed swap recovered nothing.
   const totalValueUsd = dryRun
     ? plan.totalExpectedOutUsd
-    : outcomes.reduce((sum, outcome) => sum + outcome.valueUsd, 0);
+    : landedOutcomes.reduce((sum, outcome) => sum + outcome.valueUsd, 0);
 
   return {
-    totalOutput: Number(totalOut) / divisor,
+    totalOutput,
     totalOutputSymbol: config.symbol,
     totalValueUsd,
     tokenCount: outcomes.length > 0 ? outcomes.length : plan.builds.length,

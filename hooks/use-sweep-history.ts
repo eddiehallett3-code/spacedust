@@ -31,16 +31,45 @@ function readEntries(): SweepHistoryEntry[] {
   return [];
 }
 
-function isHistoryEntry(value: unknown): value is SweepHistoryEntry {
+/** The output assets a persisted entry may name. */
+const OUTPUT_ASSET_VALUES: ReadonlySet<unknown> = new Set(["SOL", "USDC", "JUP"]);
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+
+/**
+ * Validate every field the panel renders, not just the ones used as keys.
+ *
+ * The old check accepted any array for `signatures`/`mints`, so a hand-edited or
+ * corrupt entry with `signatures: [{}]` passed and then reached React as an
+ * object child — which throws, taking the panel down. The doc above promises a
+ * corrupt entry can at worst render wrong text; these checks are what make that
+ * true.
+ */
+export function isHistoryEntry(value: unknown): value is SweepHistoryEntry {
   if (!value || typeof value !== "object") return false;
   const entry = value as Partial<SweepHistoryEntry>;
   return (
     typeof entry.id === "string" &&
-    typeof entry.createdAt === "number" &&
-    Number.isFinite(entry.createdAt) &&
-    typeof entry.totalOutput === "number" &&
+    isFiniteNumber(entry.createdAt) &&
+    OUTPUT_ASSET_VALUES.has(entry.outputAsset) &&
+    typeof entry.outputMint === "string" &&
+    isFiniteNumber(entry.totalOutput) &&
+    isFiniteNumber(entry.totalValueUsd) &&
+    isNonNegativeInteger(entry.tokenCount) &&
+    isNonNegativeInteger(entry.successCount) &&
+    isNonNegativeInteger(entry.failedCount) &&
+    isFiniteNumber(entry.rentReclaimedLamports) &&
+    isFiniteNumber(entry.feeLamports) &&
     Array.isArray(entry.signatures) &&
-    Array.isArray(entry.mints)
+    entry.signatures.every((signature) => typeof signature === "string") &&
+    Array.isArray(entry.mints) &&
+    entry.mints.every((mint) => typeof mint === "string")
   );
 }
 

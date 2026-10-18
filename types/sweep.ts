@@ -113,8 +113,6 @@ export interface SimulationOutcome {
   error: string | null;
   /** Base fee + priority fee the wallet will pay for this transaction. */
   feeLamports: number | null;
-  /** Rent the transaction reclaims via closeAccount (negative = paid out). */
-  rentDeltaLamports: number | null;
   /** Whether this simulation was part of a Dry Run. */
   dryRun: boolean;
 }

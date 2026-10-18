@@ -87,7 +87,7 @@ async function jupiterFetch<T>(url: string, attempt = 0): Promise<T> {
 // ── Price API v3 ────────────────────────────────────────────────────────────
 
 /**
- * Fetch USD prices for up to `PRICE_BATCH_SIZE` mints.
+ * Fetch USD prices for these mints, in Jupiter-sized batches.
  *
  * Jupiter deliberately *omits* mints it cannot price rather than returning
  * `null`, so callers must treat "absent from the result" as "no reliable
@@ -95,7 +95,9 @@ async function jupiterFetch<T>(url: string, attempt = 0): Promise<T> {
  *
  * Results are cached briefly in memory. A wallet with thousands of dust mints
  * needs dozens of batches, and users rescan constantly while adjusting the
- * threshold — this removes most repeat traffic.
+ * threshold — this removes most repeat traffic. A missing price is remembered
+ * separately (and for longer), because one unpriceable token must not turn a
+ * whole batch into a refetch.
  */
 export async function fetchPrices(
   mints: string[],
@@ -103,52 +105,91 @@ export async function fetchPrices(
   if (mints.length === 0) return {};
 
   // De-duplicate defensively; DAS can repeat a mint across page boundaries.
-  const unique = Array.from(new Set(mints)).slice(0, PRICE_BATCH_SIZE);
-  const cached = readPriceCache(unique);
-  if (cached) return cached;
+  const unique = Array.from(new Set(mints));
+  const { fresh, missing } = readPriceCache(unique);
+  if (missing.length === 0) return fresh;
 
-  const url = `${JUPITER_PRICE_BASE}?ids=${encodeURIComponent(unique.join(","))}`;
-  const data = await jupiterFetch<Record<string, JupiterPriceEntry>>(url);
-
-  // Defensive normalisation: a price that is not a positive finite number is
-  // useless for valuation and must be treated as missing.
+  // Jupiter caps one `ids` query at `PRICE_BATCH_SIZE`. Chunk rather than
+  // truncate: the old `.slice(0, PRICE_BATCH_SIZE)` silently dropped every mint
+  // after the fiftieth for any caller that did not pre-batch.
   const clean: Record<string, JupiterPriceEntry> = {};
-  for (const [mint, entry] of Object.entries(data ?? {})) {
-    if (!entry) continue;
-    const { usdPrice, decimals, blockId, priceChange24h } = entry;
-    if (typeof usdPrice !== "number" || !Number.isFinite(usdPrice) || usdPrice < 0) {
-      continue;
+  for (let start = 0; start < missing.length; start += PRICE_BATCH_SIZE) {
+    const batch = missing.slice(start, start + PRICE_BATCH_SIZE);
+    const url = `${JUPITER_PRICE_BASE}?ids=${encodeURIComponent(batch.join(","))}`;
+    const data = await jupiterFetch<Record<string, JupiterPriceEntry>>(url);
+
+    // Defensive normalisation: a price that is not a positive finite number is
+    // useless for valuation and must be treated as missing.
+    for (const [mint, entry] of Object.entries(data ?? {})) {
+      if (!entry) continue;
+      const { usdPrice, decimals, blockId, priceChange24h } = entry;
+      if (
+        typeof usdPrice !== "number" ||
+        !Number.isFinite(usdPrice) ||
+        usdPrice < 0
+      ) {
+        continue;
+      }
+      clean[mint] = {
+        usdPrice,
+        decimals: Number.isInteger(decimals) ? decimals : 0,
+        blockId: Number.isFinite(blockId) ? blockId : 0,
+        priceChange24h: Number.isFinite(priceChange24h) ? priceChange24h : 0,
+      };
     }
-    clean[mint] = {
-      usdPrice,
-      decimals: Number.isInteger(decimals) ? decimals : 0,
-      blockId: Number.isFinite(blockId) ? blockId : 0,
-      priceChange24h: Number.isFinite(priceChange24h) ? priceChange24h : 0,
-    };
   }
 
-  writePriceCache(unique, clean);
-  return clean;
+  writePriceCache(missing, clean);
+  return { ...fresh, ...clean };
 }
 
 // ── Short-lived price cache ────────────────────────────────────────────────
 // Process-local on purpose: no Redis, no cost, and it disappears on cold start.
 
 const PRICE_CACHE_TTL_MS = 20_000;
-const priceCache = new Map<string, { entry: JupiterPriceEntry; at: number }>();
+/**
+ * How long a mint Jupiter did not price is remembered as unpriceable.
+ *
+ * Longer than a price's TTL on purpose. The 20-second cache exists so a rescan
+ * sees a current price; a *missing* price is a fact about the token rather than
+ * about this second. Without this, one unpriced mint in a batch made every batch
+ * a full miss, so every scan refetched the wallet's whole price list — which is
+ * what the cache was added to avoid.
+ */
+const UNPRICED_TTL_MS = 60_000;
 
-/** Returns a full cache hit, or null if any mint is missing/expired. */
-function readPriceCache(
-  mints: string[],
-): Record<string, JupiterPriceEntry> | null {
+const priceCache = new Map<string, { entry: JupiterPriceEntry; at: number }>();
+const unpricedCache = new Map<string, number>();
+
+/**
+ * The entries still fresh, and the mints that need asking for.
+ *
+ * Deliberately partial: a batch with one unpriceable token used to return a
+ * full miss, so the other forty-nine prices were refetched too.
+ */
+function readPriceCache(mints: string[]): {
+  fresh: Record<string, JupiterPriceEntry>;
+  missing: string[];
+} {
   const now = Date.now();
-  const out: Record<string, JupiterPriceEntry> = {};
+  const fresh: Record<string, JupiterPriceEntry> = {};
+  const missing: string[] = [];
+
   for (const mint of mints) {
     const hit = priceCache.get(mint);
-    if (!hit || now - hit.at > PRICE_CACHE_TTL_MS) return null;
-    out[mint] = hit.entry;
+    if (hit && now - hit.at <= PRICE_CACHE_TTL_MS) {
+      fresh[mint] = hit.entry;
+      continue;
+    }
+    const unpricedAt = unpricedCache.get(mint);
+    if (unpricedAt !== undefined && now - unpricedAt <= UNPRICED_TTL_MS) {
+      // Known unpriceable in this window. Treat as answered, with no entry.
+      continue;
+    }
+    missing.push(mint);
   }
-  return out;
+
+  return { fresh, missing };
 }
 
 function writePriceCache(
@@ -156,13 +197,20 @@ function writePriceCache(
   prices: Record<string, JupiterPriceEntry>,
 ): void {
   const now = Date.now();
-  // Bound the map so a long-lived server cannot grow without limit.
-  if (priceCache.size > 20_000) priceCache.clear();
+  // Bound both maps so a long-lived server cannot grow without limit.
+  if (priceCache.size > 20_000 || unpricedCache.size > 20_000) {
+    priceCache.clear();
+    unpricedCache.clear();
+  }
   for (const mint of mints) {
     const entry = prices[mint];
-    // Absent mints are cached as a sentinel too, so we do not refetch
-    // unpriceable junk on every scan.
-    if (entry) priceCache.set(mint, { entry, at: now });
+    if (entry) {
+      priceCache.set(mint, { entry, at: now });
+      unpricedCache.delete(mint);
+    } else {
+      // Absent means "Jupiter cannot price this one", not "zero".
+      unpricedCache.set(mint, now);
+    }
   }
 }
 

@@ -29,10 +29,6 @@ import type { NonFungibleAsset } from "@/types/token";
 const TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
 const TOKEN_2022_PROGRAM = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
 
-/** Accounts returned per call. Well under the 100k account limit. */
-const ACCOUNT_PAGE = 1000;
-/** Hard cap so one wallet can never run unbounded. */
-const MAX_PAGES = 10;
 /** Mints per `getMultipleAccounts` call. The RPC caps this at 100. */
 const MINT_BATCH = 100;
 
@@ -40,9 +36,10 @@ const MINT_BATCH = 100;
  * Minimum spacing between calls to the throttled methods.
  *
  * `getTokenAccountsByOwner` is rate-limited per method per IP on the public
- * endpoint (roughly 10 calls / 10s). A wallet with thousands of token accounts
- * needs several pages, and firing them back-to-back reliably trips the limit.
- * Every call is therefore funnelled through a single queue with a small gap.
+ * endpoint (roughly 10 calls / 10s). A scan makes several calls — two token
+ * programs, a native balance, then batched mint reads — and firing them
+ * back-to-back reliably trips the limit. Every call is therefore funnelled
+ * through a single queue with a small gap.
  */
 const MIN_INTERVAL_MS = 350;
 
@@ -170,7 +167,21 @@ function backoff(attempt: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, base + jitter));
 }
 
-/** Fetch every token account for one owner under one token program. */
+/**
+ * Fetch every token account for one owner under one token program.
+ *
+ * **One request, not a page loop.** `getTokenAccountsByOwner` has no page or
+ * offset parameter — its config carries only a commitment and a minimum slot —
+ * so a loop over `page` sends the identical request again. That is what this
+ * used to do, up to ten times: the same accounts came back each time, duplicate
+ * rows were appended, and ten times the RPC budget was spent without ever seeing
+ * an account the first response did not contain. A provider that caps the
+ * response caps it for all ten calls just the same.
+ *
+ * Duplicates are still dropped defensively by token-account address: the
+ * downstream ranking can legitimately see one mint in two accounts, but it must
+ * never see the same account twice.
+ */
 async function fetchProgramAccounts(
   owner: string,
   programId: string,
@@ -178,60 +189,65 @@ async function fetchProgramAccounts(
 ): Promise<ScannedHolding[]> {
   const holdings: ScannedHolding[] = [];
 
-  for (let page = 1; page <= MAX_PAGES; page += 1) {
-    const result = await rpcCall<{ value?: ParsedTokenAccount[] }>(
-      "getTokenAccountsByOwner",
-      // Three params, as the method defines them. This call used to pass a
-      // fourth — a `dataSlice` of length zero, presumably to trim the payload —
-      // which the endpoint silently ignores: verified by sending both shapes and
-      // getting byte-identical results. It was a no-op that read like the
-      // extension data below was unavailable, which it is not.
-      [owner, { programId }, { encoding: "jsonParsed" }],
+  const result = await rpcCall<{ value?: ParsedTokenAccount[] }>(
+    "getTokenAccountsByOwner",
+    // Three params, as the method defines them. This call used to pass a
+    // fourth — a `dataSlice` of length zero, presumably to trim the payload —
+    // which the endpoint silently ignores: verified by sending both shapes and
+    // getting byte-identical results. It was a no-op that read like the
+    // extension data below was unavailable, which it is not.
+    [owner, { programId }, { encoding: "jsonParsed" }],
+  );
+
+  const seen = new Set<string>();
+
+  for (const entry of result.value ?? []) {
+    const info = entry.account?.data?.parsed?.info;
+    const amount = info?.tokenAmount?.amount;
+    const mint = info?.mint;
+    if (!mint || !amount || amount === "0") continue;
+    if (info?.state && info.state !== "initialized") continue;
+
+    const extensions = new Set(
+      (info?.extensions ?? [])
+        .map((ext) => ext?.extension)
+        .filter((name): name is string => typeof name === "string"),
     );
-    const accounts = result.value ?? [];
-    for (const entry of accounts) {
-      const info = entry.account?.data?.parsed?.info;
-      const amount = info?.tokenAmount?.amount;
-      const mint = info?.mint;
-      if (!mint || !amount || amount === "0") continue;
-      if (info?.state && info.state !== "initialized") continue;
 
-      const extensions = new Set(
-        (info?.extensions ?? [])
-          .map((ext) => ext?.extension)
-          .filter((name): name is string => typeof name === "string"),
-      );
+    // The address the chain actually returned for this balance. It is not
+    // always the canonical ATA, so the sweep must close this one rather than
+    // re-deriving and closing the wrong (possibly non-existent) ATA.
+    const tokenAccount =
+      typeof entry.pubkey === "string" && isValidSolanaAddress(entry.pubkey)
+        ? entry.pubkey
+        : null;
 
-      holdings.push({
-        mint,
-        // Filled in by the metadata pass below.
-        symbol: FALLBACK_SYMBOL,
-        name: FALLBACK_NAME,
-        logoUri: null,
-        rawAmount: amount,
-        decimals: info?.tokenAmount?.decimals ?? 0,
-        dasPriceUsd: null,
-        organicScore: null,
-        holderCount: null,
-        program: kind,
-        // The address the chain actually returned for this balance. It is not
-        // always the canonical ATA, so the sweep must close this one rather
-        // than re-deriving and closing the wrong (possibly non-existent) ATA.
-        tokenAccount:
-          typeof entry.pubkey === "string" && isValidSolanaAddress(entry.pubkey)
-            ? entry.pubkey
-            : null,
-        hasTransferFee: extensions.has("transferFeeConfig"),
-        hasTransferHook: extensions.has("transferHook"),
-        // Never true on this path: the loop above discards any account whose
-        // state is not `initialized`, and a frozen account's state is `frozen`.
-        // Stated explicitly rather than left out, because a missing flag here
-        // would silently read as "closable" downstream.
-        frozen: false,
-      });
+    if (tokenAccount !== null) {
+      if (seen.has(tokenAccount)) continue;
+      seen.add(tokenAccount);
     }
 
-    if (accounts.length < ACCOUNT_PAGE) break;
+    holdings.push({
+      mint,
+      // Filled in by the metadata pass below.
+      symbol: FALLBACK_SYMBOL,
+      name: FALLBACK_NAME,
+      logoUri: null,
+      rawAmount: amount,
+      decimals: info?.tokenAmount?.decimals ?? 0,
+      dasPriceUsd: null,
+      organicScore: null,
+      holderCount: null,
+      program: kind,
+      tokenAccount,
+      hasTransferFee: extensions.has("transferFeeConfig"),
+      hasTransferHook: extensions.has("transferHook"),
+      // Never true on this path: this read discards any account whose state is
+      // not `initialized`, and a frozen account's state is `frozen`. Stated
+      // explicitly rather than left out, because a missing flag here would
+      // silently read as "closable" downstream.
+      frozen: false,
+    });
   }
 
   return holdings;

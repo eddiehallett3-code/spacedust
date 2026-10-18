@@ -39,6 +39,50 @@ export interface PreparationInput {
   recipient: string;
 }
 
+/**
+ * A stable description of the request a preview was built for.
+ *
+ * `execute()` signs the batch that was prepared, not whatever is ticked when the
+ * button is finally pressed. So every input that changes what that batch would
+ * contain — the destination, the selected tokens, a typed amount, the SOL
+ * switch — has to change this key, which lets the component discard a preview
+ * the moment its request moves. The same rule the sweep and the two burn flows
+ * apply (`lib/sweep/preview.ts`); Payload used to re-check only the destination,
+ * which meant unticking a token after previewing still sent it.
+ *
+ * Order-independent on purpose. The scanner's token order is not a property of
+ * the request, and a rescan that merely reorders the same holdings must not
+ * throw away a preview the user is reading.
+ *
+ * The separators are safe because a mint and an asset id are base58 (no `:`,
+ * `,` or `|`) and an amount is digits. A missing SOL amount is spelled
+ * `invalid` rather than left empty, so "SOL selected with a bad amount" cannot
+ * collide with "SOL not selected".
+ */
+export function payloadRequestKey(input: {
+  /** The address field, as it stands now. */
+  recipient: string;
+  /** The effective token list, with any partial amount already applied. */
+  tokens: readonly { mint: string; rawAmount: string }[];
+  /** Selected NFT / cNFT ids. */
+  assets: readonly string[];
+  /** The SOL amount to send, or null when SOL is not part of the batch. */
+  solLamports: string | null;
+  /** Whether the SOL row is ticked at all. */
+  solSelected: boolean;
+}): string {
+  const tokens = input.tokens
+    .map((token) => `${token.mint}:${token.rawAmount}`)
+    .sort()
+    .join(",");
+  const assets = [...input.assets].sort().join(",");
+  const sol = input.solSelected
+    ? `sol:${input.solLamports ?? "invalid"}`
+    : "";
+
+  return [input.recipient.trim(), tokens, assets, sol].join("|");
+}
+
 export function resolvePreparationGate(
   input: PreparationInput,
 ): PreparationGate {

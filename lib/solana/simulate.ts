@@ -22,14 +22,69 @@ import type { PackedTransaction, SimulationOutcome } from "@/types/sweep";
  * already tell would fail.
  */
 
+/**
+ * The loaded-account-data declaration in a transaction, if it has one.
+ *
+ * Used only to explain a `MaxLoadedAccountsDataSizeExceeded` failure: the error
+ * means the accounts and program binaries the transaction loads are larger than
+ * the limit it declared, so the limit is the one number that tells a stale
+ * client bundle apart from a genuinely oversized transaction.
+ */
+function declaredLoadedDataLimit(
+  transaction: VersionedTransaction,
+): number | null {
+  const message = transaction.message;
+  if (!("compiledInstructions" in message)) return null;
+
+  for (const instruction of message.compiledInstructions) {
+    const programId = message.staticAccountKeys[instruction.programIdIndex];
+    if (!programId || programId.toBase58() !== COMPUTE_BUDGET_PROGRAM_ID) {
+      continue;
+    }
+    const bytes = instructionBytes(instruction.data);
+    // SetLoadedAccountsDataSizeLimit: `[0x04, u32 little-endian]`.
+    if (!bytes || bytes.length !== 5 || bytes[0] !== 0x04) continue;
+    return new DataView(
+      bytes.buffer,
+      bytes.byteOffset + 1,
+      4,
+    ).getUint32(0, true);
+  }
+
+  return null;
+}
+
+/**
+ * Add the declared limit to the one error where it is the answer.
+ *
+ * `MaxLoadedAccountsDataSizeExceeded` says "the transaction asked to load more
+ * than it declared" and nothing else. Printing the declaration turns a dead end
+ * into a diagnosis: 1,048,576 means the running bundle predates the 64 MiB fix;
+ * anything else means a transaction genuinely loads more than we allowed.
+ */
+function explainLoadedDataFailure(
+  message: string,
+  limit: number | null,
+): string {
+  if (limit === null || !/MaxLoadedAccountsDataSizeExceeded/i.test(message)) {
+    return message;
+  }
+  return `${message} This transaction declares a loaded-account-data limit of ${limit.toLocaleString()} bytes (${Math.round(
+    limit / (1024 * 1024),
+  )} MiB), and the accounts and program binaries it loads exceed that.`;
+}
+
 export async function simulateTransaction(
   connection: Connection,
   packed: PackedTransaction,
 ): Promise<SimulationOutcome> {
+  let loadedDataLimit: number | null = null;
+
   try {
     const transaction = VersionedTransaction.deserialize(
       base64ToBytes(packed.base64),
     );
+    loadedDataLimit = declaredLoadedDataLimit(transaction);
 
     const response = await connection.simulateTransaction(transaction, {
       // We have no signature yet and do not need one: we are verifying the
@@ -47,9 +102,11 @@ export async function simulateTransaction(
         index: packed.index,
         ok: false,
         unitsConsumed: value.unitsConsumed ?? null,
-        error: describeInstructionFailure(value.err, packed, value.logs),
+        error: explainLoadedDataFailure(
+          describeInstructionFailure(value.err, packed, value.logs),
+          loadedDataLimit,
+        ),
         feeLamports: null,
-        rentDeltaLamports: null,
         dryRun: true,
       };
     }
@@ -63,20 +120,17 @@ export async function simulateTransaction(
       // cost ourselves: base fee per required signature, plus the priority fee
       // implied by the compute limit and price we requested.
       feeLamports: estimateFeeLamports(transaction),
-      rentDeltaLamports: computeRentDelta(value),
       dryRun: true,
     };
   } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Simulation request failed";
     return {
       index: packed.index,
       ok: false,
       unitsConsumed: null,
-      error:
-        error instanceof Error
-          ? error.message
-          : "Simulation request failed",
+      error: explainLoadedDataFailure(message, loadedDataLimit),
       feeLamports: null,
-      rentDeltaLamports: null,
       dryRun: true,
     };
   }
@@ -157,25 +211,6 @@ function estimateFeeLamports(transaction: VersionedTransaction): number {
   }
 
   return base + priority;
-}
-
-/**
- * Net lamports the fee payer gains or loses from account creation/closure,
- * excluding the transaction fee itself.
- *
- * Negative means the user received value (rent reclaimed). Positive means they
- * paid to create accounts (for example the output ATA on the first sweep).
- */
-function computeRentDelta(value: {
-  accounts?: Array<{ lamports: number } | null> | null;
-}): number | null {
-  const accounts = value.accounts;
-  if (!accounts || accounts.length === 0) return null;
-  let delta = 0;
-  for (const account of accounts) {
-    if (account) delta += account.lamports;
-  }
-  return delta;
 }
 
 /**

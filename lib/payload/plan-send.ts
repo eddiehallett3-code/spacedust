@@ -397,12 +397,28 @@ export async function planSend(input: PlanSendInput): Promise<PlanSendResult> {
     }
   }
 
-  if (tokens.length === 0 && assets.length === 0) {
+  if (tokens.length === 0 && assets.length === 0 && !input.solLamports) {
     throw new SendError(
       "Nothing is selected.",
-      "Choose at least one token or NFT to send.",
+      "Choose at least one token, NFT or SOL amount to send.",
     );
   }
+
+  /**
+   * One row per thing being sent.
+   *
+   * The selection is a set in the UI, but the planner is also reachable with a
+   * hand-built request: two entries for one mint would build two transfers and
+   * two closes for the same account, and the second close takes the packed
+   * transaction down with it. First entry wins, which is the same rule the
+   * scanner's ranking applies.
+   */
+  const uniqueTokens = [
+    ...new Map(tokens.map((token) => [token.mint, token])).values(),
+  ];
+  const uniqueAssets = [
+    ...new Map(assets.map((asset) => [asset.id, asset])).values(),
+  ];
 
   // ── 1. What is being sent, and what is refused before any read ──────────
   interface Candidate {
@@ -427,7 +443,7 @@ export async function planSend(input: PlanSendInput): Promise<PlanSendResult> {
 
   const candidates: Candidate[] = [];
 
-  for (const token of tokens) {
+  for (const token of uniqueTokens) {
     const tokenProgram = tokenProgramFor(token.program);
     let refused: string | null = null;
     let amount = 0n;
@@ -484,7 +500,7 @@ export async function planSend(input: PlanSendInput): Promise<PlanSendResult> {
     });
   }
 
-  for (const asset of assets) {
+  for (const asset of uniqueAssets) {
     const compressed = asset.compressed;
     let refused = unsendableAssetReason(asset);
     let source: PublicKey | null = null;
@@ -548,7 +564,9 @@ export async function planSend(input: PlanSendInput): Promise<PlanSendResult> {
    * can gain a leaf at any moment. `fetchCnftProofs` goes through our own route,
    * so the Helius key stays on the server.
    */
-  const assetsById = new Map(assets.map((asset) => [asset.id, asset]));
+  const assetsById = new Map(
+    uniqueAssets.map((asset) => [asset.id, asset]),
+  );
   const cnftIds = candidates
     .filter((candidate) => candidate.kind === "cnft" && candidate.refused === null)
     .map((candidate) => candidate.mint);
@@ -629,6 +647,34 @@ export async function planSend(input: PlanSendInput): Promise<PlanSendResult> {
     // to, and does so for free), no rent is freed, and no fee applies: Payload's
     // only fee is on rent a close returns, and nothing closes here.
     if (candidate.kind === "sol") {
+      // A refused SOL row (zero, unparseable, or above the reserve) must never
+      // become a transfer. Without this it was built as a 0-lamport System
+      // transfer and reported as "sending" — a send that moved nothing.
+      if (candidate.refused !== null) {
+        outcomes.push(base);
+        continue;
+      }
+
+      // Token rows are built before this one, so `recipientAccountLamports`
+      // already holds the deposits this batch pays to create the destination's
+      // accounts. Spending down to the fee reserve and leaving nothing for them
+      // is a transaction that cannot land; refuse the SOL row, not the batch.
+      const needed =
+        candidate.amount +
+        BigInt(SOL_SEND_FEE_RESERVE_LAMPORTS) +
+        BigInt(Math.trunc(recipientAccountLamports));
+      if (
+        input.solBalanceLamports != null &&
+        needed > BigInt(Math.trunc(input.solBalanceLamports))
+      ) {
+        outcomes.push({
+          ...base,
+          refused:
+            "This batch also needs SOL to create the recipient's accounts. Sending this much would leave too little to pay for them — send less SOL, or send it separately.",
+        });
+        continue;
+      }
+
       units.push(buildSolTransferUnit(owner, recipient, candidate.amount));
       outcomes.push({ ...base, sending: true });
       continue;
@@ -716,8 +762,21 @@ export async function planSend(input: PlanSendInput): Promise<PlanSendResult> {
       continue;
     }
 
-    const source = read.get(candidate.source.toBase58()) ?? null;
-    const atDestination = read.get(destination.toBase58()) ?? null;
+    const source = read.get(candidate.source.toBase58());
+    const atDestination = read.get(destination.toBase58());
+
+    // `undefined` means the batched read failed for this address; `null` means
+    // the chain answered and there is no account. Only the second is evidence,
+    // and collapsing the two told users “the account no longer exists” because
+    // one RPC call hiccuped.
+    if (source === undefined) {
+      outcomes.push({
+        ...base,
+        refused:
+          "This account could not be read right now, so nothing was planned against it. Try again in a moment.",
+      });
+      continue;
+    }
 
     if (source === null) {
       outcomes.push({
@@ -761,14 +820,23 @@ export async function planSend(input: PlanSendInput): Promise<PlanSendResult> {
       );
     }
 
-    const createsRecipientAccount = atDestination === null;
+    // `null` = the chain says there is no account; `undefined` = the read
+    // failed. Both need the idempotent create (it is harmless if the account
+    // turns out to exist, and required if it does not), but only a proven
+    // absence is priced: charging a deposit we could not verify would
+    // understate the net for no reason.
+    const createsRecipientAccount = atDestination == null;
     // Priced from the source account, which holds the same mint and so the same
     // extensions as the destination will, so its own balance is the right
     // estimate. A 165-byte constant would understate every Token-2022 account
     // with extensions; the 2,039,280 constant overstates most legacy ones.
-    const recipientAccountRentLamports = createsRecipientAccount
-      ? source.lamports
-      : 0;
+    const recipientAccountRentLamports =
+      atDestination === null ? source.lamports : 0;
+    if (atDestination === undefined) {
+      warnings.push(
+        `${candidate.label}: the recipient's account could not be checked, so the send includes an idempotent create and its rent is left out of the estimate.`,
+      );
+    }
 
     const instructions = buildSend({
       owner,
@@ -788,11 +856,16 @@ export async function planSend(input: PlanSendInput): Promise<PlanSendResult> {
     // with the grouping. It sits after the close, so it is always funded — the
     // close credits the full rent to `owner` first, and the fee is a floor of
     // 1.5% of that rent. No close means no rent, and therefore no fee.
-    const accountFee = closeSource
-      ? feeFromRentLamports(source.lamports, PAYLOAD_FEE_BPS)
-      : 0;
+    // A fee exists only when a fee wallet is configured **and** funded. The
+    // transfer was already gated on that; the accounting has to use the same
+    // condition, or a fee-free deployment reports — and subtracts — a fee that
+    // no instruction ever pays.
+    const accountFee =
+      feeEnabled && feeWallet && closeSource
+        ? feeFromRentLamports(source.lamports, PAYLOAD_FEE_BPS)
+        : 0;
 
-    if (feeEnabled && feeWallet && accountFee > 0) {
+    if (feeWallet && accountFee > 0) {
       instructions.push(
         SystemProgram.transfer({
           fromPubkey: owner,
