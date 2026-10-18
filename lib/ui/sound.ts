@@ -129,11 +129,13 @@ const RETRY_WINDOW_MS = 60_000;
 
 let retryBound = false;
 
-function retryBlocked(): void {
+function retryBlocked(force = false): void {
   const now = Date.now();
   for (const [name, refusedAt] of blocked) {
     blocked.delete(name);
-    if (now - refusedAt <= RETRY_WINDOW_MS) playSound(name);
+    if (now - refusedAt > RETRY_WINDOW_MS) continue;
+    if (force) playNow(name);
+    else playSound(name);
   }
 }
 
@@ -149,13 +151,14 @@ function retryBlocked(): void {
 function bindRetry(): void {
   if (retryBound || typeof window === "undefined") return;
   retryBound = true;
-  window.addEventListener("pointerdown", retryBlocked, { passive: true });
-  window.addEventListener("keydown", retryBlocked);
-  window.addEventListener("focus", retryBlocked);
-  window.addEventListener("pageshow", retryBlocked);
+  const gestureRetry = () => retryBlocked(true);
+  window.addEventListener("pointerdown", gestureRetry, { passive: true });
+  window.addEventListener("keydown", gestureRetry);
+  window.addEventListener("focus", () => retryBlocked(false));
+  window.addEventListener("pageshow", () => retryBlocked(false));
   if (typeof document !== "undefined") {
     document.addEventListener("visibilitychange", () => {
-      if (!document.hidden) retryBlocked();
+      if (!document.hidden) retryBlocked(false);
     });
   }
 }
@@ -172,13 +175,26 @@ export function playSound(name: SoundName): void {
 
   // A hidden tab may let `play()` resolve and then swallow the audio before the
   // user returns. Queue it instead; `visibilitychange` is the moment the user
-  // can actually hear it.
+  // can actually hear it. A gesture bypasses this through `playNow`.
   if (typeof document !== "undefined" && document.hidden) {
     blocked.set(name, Date.now());
     bindRetry();
     return;
   }
 
+  playNow(name);
+}
+
+/**
+ * Play immediately, even if `document.hidden` is stale.
+ *
+ * A gesture is authoritative: the button was pressed on a visible page, even
+ * if the WebView has not flipped `hidden` yet. Without this, the Void's "Done"
+ * click re-queued the cue and only the next visibility event played it, seconds
+ * after the click.
+ */
+function playNow(name: SoundName): void {
+  if (typeof window === "undefined" || isSoundMuted()) return;
   const player = audio(name);
   if (!player) return;
 

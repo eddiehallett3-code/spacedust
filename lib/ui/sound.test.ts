@@ -213,6 +213,22 @@ describe("playSound", () => {
     docListeners["visibilitychange"]?.();
     expect(created[0]?.play).toHaveBeenCalledTimes(1);
   });
+
+  it("plays on a gesture even when the hidden flag is stale", async () => {
+    const { created, listeners, window: fake } = fakeWindow();
+    const doc = { hidden: true, addEventListener: () => {} };
+    vi.stubGlobal("document", doc);
+    vi.stubGlobal("window", fake);
+    const { playSound } = await load();
+
+    playSound("success");
+    expect(created).toHaveLength(0);
+
+    // The user taps "Done" on the success screen; the WebView still reports
+    // hidden for a moment. The gesture is authoritative.
+    listeners["pointerdown"]?.();
+    expect(created[0]?.play).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("preload and unlock", () => {

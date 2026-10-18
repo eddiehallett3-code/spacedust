@@ -53,6 +53,21 @@ export const metadata: Metadata = {
     "crypto wallet cleanup",
   ],
   authors: [{ name: APP_NAME }],
+  icons: {
+    // PNG first. Several in-wallet browsers render `<link rel="icon">` with an
+    // image loader that cannot display SVG, and `/favicon.ico` alone leaves them
+    // with a 16px bitmap. `public/icon.png` is the fresh 192px URL; the ICO and
+    // Apple paths stay for crawlers that request those files directly.
+    icon: [
+      { url: "/icon.png", sizes: "192x192", type: "image/png" },
+      { url: "/logo-512.png", sizes: "512x512", type: "image/png" },
+      { url: "/favicon.ico", sizes: "16x16 32x32 48x48", type: "image/x-icon" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+    shortcut: "/favicon.ico",
+  },
   openGraph: {
     type: "website",
     title: APP_TITLE,

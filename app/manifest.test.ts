@@ -16,7 +16,15 @@ import manifest from "@/app/manifest";
 
 describe("icons and manifest", () => {
   it("serves /favicon.ico for browsers that never read the manifest", () => {
-    expect(existsSync(path.join(process.cwd(), "app/favicon.ico"))).toBe(true);
+    expect(existsSync(path.join(process.cwd(), "public", "favicon.ico"))).toBe(
+      true,
+    );
+  });
+
+  it("serves a 192px PNG icon for loaders that cannot render SVG", () => {
+    expect(existsSync(path.join(process.cwd(), "public", "icon.png"))).toBe(
+      true,
+    );
   });
 
   it("serves the blind Apple touch-icon requests", () => {
@@ -42,10 +50,7 @@ describe("icons and manifest", () => {
 
     for (const icon of icons) {
       if (!icon.src) continue;
-      const file =
-        icon.src === "/icon.svg"
-          ? "app/icon.svg"
-          : path.join("public", icon.src);
+      const file = path.join("public", icon.src);
       expect(existsSync(path.join(process.cwd(), file)), icon.src).toBe(true);
     }
   });
