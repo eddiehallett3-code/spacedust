@@ -120,6 +120,7 @@ function audio(name: SoundName): HTMLAudioElement | null {
 let audioContext: AudioContext | null = null;
 const buffers = new Map<SoundName, AudioBuffer>();
 const webAudioSources = new Map<SoundName, AudioBufferSourceNode>();
+const resuming = new Set<SoundName>();
 let decoding: Promise<void> | null = null;
 
 function getAudioContext(): AudioContext | null {
@@ -178,6 +179,13 @@ function startWebAudio(name: SoundName): boolean {
       // Already stopped.
     }
 
+    const htmlPlayer = players?.get(name);
+    try {
+      htmlPlayer?.pause();
+    } catch {
+      // Nothing to pause.
+    }
+
     const source = ctx.createBufferSource();
     source.buffer = buffer;
     const gain = ctx.createGain();
@@ -209,26 +217,25 @@ function playWebAudio(name: SoundName): boolean {
 
   if (ctx.state === "running") return startWebAudio(name);
 
-  if (ctx.state === "suspended") {
-    let settled = false;
-    const fallback = window.setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      playHtml(name);
-    }, 1000);
+  // WebKit uses `interrupted` for a context that lost the audio session (a
+  // phone call, or the app moving to the background). Treat it like suspended:
+  // resume when the session comes back and play from the decoded buffer.
+  if (ctx.state === "suspended" || (ctx.state as string) === "interrupted") {
+    // Keep the cue in the retry queue while the context waits for the page to
+    // come back. The poll/visibility/gesture listeners call back into this
+    // function; `resuming` prevents a pile of duplicate resume promises.
+    block(name);
+    if (resuming.has(name)) return true;
+    resuming.add(name);
 
     void ctx
       .resume()
       .then(() => {
-        if (settled) return;
-        settled = true;
-        window.clearTimeout(fallback);
+        resuming.delete(name);
         if (!startWebAudio(name)) playHtml(name);
       })
       .catch(() => {
-        if (settled) return;
-        settled = true;
-        window.clearTimeout(fallback);
+        resuming.delete(name);
         playHtml(name);
       });
     return true;
