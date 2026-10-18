@@ -2,7 +2,8 @@
   "name": "spacedust",
   "version": "1.0.0",
   "private": true,
-  "description": "Spacedust — a non-custodial Solana dust sweeper. Swap dust tokens into SOL, USDC or JUP in as few transactions as possible. 0.5% swap fee, 1.5% of reclaimed rent.",
+  "license": "UNLICENSED",
+  "description": "Spacedust — non-custodial Solana wallet tools. Batch swap, send, and burn tokens, NFTs and cNFTs; reclaim rent; revoke approvals. One fee: 1.5% of reclaimed rent.",
   "engines": {
     "node": ">=20.9.0"
   },

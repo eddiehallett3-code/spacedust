@@ -1699,4 +1699,11 @@ to check that no `prepare()` settles on a phase that leaves the UI stuck.
 
 ## License
 
-MIT. Not financial advice.
+All rights reserved. This repository is public so the code can be read, reviewed
+and audited — not so it can be reused. Copying, modifying or redistributing it
+needs written permission; see [`LICENSE`](./LICENSE).
+
+Security reports are welcome, privately: see [`SECURITY.md`](./SECURITY.md).
+
+Not financial advice.
+
