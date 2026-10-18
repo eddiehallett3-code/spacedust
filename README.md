@@ -270,6 +270,16 @@ reprice both.
 | `/api/asset-proof` | 30 | 1 minute |
 | `/api/health` | 12 | 1 minute |
 
+Two of these do real upstream work on every call and declare a **60-second**
+function budget (`maxDuration`): `/api/tokens`, which scans and prices an entire
+wallet, and `/api/health`, which scans a busy address on purpose. The browser
+waits 90 seconds for a scan — longer than the server is allowed to run — so the
+server is always the one that gives up, with an error the user can read, rather
+than the client aborting a request that is about to finish. A wallet with 3,033
+holdings measured 49 seconds, which is inside the budget but not by much; the
+route parallelises nothing yet, and the shape is written down in
+`lib/token-source/scan-budget.test.ts`.
+
 - **Cloudflare (free plan):** *Security → WAF → Rate limiting rules* → **Create rule**.
   The free plan includes **one** rule and counts over **10-second** periods (the
   wider windows are paid), so the rule below covers the whole API rather than each

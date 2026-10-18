@@ -35,6 +35,20 @@ import type { DustToken, WalletScan } from "@/types/token";
  */
 
 export const runtime = "nodejs";
+/**
+ * How long this function may run before the platform cuts it.
+ *
+ * A wallet with thousands of holdings legitimately takes ~50 seconds: the scan
+ * prices every mint 50 at a time and reads every mint authority 100 at a time,
+ * and both are sequential. Without an explicit budget the ceiling is whatever the
+ * platform happens to default to, and a default that changes would start cutting
+ * real scans at a number nobody chose.
+ *
+ * The client waits 90 seconds (`hooks/use-wallet-scan.ts`), deliberately longer
+ * than this: the server should be the one to give up, with an error the user can
+ * read, rather than the browser aborting a request that is about to finish.
+ */
+export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
 const QuerySchema = z.object({

@@ -28,6 +28,13 @@ import { scanWallet } from "@/lib/token-source/index.server";
  */
 
 export const runtime = "nodejs";
+/**
+ * The health check scans a busy address on purpose (pagination, not an empty
+ * wallet), which took 8.8 seconds against production. That is inside the default
+ * ceiling today, but it is close enough to one that the budget is declared rather
+ * than assumed — the same reason `/api/tokens` declares it.
+ */
+export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
 interface Check {

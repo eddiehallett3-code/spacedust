@@ -48,7 +48,21 @@ export function useWalletScan() {
         `/api/tokens?owner=${encodeURIComponent(owner)}`,
         {
           signal: controller.signal,
-          timeoutMs: 45_000,
+          /**
+           * Longer than the server's own budget on purpose.
+           *
+           * A large wallet is genuinely slow: measured against production, 3,033
+           * holdings took 49.4 seconds (two sequential loops over every mint —
+           * Jupiter prices at 50 per call, mint authorities at 100 per call).
+           * The previous 45 seconds aborted a scan that would have succeeded, and
+           * the UI reported "timed out" for a request the server was still
+           * happily working on.
+           *
+           * `/api/tokens` is pinned to 60 seconds, so the *server* is now the one
+           * that gives up first, with a real error, rather than the client
+           * pulling the plug on something that is about to finish.
+           */
+          timeoutMs: 90_000,
           // Wallets rarely change within a few seconds, and this is the single
           // most expensive call in the app.
           cacheMs: 10_000,
