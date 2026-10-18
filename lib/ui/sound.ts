@@ -221,6 +221,7 @@ function bindRetry(): void {
   window.addEventListener("keydown", retryBlocked);
   window.addEventListener("focus", retryBlocked);
   window.addEventListener("pageshow", retryBlocked);
+  window.addEventListener("resize", retryBlocked, { passive: true });
   if (typeof document !== "undefined") {
     document.addEventListener("visibilitychange", () => {
       if (!document.hidden) retryBlocked();
