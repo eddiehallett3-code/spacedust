@@ -251,6 +251,27 @@ export const CNFT_TRANSFER_COMPUTE_UNITS = 60_000;
 /** Solana's own ceiling on one transaction's compute budget. */
 export const MAX_COMPUTE_UNIT_LIMIT = 1_400_000;
 
+/**
+ * Explicit ceiling on the account data a transaction may load, in bytes (1 MiB).
+ *
+ * A transaction can declare this with a Compute Budget instruction. Without one,
+ * the runtime allows its 64 MiB maximum — which tells a wallet's simulator
+ * nothing about what the transaction actually needs. Phantom's guidance for
+ * avoiding simulation warnings is to state both budgets explicitly, so we do.
+ *
+ * 1 MiB is a declaration rather than a guess. Our largest transaction is packed
+ * to 1,232 bytes and expands through address lookup tables, so it references at
+ * most a few hundred accounts; real account data is small (a token account is
+ * 165 bytes, a mint 82, a pool state one or two kilobytes). A route that ever
+ * needed more would fail our own pre-sign simulation loudly, before a wallet is
+ * asked to sign anything — not silently on chain.
+ */
+export const LOADED_ACCOUNTS_DATA_SIZE_LIMIT = 1_048_576;
+
+/** The runtime's hard ceiling on loaded account data, used to clamp at encode. */
+export const MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES = 67_108_864;
+
+
 // ── Scanning ────────────────────────────────────────────────────────────────
 
 /** DAS page size. */

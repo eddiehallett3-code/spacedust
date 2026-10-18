@@ -5,6 +5,7 @@ import {
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   COMPUTE_BUDGET_PROGRAM_ID,
+  LOADED_ACCOUNTS_DATA_SIZE_LIMIT,
   MAX_COMPUTE_UNIT_LIMIT,
   PRIORITY_FEE_MICRO_LAMPORTS,
   SYSTEM_PROGRAM_ID,
@@ -241,7 +242,7 @@ function decodeAtaCreate(
 }
 
 interface ComputeBudgetDecoded {
-  kind: "limit" | "price";
+  kind: "limit" | "price" | "loaded-data-size";
   value: number;
 }
 
@@ -259,6 +260,12 @@ function decodeComputeBudget(
   // lengths.
   if (data.length === 9 && data[0] === 3) {
     return { kind: "price", value: Number(data.readBigUInt64LE(1)) };
+  }
+  // SetLoadedAccountsDataSizeLimit: one discriminator byte, then a u32. Same
+  // five-byte shape as the compute limit and a different discriminator, which
+  // is exactly the sort of pair a length-only check would confuse.
+  if (data.length === 5 && data[0] === 4) {
+    return { kind: "loaded-data-size", value: data.readUInt32LE(1) };
   }
   return null;
 }
@@ -363,6 +370,7 @@ export function auditInstructions(
 
   let limitSeen = false;
   let priceSeen = false;
+  let loadedDataSeen = false;
 
   instructions.forEach((instruction, index) => {
     const programId = instruction.programId.toBase58();
@@ -425,6 +433,44 @@ export function auditInstructions(
         );
         return;
       }
+      if (decoded.kind === "loaded-data-size") {
+        if (loadedDataSeen) {
+          noteProgram(into, programId);
+          refuse(
+            into,
+            "duplicate-compute-budget",
+            "The batch declares its loaded-account-data limit more than once, which is not something this app builds.",
+            programId,
+            index,
+          );
+          return;
+        }
+        loadedDataSeen = true;
+        // Zero is rejected on chain, and anything above our own declaration is a
+        // budget this app never sets. Both mean the instruction did not come
+        // from the planner.
+        if (
+          decoded.value === 0 ||
+          decoded.value > LOADED_ACCOUNTS_DATA_SIZE_LIMIT
+        ) {
+          noteProgram(into, programId);
+          refuse(
+            into,
+            "compute-budget-exceeds-plan",
+            `The batch declares a loaded-account-data limit of ${decoded.value.toLocaleString()} bytes, outside the ${LOADED_ACCOUNTS_DATA_SIZE_LIMIT.toLocaleString()} this app always sets.`,
+            programId,
+            index,
+          );
+          return;
+        }
+        noteProgram(
+          into,
+          programId,
+          `loaded account data ${decoded.value.toLocaleString()} B`,
+        );
+        return;
+      }
+
       if (priceSeen) {
         noteProgram(into, programId);
         refuse(

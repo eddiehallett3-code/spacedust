@@ -11,6 +11,8 @@ import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import {
   COMPUTE_BUDGET_PROGRAM_ID,
   COMPUTE_UNIT_LIMIT,
+  LOADED_ACCOUNTS_DATA_SIZE_LIMIT,
+  MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES,
   TOKEN_PROGRAM_ID,
   TOKEN_2022_PROGRAM_ID,
 } from "@/lib/utils/constants";
@@ -77,10 +79,16 @@ export function apiToInstructions(
  * packed transaction. Compute units are billed per unit, so a single shared
  * budget costs less than N per-swap budgets, and it guarantees the last swap in
  * the batch cannot be starved by the ones before it.
+ *
+ * All three declarations are emitted together, because a transaction that states
+ * its compute limit but not the account data it may load is only half-described:
+ * a wallet simulating it knows how much work to expect but not how much state to
+ * read, and that is exactly the gap Phantom's simulation warning talks about.
  */
 export function createComputeBudgetInstructions(
   computeUnitLimit: number = COMPUTE_UNIT_LIMIT,
   microLamportsPerUnit: number = 0,
+  loadedAccountsDataSizeLimit: number = LOADED_ACCOUNTS_DATA_SIZE_LIMIT,
 ): TransactionInstruction[] {
   const programId = new PublicKey(COMPUTE_BUDGET_PROGRAM_ID);
   const instructions: TransactionInstruction[] = [];
@@ -103,7 +111,33 @@ export function createComputeBudgetInstructions(
     );
   }
 
+  // SetLoadedAccountsDataSizeLimit (discriminator 0x04, u32 LE).
+  //
+  // Last, so the compute limit keeps its position: the audit and the fee
+  // estimate both read the prologue in order, and moving 0x02 would make an
+  // unrelated change look like a changed budget.
+  const loaded = Buffer.alloc(5);
+  loaded.writeUInt8(0x04, 0);
+  loaded.writeUInt32LE(saneLoadedDataLimit(loadedAccountsDataSizeLimit), 1);
+  instructions.push(
+    new TransactionInstruction({ programId, keys: [], data: loaded }),
+  );
+
   return instructions;
+}
+
+/**
+ * A loaded-data limit the runtime will accept.
+ *
+ * Zero is rejected on chain (`InvalidLoadedAccountsDataSizeLimit`) and anything
+ * above the runtime's maximum is clamped, so a caller that passes nonsense gets
+ * the app's own declared limit rather than a transaction that cannot land.
+ */
+function saneLoadedDataLimit(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) {
+    return LOADED_ACCOUNTS_DATA_SIZE_LIMIT;
+  }
+  return Math.min(Math.trunc(value), MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES);
 }
 
 /** Map our token-program discriminator onto the on-chain program id. */

@@ -18,7 +18,10 @@ import {
   createCloseAccountInstruction,
   createComputeBudgetInstructions,
 } from "@/lib/solana/instructions";
-import { TOKEN_PROGRAM_ID } from "@/lib/utils/constants";
+import {
+  COMPUTE_BUDGET_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+} from "@/lib/utils/constants";
 import { buildSend, recipientTokenAccount } from "@/lib/solana/transfer";
 import {
   InstructionAuditError,
@@ -55,9 +58,25 @@ const MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 const owner = new PublicKey(OWNER);
 const tokenProgram = new PublicKey(TOKEN_PROGRAM_ID);
 
-/** The two instructions every plan carries, built by the app's own builder. */
-function budget(limit = 800_000, price = 1_000): TransactionInstruction[] {
-  return createComputeBudgetInstructions(limit, price);
+/** The instructions every plan carries, built by the app's own builder. */
+function budget(
+  limit = 800_000,
+  price = 1_000,
+  loadedLimit?: number,
+): TransactionInstruction[] {
+  return createComputeBudgetInstructions(limit, price, loadedLimit);
+}
+
+/** A hand-built loaded-data declaration, for the values the builder refuses. */
+function loadedData(value: number): TransactionInstruction {
+  const data = Buffer.alloc(5);
+  data.writeUInt8(0x04, 0);
+  data.writeUInt32LE(value, 1);
+  return new TransactionInstruction({
+    programId: new PublicKey(COMPUTE_BUDGET_PROGRAM_ID),
+    keys: [],
+    data,
+  });
 }
 
 /** A stand-in for the aggregator's opaque call, shaped as Jupiter's is. */
@@ -518,6 +537,39 @@ describe("the compute budget", () => {
 
     expect(result.ok).toBe(false);
     expect(refusal(result)?.code).toBe("compute-budget-exceeds-plan");
+  });
+
+  it("refuses a loaded-account-data limit above the app's own", () => {
+    // The builder clamps to the runtime maximum, so a larger value can only have
+    // come from somewhere other than this app's planner.
+    const result = auditInstructions(
+      [...budget(800_000, 1_000, 2_000_000), jupiterSwap()],
+      sweep(),
+    );
+
+    expect(result.ok).toBe(false);
+    expect(refusal(result)?.code).toBe("compute-budget-exceeds-plan");
+  });
+
+  it("refuses a zero loaded-account-data limit, which cannot land", () => {
+    const limitOnly = budget()[0] as TransactionInstruction;
+    const result = auditInstructions(
+      [limitOnly, loadedData(0), jupiterSwap()],
+      sweep(),
+    );
+
+    expect(result.ok).toBe(false);
+    expect(refusal(result)?.code).toBe("compute-budget-exceeds-plan");
+  });
+
+  it("refuses two loaded-account-data declarations", () => {
+    const result = auditInstructions(
+      [...budget(), loadedData(1_048_576), jupiterSwap()],
+      sweep(),
+    );
+
+    expect(result.ok).toBe(false);
+    expect(refusal(result)?.code).toBe("duplicate-compute-budget");
   });
 });
 

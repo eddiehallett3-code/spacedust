@@ -6,6 +6,7 @@ import { packTransactions } from "@/lib/solana/pack";
 import { auditInstructions } from "@/lib/security/instruction-audit";
 import { JUPITER_PROGRAM_ID } from "@/lib/security/program-ids";
 import {
+  COMPUTE_BUDGET_PROGRAM_ID,
   JUP_MINT,
   SYSTEM_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
@@ -464,5 +465,48 @@ describe("a four-token SOL sweep declares its own closes", () => {
       undeclared.findings.filter((f) => f.code === "close-unexpected"),
     ).toHaveLength(mints.length);
     expect(undeclared.ok).toBe(true);
+  });
+});
+
+
+describe("Jupiter's own compute budget", () => {
+  it("is dropped, because the batch declares one budget for itself", async () => {
+    // A second SetComputeUnitLimit in one transaction is a DuplicateInstruction
+    // the runtime rejects, and the audit refuses it before that. Jupiter does not
+    // send one today; this is the guard that keeps a change on their side from
+    // turning into a failed sweep on ours.
+    const { units } = await composePackUnits({
+      connection: connectionWith(1_488_440),
+      owner: new PublicKey(OWNER),
+      builds: [
+        swapBuild({
+          tokenAccount: null,
+          bundle: {
+            // 0x02 + 800_000 little-endian, exactly as Jupiter would shape it.
+            setup: [
+              {
+                programId: COMPUTE_BUDGET_PROGRAM_ID,
+                accounts: [],
+                data: "AgA1DAA=",
+              },
+            ],
+            swap: apiSwap(),
+            cleanup: null,
+            other: [],
+          },
+        }),
+      ],
+      skipCloseMints: new Set<string>(),
+      tokenPrograms: new Map([[USDC, "legacy"]]),
+      feeWallet: null,
+      reclaimFeeBps: 0,
+    });
+
+    const programs = units.flatMap((unit) =>
+      unit.instructions.map((instruction) => instruction.programId.toBase58()),
+    );
+    expect(programs).not.toContain(COMPUTE_BUDGET_PROGRAM_ID);
+    // The swap itself survives: only the budget instruction was dropped.
+    expect(programs).toContain(JUPITER_PROGRAM_ID);
   });
 });

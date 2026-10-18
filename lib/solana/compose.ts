@@ -5,7 +5,11 @@ import {
   type TransactionInstruction,
 } from "@solana/web3.js";
 import { base64ToBytes } from "@/lib/utils/base64";
-import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@/lib/utils/constants";
+import {
+  COMPUTE_BUDGET_PROGRAM_ID,
+  TOKEN_2022_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+} from "@/lib/utils/constants";
 import {
   apiToInstruction,
   apiToInstructions,
@@ -28,6 +32,24 @@ import type { SwapBuild } from "@/types/sweep";
  * We only ever add *post-swap* instructions (`closeAccount`), never pre-swap,
  * because the source token account is only empty once the swap has executed.
  */
+
+/**
+ * Drop any compute-budget instruction Jupiter supplies.
+ *
+ * We set one budget for the whole packed transaction, and a second
+ * `SetComputeUnitLimit` in the same transaction is a `DuplicateInstruction` the
+ * runtime rejects — which the audit refuses first. Today's responses do not
+ * carry one; this is what keeps a change on Jupiter's side from turning into a
+ * failed sweep on ours.
+ */
+function withoutComputeBudget(
+  instructions: TransactionInstruction[],
+): TransactionInstruction[] {
+  return instructions.filter(
+    (instruction) =>
+      instruction.programId.toBase58() !== COMPUTE_BUDGET_PROGRAM_ID,
+  );
+}
 
 export interface ComposeUnitInput {
   owner: PublicKey;
@@ -157,12 +179,12 @@ export async function composePackUnits({
   // per-account deposit is what the fee is priced from.
   for (const [index, build] of builds.entries()) {
     try {
-      const setup = apiToInstructions(build.bundle.setup);
+      const setup = withoutComputeBudget(apiToInstructions(build.bundle.setup));
       const swap = apiToInstruction(build.bundle.swap);
       const cleanup = build.bundle.cleanup
         ? apiToInstruction(build.bundle.cleanup)
         : null;
-      const other = apiToInstructions(build.bundle.other);
+      const other = withoutComputeBudget(apiToInstructions(build.bundle.other));
 
       // Rent reclaim: only ever close the account that really holds the
       // balance, and only when we could confirm it still exists.
