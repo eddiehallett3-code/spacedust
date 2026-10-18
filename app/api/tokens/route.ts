@@ -262,8 +262,6 @@ export async function GET(request: Request) {
       (looksLikeCollectible(token) ? collectibleTokens : dustTokens).push(token);
     }
 
-    const solPrice = prices[OUTPUT_ASSETS.SOL.mint]?.usdPrice ?? null;
-
     /**
      * Live rent-exemption figures, fetched once per scan.
      *
@@ -294,6 +292,20 @@ export async function GET(request: Request) {
       // Never fail the whole scan over a supplementary price lookup. The UI
       // hides the estimate when a price is missing; the token list still works.
     }
+
+    /**
+     * The SOL price, for anything the scan quotes in dollars.
+     *
+     * It has to come from the *output* prices, not from the token prices: SOL is
+     * never a token account, so `prices` has no entry for it and reading it there
+     * returned null on every scan — which silently blanked the wallet's native
+     * value. The output lookup always includes SOL, and it is the same figure the
+     * UI converts at, so the two cannot disagree.
+     */
+    const solPrice =
+      outputPriceMap[OUTPUT_ASSETS.SOL.mint] ??
+      prices[OUTPUT_ASSETS.SOL.mint]?.usdPrice ??
+      null;
 
     const payload: WalletScan = {
       owner: parsed.data.owner,
