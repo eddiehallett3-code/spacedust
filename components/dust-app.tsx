@@ -37,6 +37,7 @@ import {
   OUTPUT_ASSETS,
   SMART_FILTER_MAX_PRICE_IMPACT,
   STORAGE_KEYS,
+  TOAST_BRIEF_MS,
   THRESHOLD_DEFAULT_USD,
   THRESHOLD_MAX_USD,
   THRESHOLD_MIN_USD,
@@ -484,6 +485,7 @@ export function DustApp() {
       // plan's — which is how this toast came to announce "0 transactions built"
       // on a first run and a stale count on every run after it.
       toast.success("Preview ready", {
+        duration: TOAST_BRIEF_MS,
         description:
           pluralize(result.packed.length, "transaction") +
           " built and simulated. Review before signing.",
@@ -583,7 +585,7 @@ export function DustApp() {
     // no route, so stale "no route" marks from the previous plan are dropped.
     setNoRouteMints(new Set());
     await rescan();
-    toast("Wallet rescanned");
+    toast("Wallet rescanned", { duration: TOAST_BRIEF_MS });
   }, [deselectAll, rescan, sweep]);
 
   // A confirmed sweep changes what is left behind, which is what the pointer to

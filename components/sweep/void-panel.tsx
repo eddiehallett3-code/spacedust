@@ -14,7 +14,7 @@ import { solscanTxUrl } from "@/lib/solana/submit";
 import { voidFeeFromRentLamports } from "@/lib/solana/rent";
 import { sumForMints } from "@/lib/sweep/totals";
 import { getPublicFeeWallet } from "@/lib/config/public-env";
-import { TOAST_READ_MS, VOID_FEE_BPS } from "@/lib/utils/constants";
+import { TOAST_BRIEF_MS, TOAST_READ_MS, VOID_FEE_BPS } from "@/lib/utils/constants";
 import { cn } from "@/lib/utils/cn";
 import {
   formatAmount,
@@ -132,6 +132,7 @@ export function VoidPanel({
     const count = await theVoid.prepare({ tokens: selectedTokens });
     if (count > 0) {
       toast.success("Preview ready", {
+        duration: TOAST_BRIEF_MS,
         description:
           pluralize(count, "transaction") +
           " built and simulated. Review before signing.",

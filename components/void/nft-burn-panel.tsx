@@ -17,7 +17,7 @@ import { previewAction } from "@/lib/sweep/preview";
 import { solscanTxUrl } from "@/lib/solana/submit";
 import { pluralize, truncateAddress } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
-import { TOAST_READ_MS } from "@/lib/utils/constants";
+import { TOAST_BRIEF_MS, TOAST_READ_MS } from "@/lib/utils/constants";
 import type {
   NftBurnOutcome,
   NftBurnSummary,
@@ -222,6 +222,7 @@ export function NftBurnPanel({
     const count = await theBurn.prepare(selectedAssets);
     if (count > 0) {
       toast.success("Preview ready", {
+        duration: TOAST_BRIEF_MS,
         description: `${pluralize(count, "transaction")} built and simulated. Review before signing.`,
       });
     }

@@ -320,6 +320,16 @@ export const SMART_FILTER_MAX_PRICE_IMPACT = 0.3;
  */
 export const TOAST_READ_MS = 10_000;
 
+/**
+ * How long a tap confirmation stays on screen.
+ *
+ * "Preview ready" and "Wallet rescanned" confirm something the user just asked
+ * for; they are not paragraphs to study and should not sit over the preview
+ * they are about to review. Sonner's four-second default felt like a lingering
+ * popup, so these fade after two and a half seconds.
+ */
+export const TOAST_BRIEF_MS = 2_500;
+
 /** localStorage keys. Versioned so a schema change can never break old data. */
 export const STORAGE_KEYS = {
   threshold: "spacedust:v1:threshold",
