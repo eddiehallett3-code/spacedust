@@ -436,8 +436,8 @@ function ScanResult({
             }
             hint={
               recoverable.walletValueSol == null
-                ? `Every token plus native SOL, at ${pluralize(scan.tokens.length, "token")}.`
-                : `≈ ${formatAmount(recoverable.walletValueSol, 4)} SOL — every token plus native SOL, valued by Jupiter. NFTs are not priced here.`
+                ? `Every token plus native SOL, across ${pluralize(scan.tokens.length, "token")}.`
+                : `≈ ${formatAmount(recoverable.walletValueSol, 4)} SOL — every token plus native SOL across ${pluralize(scan.tokens.length, "token")}, valued by Jupiter. NFTs are not priced here.`
             }
           />
         </CardContent>
