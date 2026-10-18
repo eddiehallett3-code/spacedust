@@ -1,4 +1,4 @@
-import { OUTPUT_ASSETS, TOKEN_ACCOUNT_RENT_LAMPORTS } from "@/lib/utils/constants";
+import { OUTPUT_ASSETS } from "@/lib/utils/constants";
 import { planEmptyAccountCloses } from "@/lib/sweep/empty-accounts";
 import { isSweepableToken } from "@/lib/sweep/sweepable";
 import type { WalletScan } from "@/types/token";
@@ -97,21 +97,20 @@ export interface RecoverableBreakdown {
   /** Already-empty accounts whose rent is still recoverable by closing them. */
   emptyAccounts: number;
   /**
-   * Rent locked in the closable dust accounts **plus** the rent in the accounts
-   * that are already empty.
+   * Rent sitting in accounts that are **already empty**, summed from each
+   * account's own lamports.
    *
-   * The two are priced differently, and the difference is deliberate:
+   * Funded accounts are deliberately not counted. Their rent is real, but it is
+   * not available now: the account has to be emptied first — sold, or burned in
+   * The Void — and only then can it be closed. A scan is a promise about what is
+   * reachable *today*, and quoting rent that a funded account cannot release
+   * until some other flow has run is precisely the kind of number this file
+   * exists to avoid. `closableAccounts` still reports how many would free their
+   * rent if emptied, so the two facts stay separate.
    *
-   *  - A dust account is priced at the *live* rent-exempt minimum, because the
-   *    scan does not carry that account's own balance and the minimum is the
-   *    closest defensible figure. Note this *understates* older accounts: the
-   *    live minimum measured 1,488,440 lamports while real funded accounts hold
-   *    2,039,280. Understating is the safe direction for a number quoted before
-   *    anything is signed, but it is an approximation and is recorded as one.
-   *  - An empty account is priced at its **own** lamports, read from the
-   *    account. Nothing is approximated there, and it has to be read per
-   *    account anyway: a Token-2022 account with extensions holds 2,074,080
-   *    where a legacy one holds 2,039,280, so one constant cannot describe both.
+   * Each empty account is priced at its own balance, read from the account, not
+   * from a constant: a Token-2022 account with extensions holds 2,074,080 where
+   * a legacy one holds 2,039,280.
    */
   rentLamports: number;
   /** The part of `rentLamports` that sits in accounts which are already empty. */
@@ -122,6 +121,16 @@ export interface RecoverableBreakdown {
   sweepableValueUsd: number;
   /** USD value of every token in the scan, including the ones we refuse. */
   heldValueUsd: number;
+  /**
+   * Everything the wallet holds in USD: every token, plus native SOL.
+   *
+   * The question this page is usually opened to answer is "what is in here?",
+   * not "what can I get out?" — and those are different numbers. Null when the
+   * wallet's native value could not be priced.
+   */
+  walletValueUsd: number | null;
+  /** The same figure in SOL, at the price the tokens were valued at. */
+  walletValueSol: number | null;
   /** `sweepableValueUsd` + `rentUsd`. Null when there is no SOL price. */
   totalUsd: number | null;
   /** The SOL price used for conversion, so the UI can state its basis. */
@@ -144,7 +153,6 @@ export function summariseRecoverable(
     WalletScan,
     "tokens" | "native" | "outputPrices" | "owner" | "emptyAccounts"
   >,
-  rentPerAccountLamports: number = TOKEN_ACCOUNT_RENT_LAMPORTS,
 ): RecoverableBreakdown {
   const limitations: RecoverableLimitations = {
     staked: 0,
@@ -181,11 +189,6 @@ export function summariseRecoverable(
     else closableAccounts += 1;
   }
 
-  // A negative or nonsense rent would silently shrink the total; refuse it.
-  const rentPerAccount = Number.isFinite(rentPerAccountLamports)
-    ? Math.max(0, Math.trunc(rentPerAccountLamports))
-    : 0;
-
   /**
    * Already-empty accounts, through the same rule the closer uses.
    *
@@ -204,12 +207,24 @@ export function summariseRecoverable(
   }
 
   const emptyRentLamports = emptyPlan.lamports;
-  const rentLamports =
-    closableAccounts * rentPerAccount + emptyRentLamports;
+  // Only what is reachable today: an empty account's own deposit. A funded
+  // account has rent too, but nothing can collect it until the balance is sold
+  // or burned, and this page is a promise about what can be done now.
+  const rentLamports = emptyRentLamports;
 
   const solPriceUsd = validPrice(scan.outputPrices[OUTPUT_ASSETS.SOL.mint]);
   const rentUsd = solPriceUsd == null ? null : (rentLamports / 1e9) * solPriceUsd;
   const totalUsd = rentUsd == null ? null : sweepableValueUsd + rentUsd;
+
+  // Native value comes from the scan, which priced it with the same SOL price —
+  // so the two halves of this total cannot disagree about what SOL is worth.
+  const nativeUsd = scan.native.valueUsd;
+  const walletValueUsd =
+    nativeUsd == null ? null : heldValueUsd + nativeUsd;
+  const walletValueSol =
+    walletValueUsd == null || solPriceUsd == null
+      ? null
+      : walletValueUsd / solPriceUsd;
 
   return {
     closableAccounts,
@@ -219,6 +234,8 @@ export function summariseRecoverable(
     rentUsd,
     sweepableValueUsd,
     heldValueUsd,
+    walletValueUsd,
+    walletValueSol,
     totalUsd,
     solPriceUsd,
     limitations,

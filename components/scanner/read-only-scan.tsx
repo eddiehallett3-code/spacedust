@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
-  ArrowRight,
   Check,
   Copy,
   Eye,
@@ -11,7 +10,6 @@ import {
   QrCode,
   Search,
 } from "lucide-react";
-import Link from "next/link";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -43,7 +41,12 @@ import {
   truncateAddress,
 } from "@/lib/utils/format";
 import { isValidSolanaAddress } from "@/lib/utils/sanitize";
-import type { DustToken, StakedAccount, WalletScan } from "@/types/token";
+import type {
+  DustToken,
+  NonFungibleAsset,
+  StakedAccount,
+  WalletScan,
+} from "@/types/token";
 
 /**
  * Read-only wallet scan.
@@ -138,7 +141,7 @@ export function ReadOnlyScan({ initialOwner }: { initialOwner: string | null }) 
 
   const recoverable = useMemo(
     () =>
-      scan ? summariseRecoverable(scan, scan.tokenAccountRentLamports) : null,
+      scan ? summariseRecoverable(scan) : null,
     [scan],
   );
 
@@ -383,17 +386,18 @@ function ScanResult({
                 : formatUsd(recoverable.totalUsd)}
             </p>
             <p className="mt-2 text-xs leading-relaxed text-subtle">
-              {formatSol(recoverable.rentLamports)} of that is rent locked in{" "}
-              {pluralize(recoverable.closableAccounts, "token account")}
               {recoverable.emptyAccounts > 0
-                ? `, including ${pluralize(recoverable.emptyAccounts, "account")} that ${
-                    recoverable.emptyAccounts === 1 ? "is" : "are"
-                  } already empty`
-                : ""}
+                ? `${formatSol(recoverable.rentLamports)} of that is rent sitting in ${pluralize(
+                    recoverable.emptyAccounts,
+                    "account",
+                  )} that ${recoverable.emptyAccounts === 1 ? "is" : "are"} already empty — close them and it is yours.`
+                : `Nothing here is rent: ${pluralize(
+                    recoverable.closableAccounts,
+                    "account",
+                  )} still ${recoverable.closableAccounts === 1 ? "holds" : "hold"} a balance, and rent only comes back once that balance is sold or burned.`}
               {recoverable.rentUsd == null
-                ? " — valued in SOL above because there is no SOL price to convert at"
+                ? " Valued in SOL above because there is no SOL price to convert at."
                 : ""}
-              .
             </p>
           </div>
           {owner ? (
@@ -403,25 +407,38 @@ function ScanResult({
           ) : null}
         </CardHeader>
 
-        <CardContent className="grid gap-3 pt-5 sm:grid-cols-3">
+        <CardContent className="grid gap-3 pt-5 sm:grid-cols-2">
           <Stat
             label="Dust value"
             value={formatUsd(recoverable.sweepableValueUsd)}
             hint={`Across ${pluralize(scan.tokens.length, "token")}, valued by Jupiter.`}
           />
           <Stat
-            label="Reclaimable rent"
+            label="Rent in empty accounts"
             value={formatSol(recoverable.rentLamports)}
             hint={
               recoverable.emptyAccounts > 0
-                ? `${pluralize(recoverable.closableAccounts, "account")} can be closed once emptied, and ${pluralize(recoverable.emptyAccounts, "account")} ${recoverable.emptyAccounts === 1 ? "is" : "are"} already empty.`
-                : `${pluralize(recoverable.closableAccounts, "account")} can be closed once emptied.`
+                ? `${pluralize(recoverable.emptyAccounts, "account")} ${recoverable.emptyAccounts === 1 ? "is" : "are"} already empty. Funded accounts are not counted — their rent only returns once the balance is sold or burned.`
+                : "No account here is empty yet, so there is no rent to collect today."
             }
           />
           <Stat
             label="Native SOL"
             value={`${scan.native.sol.toFixed(4)} SOL`}
             hint="Not counted as recoverable: a sweep cannot spend the balance that pays for it."
+          />
+          <Stat
+            label="Wallet total"
+            value={
+              recoverable.walletValueUsd == null
+                ? "—"
+                : formatUsd(recoverable.walletValueUsd)
+            }
+            hint={
+              recoverable.walletValueSol == null
+                ? `Every token plus native SOL, at ${pluralize(scan.tokens.length, "token")}.`
+                : `≈ ${formatAmount(recoverable.walletValueSol, 4)} SOL — every token plus native SOL, valued by Jupiter. NFTs are not priced here.`
+            }
           />
         </CardContent>
       </Card>
@@ -454,18 +471,7 @@ function ScanResult({
 
       <TokenRows tokens={visible} hiddenCount={hidden} />
 
-      {nfts > 0 ? (
-        <p className="flex items-center gap-1.5 text-xs text-subtle">
-          <Link
-            href="/void"
-            className="inline-flex items-center gap-1 text-muted underline-offset-2 hover:text-foreground hover:underline"
-          >
-            {pluralize(nfts, "NFT")} in this wallet
-            <ArrowRight className="size-3" aria-hidden />
-          </Link>
-          These are never swept as dust — burning one is an explicit choice.
-        </p>
-      ) : null}
+      {nfts > 0 ? <CollectiblesCard assets={scan.nonFungibles} /> : null}
 
       <Card>
         <CardContent className="flex flex-col items-start gap-3">
@@ -483,6 +489,60 @@ function ScanResult({
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/**
+ * NFTs and cNFTs, in their own card and their own scroll.
+ *
+ * Separate from the dust list because they are a different kind of thing: a sweep
+ * never sells one, and a cNFT is a leaf in a tree rather than an account, so
+ * mixing them into the token rows invited the reader to compare prices that do
+ * not exist. The list scrolls on its own so a wallet holding hundreds of them
+ * cannot push the rest of the page out of reach.
+ */
+function CollectiblesCard({ assets }: { assets: NonFungibleAsset[] }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm font-medium text-muted">
+          NFTs and cNFTs
+        </CardTitle>
+        <p className="mt-1 text-xs leading-relaxed text-subtle">
+          {pluralize(assets.length, "collectible")} — never swept as dust. Burning
+          one is an explicit choice in The Void.
+        </p>
+      </CardHeader>
+      <CardContent className="p-0 pt-3 sm:p-0 sm:pt-3">
+        <ul className="max-h-72 divide-y divide-border/50 overflow-y-auto border-t border-border/60">
+          {assets.map((asset) => (
+            <li
+              key={asset.id}
+              className="flex items-center gap-3 px-5 py-2.5 sm:px-6"
+            >
+              <TokenLogo src={asset.imageUri} symbol={asset.name} size={30} />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="truncate text-sm font-medium">
+                    {asset.name}
+                  </span>
+                  {asset.compressed ? (
+                    <Badge variant="accent" size="sm">
+                      cNFT
+                    </Badge>
+                  ) : null}
+                </div>
+                <p className="truncate text-xs text-subtle">
+                  {typeof asset.collection === "string"
+                    ? asset.collection
+                    : (asset.collection?.name ?? asset.interface)}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
   );
 }
 

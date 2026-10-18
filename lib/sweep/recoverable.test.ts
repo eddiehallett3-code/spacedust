@@ -91,30 +91,26 @@ function scan(
   };
 }
 
-/** Rent in USD, so the expectation reads like the code rather than beside it. */
-function rentUsd(lamports: number, price: number = SOL_PRICE): number {
-  return (lamports / 1e9) * price;
-}
-
 describe("summariseRecoverable", () => {
-  it("counts one rent deposit per account a sweep could close", () => {
+  it("claims no rent for accounts that still hold a balance", () => {
+    // Their rent is real but unreachable until the balance is sold or burned.
+    // This page promises what can be collected *now*, so those accounts count as
+    // closable — a fact about the future — and contribute no lamports today.
     const result = summariseRecoverable(
       scan([token(), token({ mint: "A" }), token({ mint: "B" })]),
-      RENT,
     );
 
     expect(result.closableAccounts).toBe(3);
-    expect(result.rentLamports).toBe(3 * RENT);
-    expect(result.rentUsd).toBeCloseTo(rentUsd(3 * RENT), 10);
-    // Dust value plus rent, and nothing else.
-    expect(result.totalUsd).toBeCloseTo(3 + rentUsd(3 * RENT), 10);
+    expect(result.rentLamports).toBe(0);
+    expect(result.rentUsd).toBe(0);
+    // The dust value is the whole total.
+    expect(result.totalUsd).toBeCloseTo(3, 10);
     expect(totalLimitations(result.limitations)).toBe(0);
   });
 
   it("promises nothing for a frozen holding — not its rent, not its value", () => {
     const result = summariseRecoverable(
       scan([token({ frozen: true, valueUsd: 500 })]),
-      RENT,
     );
 
     expect(result.closableAccounts).toBe(0);
@@ -129,7 +125,6 @@ describe("summariseRecoverable", () => {
   it("does not count a transfer hook as recoverable in any form", () => {
     const result = summariseRecoverable(
       scan([token({ hasTransferHook: true, valueUsd: 42 })]),
-      RENT,
     );
 
     expect(result.closableAccounts).toBe(0);
@@ -142,7 +137,6 @@ describe("summariseRecoverable", () => {
     // The swap works; the ATA keeps a residue, so `closeAccount` would fail.
     const result = summariseRecoverable(
       scan([token({ hasTransferFee: true, valueUsd: 7 })]),
-      RENT,
     );
 
     expect(result.closableAccounts).toBe(0);
@@ -155,7 +149,6 @@ describe("summariseRecoverable", () => {
     // No address means no close — and we must not substitute a derived ATA.
     const result = summariseRecoverable(
       scan([token({ tokenAccount: null, valueUsd: 3 })]),
-      RENT,
     );
 
     expect(result.closableAccounts).toBe(0);
@@ -164,10 +157,12 @@ describe("summariseRecoverable", () => {
   });
 
   it("still reports lamports when there is no price to convert at", () => {
-    const result = summariseRecoverable(scan([token()], null), RENT);
+    const result = summariseRecoverable(
+      scan([token()], null, [emptyAccount()]),
+    );
 
     // The rent is real whether or not anything can price it.
-    expect(result.rentLamports).toBe(RENT);
+    expect(result.rentLamports).toBe(2_039_280);
     expect(result.rentUsd).toBeNull();
     expect(result.totalUsd).toBeNull();
     expect(result.solPriceUsd).toBeNull();
@@ -176,36 +171,48 @@ describe("summariseRecoverable", () => {
 
   it("treats an unusable price as no price at all", () => {
     for (const bad of [0, -5, Number.NaN, Number.POSITIVE_INFINITY]) {
-      const result = summariseRecoverable(scan([token()], bad), RENT);
+      const result = summariseRecoverable(scan([token()], bad));
       expect(result.solPriceUsd).toBeNull();
       expect(result.totalUsd).toBeNull();
     }
   });
 
-  it("keeps the native balance out of the total", () => {
-    const result = summariseRecoverable(scan([token()]), RENT);
+  it("keeps the native balance out of the recoverable total", () => {
+    const result = summariseRecoverable(scan([token()]));
 
     // 0.005 SOL in the wallet must not appear as recoverable: a sweep cannot
     // touch the balance that pays for it.
     expect(result.nativeLamports).toBe(5_000_000);
-    expect(result.totalUsd).toBeCloseTo(1 + rentUsd(RENT), 10);
+    expect(result.totalUsd).toBeCloseTo(1, 10);
+
+    // It is part of the *wallet* total, which answers a different question.
+    expect(result.walletValueUsd).toBe(2); // 1 of tokens + 1 of native
+    expect(result.walletValueSol).toBeCloseTo(2 / SOL_PRICE, 10);
   });
 
-  it("uses the rent it is handed rather than a constant", () => {
-    // Rent is set by the network and has changed before, so a figure passed in
-    // from the chain has to win.
+  it("has no wallet total when native SOL could not be priced", () => {
+    const result = summariseRecoverable({
+      ...scan([token()]),
+      native: { lamports: 5_000_000, sol: 0.005, valueUsd: null },
+    });
+
+    expect(result.walletValueUsd).toBeNull();
+    expect(result.walletValueSol).toBeNull();
+    // The token side is still known; only the total is withheld.
+    expect(result.heldValueUsd).toBe(1);
+  });
+
+  it("prices an empty account from its own balance, not a constant", () => {
+    // Token-2022 accounts with extensions hold more than legacy ones, so one
+    // number cannot describe both. This is the only rent the page still claims.
     const result = summariseRecoverable(
-      scan([token(), token({ mint: "A" })]),
-      999,
+      scan([token()], SOL_PRICE, [
+        emptyAccount(),
+        emptyAccount({ address: SECOND_ACCOUNT, lamports: 2_074_080 }),
+      ]),
     );
 
-    expect(result.rentLamports).toBe(1998);
-  });
-
-  it("refuses a negative rent instead of shrinking the total", () => {
-    const result = summariseRecoverable(scan([token()]), -1_000_000);
-
-    expect(result.rentLamports).toBe(0);
+    expect(result.rentLamports).toBe(2_039_280 + 2_074_080);
   });
 
   it("counts each holding once, under the reason that actually blocks it", () => {
@@ -216,7 +223,6 @@ describe("summariseRecoverable", () => {
         token({ tokenAccount: null }),
         token(),
       ]),
-      RENT,
     );
 
     expect(result.limitations).toEqual({
@@ -229,9 +235,10 @@ describe("summariseRecoverable", () => {
       emptyAuthority: 0,
       emptyWithheldFees: 0,
     });
-    // Three of the four are blocked; exactly one account is closable.
+    // Three of the four are blocked; exactly one account is closable — and a
+    // funded account's rent is not counted, only the fact that it could be freed.
     expect(result.closableAccounts).toBe(1);
-    expect(result.rentLamports).toBe(RENT);
+    expect(result.rentLamports).toBe(0);
     expect(totalLimitations(result.limitations)).toBe(3);
   });
 });
@@ -254,7 +261,6 @@ describe("already-empty token accounts", () => {
     // 2,039,280. Pricing these from the constant would understate every row.
     const result = summariseRecoverable(
       scan([], SOL_PRICE, [emptyAccount()]),
-      RENT,
     );
 
     expect(result.emptyAccounts).toBe(1);
@@ -268,7 +274,6 @@ describe("already-empty token accounts", () => {
     // frozen balance, but it closes one. Verified by simulation on mainnet.
     const result = summariseRecoverable(
       scan([], SOL_PRICE, [emptyAccount({ frozen: true })]),
-      RENT,
     );
 
     expect(result.emptyAccounts).toBe(1);
@@ -284,7 +289,6 @@ describe("already-empty token accounts", () => {
       scan([], SOL_PRICE, [
         emptyAccount({ closeAuthority: SECOND_ACCOUNT }),
       ]),
-      RENT,
     );
 
     expect(result.emptyAccounts).toBe(0);
@@ -296,7 +300,6 @@ describe("already-empty token accounts", () => {
   it("accepts a close authority that is the owner itself", () => {
     const result = summariseRecoverable(
       scan([], SOL_PRICE, [emptyAccount({ closeAuthority: OWNER })]),
-      RENT,
     );
 
     expect(result.emptyAccounts).toBe(1);
@@ -308,7 +311,6 @@ describe("already-empty token accounts", () => {
     // needs an authority the holder does not have.
     const result = summariseRecoverable(
       scan([], SOL_PRICE, [emptyAccount({ withheldFees: 173_279 })]),
-      RENT,
     );
 
     expect(result.emptyAccounts).toBe(0);
@@ -316,19 +318,19 @@ describe("already-empty token accounts", () => {
     expect(totalLimitations(result.limitations)).toBe(1);
   });
 
-  it("counts both kinds of rent in one total", () => {
+  it("counts only the empty accounts, and counts both of them", () => {
     const result = summariseRecoverable(
       scan([token()], SOL_PRICE, [
         emptyAccount(),
         emptyAccount({ address: SECOND_ACCOUNT }),
       ]),
-      RENT,
     );
 
-    // One dust account at the live minimum, plus two accounts at their own.
     expect(result.closableAccounts).toBe(1);
     expect(result.emptyAccounts).toBe(2);
-    expect(result.rentLamports).toBe(RENT + 2 * 2_039_280);
+    // The funded account contributes nothing; the two empty ones contribute
+    // their own deposits.
+    expect(result.rentLamports).toBe(2 * 2_039_280);
     expect(result.emptyRentLamports).toBe(2 * 2_039_280);
   });
 
@@ -338,7 +340,6 @@ describe("already-empty token accounts", () => {
         emptyAccount(),
         emptyAccount({ address: SECOND_ACCOUNT, withheldFees: 1 }),
       ]),
-      RENT,
     );
 
     expect(result.emptyAccounts).toBe(1);
@@ -361,7 +362,7 @@ describe("already-empty token accounts", () => {
  */
 describe("holdings in a pool", () => {
   it("promises neither the value nor the rent of a pool share", () => {
-    const result = summariseRecoverable(scan([token({ poolLike: true })]), RENT);
+    const result = summariseRecoverable(scan([token({ poolLike: true })]));
 
     expect(result.closableAccounts).toBe(0);
     expect(result.rentLamports).toBe(0);
@@ -372,7 +373,7 @@ describe("holdings in a pool", () => {
   it("still lists it as held, because it is the user's", () => {
     // Shown and never promised — the same treatment frozen and hook-held value
     // gets. Hiding it would be the opposite mistake: the wallet does hold it.
-    const result = summariseRecoverable(scan([token({ poolLike: true })]), RENT);
+    const result = summariseRecoverable(scan([token({ poolLike: true })]));
 
     expect(result.heldValueUsd).toBe(1);
     expect(result.totalUsd).toBe(0);
@@ -388,7 +389,6 @@ describe("holdings in a pool", () => {
         token({ poolLike: true, tokenAccount: null }),
         token(),
       ]),
-      RENT,
     );
 
     expect(result.limitations.poolLike).toBe(3);
@@ -406,7 +406,6 @@ describe("holdings in a pool", () => {
     // that could be closed.
     const result = summariseRecoverable(
       scan([token({ poolLike: true, priceUsd: null, hasNoPrice: true, valueUsd: 0 })]),
-      RENT,
     );
 
     expect(result.closableAccounts).toBe(0);
@@ -437,7 +436,6 @@ describe("holdings staked in a protocol", () => {
   it("reports a staking token as staked, and never also as a pool share", () => {
     const result = summariseRecoverable(
       scan([token({ staked: MSOL, poolLike: true, valueUsd: 500 })]),
-      RENT,
     );
 
     expect(result.limitations.staked).toBe(1);
@@ -455,7 +453,6 @@ describe("holdings staked in a protocol", () => {
     // happening to look program-controlled.
     const result = summariseRecoverable(
       scan([token({ staked: JITOSOL, poolLike: false, valueUsd: 42 })]),
-      RENT,
     );
 
     expect(result.limitations.staked).toBe(1);
@@ -466,7 +463,6 @@ describe("holdings staked in a protocol", () => {
   it("counts it once in the limitations total", () => {
     const result = summariseRecoverable(
       scan([token({ staked: MSOL, poolLike: true })]),
-      RENT,
     );
 
     expect(totalLimitations(result.limitations)).toBe(1);

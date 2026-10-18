@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, SectionTitle } from "@/components/ui/card";
 import { NftArtwork } from "@/components/void/nft-artwork";
 import { TokenLogo } from "@/components/scanner/token-logo";
-import { formatSol, formatUsd, pluralize } from "@/lib/utils/format";
+import { formatUsd, pluralize } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
 import type { RecoverableBreakdown } from "@/lib/sweep/recoverable";
 import type { WalletScan } from "@/types/token";
@@ -378,7 +378,7 @@ export function WalletInsights({
         {scan.source === "helius-das" ? "Helius's DAS index" : "the free core RPC"},
         across {pluralize(scan.pages, "page")}
         {scan.truncated ? ", truncated where the provider stopped" : ""}. Rent is
-        priced at {formatSol(scan.tokenAccountRentLamports)} per account
+        read from each empty account&apos;s own balance
         {recoverable.solPriceUsd !== null
           ? `, converted at SOL = ${formatUsd(recoverable.solPriceUsd)}`
           : ""}
