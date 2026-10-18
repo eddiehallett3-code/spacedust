@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Code2, ShieldCheck } from "lucide-react";
-import { getTwitterHandle, getTwitterUrl } from "@/lib/config/social";
+import { getGitHubUrl, getTwitterHandle, getTwitterUrl } from "@/lib/config/social";
 import { RECLAIM_FEE_BPS } from "@/lib/utils/constants";
 import { Container } from "./container";
 
@@ -33,7 +33,7 @@ function XLogo({ className }: { className?: string }) {
 export function Footer() {
   const twitterUrl = getTwitterUrl();
   const twitterHandle = getTwitterHandle();
-  const github = process.env.NEXT_PUBLIC_GITHUB_URL;
+  const github = getGitHubUrl();
 
   // Only rendered if it looks like an address. A typo here would produce a mailto
   // link that silently does nothing, which is worse than no link at all for the

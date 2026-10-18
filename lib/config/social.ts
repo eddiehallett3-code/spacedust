@@ -22,6 +22,35 @@ export function getTwitterHandle(): string | null {
   return handle ? `@${handle}` : null;
 }
 
+/**
+ * The public repository, when one is configured.
+ *
+ * Published as "Source" in the footer, which makes it the link somebody clicks
+ * when they want to check that the app is what it claims to be — so it gets the
+ * same treatment as the X account: only a `github.com` URL with an owner *and* a
+ * repository is accepted, and anything else yields no link at all. A "Source"
+ * link to a host we did not choose is worse than no link, because it borrows the
+ * credibility of the label.
+ */
+export function getGitHubUrl(): string | null {
+  const raw = process.env.NEXT_PUBLIC_GITHUB_URL?.trim();
+  if (!raw) return null;
+
+  try {
+    const parsed = new URL(raw);
+    if (!/(^|\.)github\.com$/.test(parsed.hostname)) return null;
+
+    // `github.com` and `github.com/<owner>` are not source, they are a landing
+    // page and a profile. Two segments is the shortest thing that is a repository.
+    const segments = parsed.pathname.split("/").filter(Boolean);
+    if (segments.length < 2) return null;
+
+    return `${parsed.origin}/${segments.slice(0, 2).join("/")}`;
+  } catch {
+    return null;
+  }
+}
+
 function parse(): { url: string; handle: string | null } | null {
   const raw = process.env.NEXT_PUBLIC_TWITTER_URL?.trim();
   if (!raw) return null;
