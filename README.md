@@ -1638,6 +1638,24 @@ npm test            # vitest run
 npm run test:watch  # vitest, watching
 ```
 
+### Dependency overrides
+
+`package.json` pins two patched transitive versions:
+
+- `postcss@8.5.30` — Next 15.5 pins 8.4.31, which is affected by
+  GHSA-qx2v-qp2m-jg93 and GHSA-6g55-p6wh-862q. The 8.5 line is API-compatible,
+  and the production build is verified against it.
+- `bn.js@4.12.3` under `ethjs-unit` and `number-to-bn` — the 4.11.6 copies
+  pulled in by `merkletreejs` are affected by the `<4.12.3` infinite-loop
+  advisory; 4.12.3 is a patch release.
+
+`@bonfida/spl-name-service` was removed because nothing imports it. The
+remaining audit findings are dev-only (Vitest/tinypool), optional React Native
+peers that are installed but never bundled, or upstream packages with no
+patched release yet (`bigint-buffer`; `jayson` → `stream-json`/`uuid`).
+`app/api/tokens/route.ts` refuses to decode a mint account shorter than
+`MintLayout.span`, which keeps the `bigint-buffer` crash path out of reach.
+
 ## Tests
 
 Type-checking and a green build verify that the code is *coherent*, not that it

@@ -138,7 +138,10 @@ export async function GET(request: Request) {
           const flagged: string[] = [];
 
           infos.forEach((info, index) => {
-            if (!info) return;
+            // bigint-buffer (via spl-token's u64 layout) has no patched release
+            // and overflows on short input (CVE-2025-3194), so never decode a
+            // truncated account.
+            if (!info || info.data.length < MintLayout.span) return;
             try {
               // The same 82 bytes for both token programs, so one decode covers
               // SPL and Token-2022 alike.
