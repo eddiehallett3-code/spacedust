@@ -155,7 +155,9 @@
         color-mix(in oklab, var(--color-cyan-core) 10%, transparent),
         transparent 70%
       );
-    background-attachment: fixed;
+    /* Deliberately not `background-attachment: fixed`: iOS repaints the whole
+       page when that is combined with scrolling, which is exactly the jumpy
+       backdrop this layer is meant to avoid. The starfield is the fixed part. */
     min-height: 100dvh;
   }
 
