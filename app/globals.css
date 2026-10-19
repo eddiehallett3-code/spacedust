@@ -50,6 +50,7 @@
   --animate-drift: drift 26s ease-in-out infinite alternate;
   --animate-twinkle: twinkle 4.5s ease-in-out infinite;
   --animate-gradient-x: gradient-x 7s ease infinite;
+  --animate-ufo-float: ufo-float 7s ease-in-out infinite;
 
   @keyframes shimmer {
     from {
@@ -98,6 +99,16 @@
     }
     50% {
       background-position: 100% 50%;
+    }
+  }
+
+  @keyframes ufo-float {
+    0%,
+    100% {
+      transform: translate3d(0, 0, 0) rotate(-1.5deg);
+    }
+    50% {
+      transform: translate3d(0, -12px, 0) rotate(1.5deg);
     }
   }
 }
@@ -244,6 +255,36 @@
 }
 
 @layer utilities {
+  /* The animated saucer is desktop-only and is removed entirely when the
+     visitor asks for reduced motion. Keeping this in explicit CSS rather than
+     relying on stacked `hidden lg:block motion-reduce:hidden` variants makes
+     the two media conditions unambiguous. */
+  .landing-ufo-motion {
+    display: none;
+  }
+  @media (min-width: 1024px) {
+    .landing-ufo-motion {
+      display: block;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .landing-ufo-motion {
+      display: none !important;
+    }
+  }
+
+  /* A static saucer for desktop visitors who ask for reduced motion. The
+     animated copy is hidden by the rule above; this is the fallback that keeps
+     the hero composition intact without movement. */
+  .reduced-ufo {
+    display: none;
+  }
+  @media (prefers-reduced-motion: reduce) and (min-width: 1024px) {
+    .reduced-ufo {
+      display: block;
+    }
+  }
+
   /* Respect users who ask the OS to reduce motion. Every animation in the app
      degrades gracefully; this is the hard guarantee. */
   @media (prefers-reduced-motion: reduce) {

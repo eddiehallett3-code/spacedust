@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, ShieldCheck, Wallet } from "lucide-react";
 import { Container } from "@/components/layout/container";
 import { ToolEmblem } from "@/components/layout/tool-emblem";
+import { LandingFlight } from "@/components/landing/landing-flight";
+import { LandingHero } from "@/components/landing/landing-hero";
 import { Card, CardContent } from "@/components/ui/card";
 import { getSiteUrl } from "@/lib/config/site";
 import { TOOLS } from "@/lib/config/tools";
@@ -96,67 +97,75 @@ export default async function HomePage() {
         // break out of the tag and it has to be escaped properly.
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData()) }}
       />
-      <section className="pt-14 text-center sm:pt-18 lg:pt-20">
-        {/* The site mark, not a tool emblem — each tool gets its own below, and
-            this one is the product they share. The artwork itself carries the
-            name, so there is no visible wordmark next to it: the heading below is
-            for search and assistive tech, not for the eye. */}
-        <div className="flex justify-center">
-          <span className="relative flex size-64 items-center justify-center overflow-hidden rounded-[3rem] ring-1 ring-inset ring-white/10">
-            <Image
-              src="/logo.svg"
-              alt=""
-              width={256}
-              height={256}
-              priority
-              className="size-64"
-              aria-hidden
-            />
-            <span className="absolute inset-0 rounded-[3rem] ring-1 ring-inset ring-white/20 animate-pulse-ring" />
-          </span>
-        </div>
+      <LandingFlight>
+        <LandingHero />
 
-        <h1 className="sr-only">Spacedust</h1>
-      </section>
-
-      {/* Each tool in its own box: the mark large enough to recognise, one line
-          of what it is for, and a way in. The line comes from the shared tool
-          list, so it cannot drift away from the nav's own labels. Three across
-          rather than four: with six tools that is two even rows, and the wider
-          column keeps each line to one line. */}
-      <section
-        aria-label="The tools"
-        className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
-      >
-        {TOOLS.map((tool) => (
-          <Card
-            key={tool.key}
-            className="flex flex-col transition-colors hover:border-white/20"
-          >
-            <CardContent className="flex flex-1 flex-col items-center gap-3 text-center">
-              <ToolEmblem tool={tool.key} className="size-10" />
-              <p className="text-base font-semibold tracking-tight">
-                {tool.name}
+        {/* Each tool in its own box: the mark large enough to recognise, one line
+            of what it is for, and a way in. The line comes from the shared tool
+            list, so it cannot drift away from the nav's own labels. Three across
+            rather than four: with six tools that is two even rows, and the wider
+            column keeps each line to one line. */}
+        <section
+          id="tools"
+          aria-labelledby="tools-heading"
+          className="relative z-10 scroll-mt-24 pt-10 sm:pt-14"
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-subtle">
+                The toolkit
               </p>
-              <p className="text-sm leading-relaxed text-muted">
-                {tool.tagline}
-              </p>
-              <Link
-                href={tool.href}
-                className="group mt-auto inline-flex items-center gap-1 pt-1 text-sm font-medium text-violet-glow transition-colors hover:text-violet-core"
+              <h2
+                id="tools-heading"
+                className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl"
               >
-                {tool.cta}
-                <ArrowRight
-                  className="size-3.5 transition-transform group-hover:translate-x-0.5"
-                  aria-hidden
-                />
-              </Link>
-            </CardContent>
-          </Card>
-        ))}
-      </section>
+                Six tools for a cleaner wallet.
+              </h2>
+            </div>
+            <Link
+              href="/how-it-works"
+              className="group inline-flex items-center gap-1 text-sm text-muted transition-colors hover:text-foreground"
+            >
+              How each tool works
+              <ArrowRight
+                className="size-3.5 transition-transform group-hover:translate-x-0.5"
+                aria-hidden
+              />
+            </Link>
+          </div>
 
-      <section className="mt-14">
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {TOOLS.map((tool) => (
+              <Card
+                key={tool.key}
+                className="flex flex-col transition-colors hover:border-white/20"
+              >
+                <CardContent className="flex flex-1 flex-col items-center gap-3 text-center">
+                  <ToolEmblem tool={tool.key} className="size-10" />
+                  <p className="text-base font-semibold tracking-tight">
+                    {tool.name}
+                  </p>
+                  <p className="text-sm leading-relaxed text-muted">
+                    {tool.tagline}
+                  </p>
+                  <Link
+                    href={tool.href}
+                    className="group mt-auto inline-flex items-center gap-1 pt-1 text-sm font-medium text-violet-glow transition-colors hover:text-violet-core"
+                  >
+                    {tool.cta}
+                    <ArrowRight
+                      className="size-3.5 transition-transform group-hover:translate-x-0.5"
+                      aria-hidden
+                    />
+                  </Link>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+      </LandingFlight>
+
+      <section className="relative z-10 mt-14">
         <ul className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm text-muted">
           {GUARANTEES.map((item) => (
             <li key={item.text} className="flex items-center gap-2">
