@@ -3,7 +3,6 @@
 import { AlertTriangle, ArrowRight, CheckCircle2, ExternalLink, Info, Orbit } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { RefundNote } from "@/components/legal/refund-note";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, SectionTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -309,8 +308,6 @@ export function VoidPanel({
                 hint={hasPreview ? "estimated" : undefined}
               />
             </div>
-
-            <RefundNote />
 
             <SweepError error={error} />
 

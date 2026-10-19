@@ -165,12 +165,6 @@ export function Footer() {
               Terms
             </Link>
             <Link
-              href="/refund-policy"
-              className="text-muted transition-colors hover:text-foreground"
-            >
-              Refund policy
-            </Link>
-            <Link
               href="/delete-data"
               className="text-muted transition-colors hover:text-foreground"
             >

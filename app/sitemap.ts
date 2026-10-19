@@ -23,7 +23,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${base}/security`, priority: 0.6 },
     { url: `${base}/privacy`, priority: 0.3 },
     { url: `${base}/terms`, priority: 0.3 },
-    { url: `${base}/refund-policy`, priority: 0.3 },
     ...TOOLS.map((tool) => ({
       url: `${base}${tool.href}`,
       priority: 0.8,

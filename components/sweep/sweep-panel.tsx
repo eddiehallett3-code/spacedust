@@ -10,7 +10,6 @@ import { InstructionAuditPanel } from "@/components/security/instruction-audit-p
 import { WarningsList } from "./warnings-list";
 import { getPublicFeeWallet } from "@/lib/config/public-env";
 import { RECLAIM_RATE } from "@/lib/config/tools";
-import { RefundNote } from "@/components/legal/refund-note";
 import { receiveFigures } from "@/lib/sweep/receive";
 import { OUTPUT_ASSETS } from "@/lib/utils/constants";
 import { cn } from "@/lib/utils/cn";
@@ -281,7 +280,6 @@ export function SweepPanel({
           )}
         </span>
       </p>
-      <RefundNote className="mt-2" />
     </div>
   );
 }

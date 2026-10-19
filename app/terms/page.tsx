@@ -91,13 +91,8 @@ export default function TermsPage() {
         </p>
         <p>
           Solana network and priority fees are separate, are set by the network
-          and validators, and are non-refundable once a transaction is submitted.
-          Third-party providers may charge their own fees.
-        </p>
-        <p>
-          Refunds are governed by our{" "}
-          <Link href="/refund-policy">refund policy</Link>, which forms part of
-          these terms.
+          and validators, and are not paid to Spacedust. Third-party providers
+          may charge their own fees.
         </p>
 
         <h2>5. Third-party services</h2>
@@ -210,8 +205,8 @@ export default function TermsPage() {
           If any provision is unenforceable, the rest remains in effect. A failure
           to enforce a provision is not a waiver. You may not assign these terms
           without our consent; we may assign them with a successor service. These
-          terms, the privacy policy and the refund policy are the entire agreement
-          between you and us about the app.
+          terms and the privacy policy are the entire agreement between you and us
+          about the app.
         </p>
 
         <h2>15. Contact</h2>

@@ -11,11 +11,6 @@ the final wording reviewed by a qualified lawyer in the operator's jurisdiction.
 - `/terms` — non-custodial service description, eligibility, user duties, fees,
   third parties, no advice, prohibited uses, IP, warranty/availability,
   liability cap and exclusions, indemnity, governing law.
-- `/refund-policy` — on-chain finality, non-refundable network fees, when the
-  Spacedust rent fee applies, wrong-address/amount rule, no card chargebacks,
-  request process and consumer rights.
-- Refund wording at the fee/checkout surfaces: Payload preview, The Void token
-  panel, The Void NFT panel, Salvage/rent-reclaim, Slingshot and Approvals.
 - `/delete-data` — disconnects the wallet and clears localStorage,
   sessionStorage, accessible cookies, IndexedDB, Cache Storage and service
   workers for this origin. It explains that there is no Spacedust account and
@@ -54,9 +49,6 @@ Confirm:
 - [ ] The governing law and jurisdiction are correct.
 - [ ] Counsel has reviewed the privacy policy and terms before the project is
       run as a business; the current wording is a template, not legal advice.
-- [ ] The refund wording matches how fees are actually charged on chain. A
-      separate refund page is optional if there is no card checkout; a short
-      "Fees and refunds" section is enough.
 - [ ] If the operator is outside the UK/EU but targets those users, whether an
       Article 27 representative is required.
 - [ ] The hosting/RPC/Jupiter/Reown/Upstash processors and their data locations
@@ -80,13 +72,12 @@ Confirm:
 ## Verification steps
 
 1. `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`.
-2. Open `/privacy`, `/terms`, `/refund-policy`, `/delete-data`; confirm footer
-   links, contact block and no missing-contact warning.
+2. Open `/privacy`, `/terms`, `/delete-data`; confirm footer links, contact
+   block and no missing-contact warning.
 3. Clear site data; confirm the storage notice appears once and dismisses.
 4. Connect a wallet, run `/delete-data`; confirm the wallet disconnects, local
    preferences/history are gone, and the page reloads.
-5. Open each fee preview; confirm the refund sentence is visible next to the fee,
-   not only in the footer.
+5. Open each fee preview; confirm the fee amount is visible before signing.
 6. Re-run the client bundle key scan if any dependency or env variable changes.
 
 ## Notes
