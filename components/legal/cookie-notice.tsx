@@ -43,30 +43,25 @@ export function CookieNotice() {
     <div
       role="region"
       aria-label="Browser storage notice"
-      className="fixed inset-x-3 bottom-3 z-50 mx-auto max-w-3xl rounded-xl border border-border/70 bg-space-850/95 p-3 shadow-xl backdrop-blur-xl sm:inset-x-6 sm:bottom-5 sm:p-4"
+      className="fixed inset-x-3 bottom-3 z-50 mx-auto flex max-w-2xl items-center gap-3 rounded-full border border-border/70 bg-space-850/95 px-3 py-2 shadow-xl backdrop-blur-xl sm:inset-x-6 sm:bottom-5 sm:px-4"
     >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-xs leading-relaxed text-muted">
-          No analytics, advertising or session-replay cookies. Spacedust uses
-          only essential browser storage for your wallet connection and
-          preferences.{" "}
-          <Link
-            href="/privacy"
-            className="text-violet-glow underline underline-offset-2"
-          >
-            Privacy policy
-          </Link>
-          .
-        </p>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={dismiss}
-          className="shrink-0 self-end sm:self-auto"
+      <p className="min-w-0 flex-1 text-[11px] leading-snug text-muted">
+        Essential storage only. No tracking.{" "}
+        <Link
+          href="/privacy"
+          className="text-violet-glow underline underline-offset-2"
         >
-          Got it
-        </Button>
-      </div>
+          Privacy
+        </Link>
+      </p>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={dismiss}
+        className="shrink-0 rounded-full px-3"
+      >
+        Got it
+      </Button>
     </div>
   );
 }

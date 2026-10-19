@@ -25,6 +25,7 @@ export function WalletButton({ className }: { className?: string }) {
   if (!connected || !publicKey) {
     return (
       <Button
+        variant="outline"
         className={className}
         onClick={open}
         loading={connecting}

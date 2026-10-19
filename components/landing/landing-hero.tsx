@@ -7,6 +7,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { LandingProductPreview } from "./landing-product-preview";
 import { UfoArtwork } from "./ufo-artwork";
 
 /**
@@ -103,7 +104,9 @@ export function LandingHero() {
         </div>
       </div>
 
-      <div className="mt-10 flex justify-center lg:mt-12">
+      <LandingProductPreview />
+
+      <div className="mt-8 flex justify-center lg:mt-10">
         <a
           href="#tools"
           className="group inline-flex flex-col items-center gap-1 text-[11px] uppercase tracking-[0.18em] text-subtle transition-colors hover:text-muted"
