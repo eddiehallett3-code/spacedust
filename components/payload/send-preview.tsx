@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SimulationReport } from "@/components/sweep/simulation-report";
 import { WarningsList } from "@/components/sweep/warnings-list";
 import { BatchReport } from "@/components/payload/batch-report";
+import { RefundNote } from "@/components/legal/refund-note";
 import { solscanTxUrl } from "@/lib/solana/submit";
 import { PAYLOAD_RATE } from "@/lib/config/tools";
 import { formatSol, pluralize, truncateAddress } from "@/lib/utils/format";
@@ -106,6 +107,7 @@ export function SendPreview({
                 </dd>
               </div>
             </dl>
+            <RefundNote />
 
             {payload.netIsNegative ? (
               <div className="rounded-xl border border-warning/25 bg-warning/6 p-3">

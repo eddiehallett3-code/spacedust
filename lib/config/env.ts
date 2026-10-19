@@ -7,6 +7,8 @@
  * substitutes `process.env.*` for variables prefixed with `NEXT_PUBLIC_`.
  */
 
+import "server-only";
+
 /** Mainnet cluster. Dust sweeping on devnet is not a thing. */
 export const CLUSTER = "mainnet-beta" as const;
 

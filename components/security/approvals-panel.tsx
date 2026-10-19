@@ -11,6 +11,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { RefundNote } from "@/components/legal/refund-note";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -284,6 +285,8 @@ export function ApprovalsPanel() {
                     )}. Nothing is recovered, because nothing is sold.`
                   : "Preview builds the exact transactions. Nothing is signed until you approve them, and every one is simulated first."}
               </p>
+
+              <RefundNote />
 
               <div className="flex flex-wrap items-center gap-2">
                 <Button

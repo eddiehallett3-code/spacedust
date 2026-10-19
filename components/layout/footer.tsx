@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Code2, ShieldCheck } from "lucide-react";
 import { getGitHubUrl, getTwitterHandle, getTwitterUrl } from "@/lib/config/social";
+import { LEGAL_EMAIL } from "@/lib/config/legal";
 import { RECLAIM_FEE_BPS } from "@/lib/utils/constants";
 import { Container } from "./container";
 import { SoundToggle } from "./sound-toggle";
@@ -36,11 +37,10 @@ export function Footer() {
   const twitterHandle = getTwitterHandle();
   const github = getGitHubUrl();
 
-  // Only rendered if it looks like an address. A typo here would produce a mailto
-  // link that silently does nothing, which is worse than no link at all for the
-  // one control whose entire job is to be reachable.
-  const rawSupport = process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim();
-  const support = rawSupport && rawSupport.includes("@") ? rawSupport : null;
+  // LEGAL_EMAIL already falls back to NEXT_PUBLIC_SUPPORT_EMAIL and only
+  // returns a non-empty string; keep the visible contact consistent across the
+  // footer and legal pages.
+  const support = LEGAL_EMAIL;
 
   return (
     <footer className="relative z-10 mt-20 border-t border-border/70">
@@ -148,6 +148,35 @@ export function Footer() {
         </div>
 
         <div className="border-t border-border/60 py-6">
+          <nav
+            aria-label="Legal"
+            className="mb-4 flex flex-wrap gap-x-4 gap-y-2 text-xs"
+          >
+            <Link
+              href="/privacy"
+              className="text-muted transition-colors hover:text-foreground"
+            >
+              Privacy
+            </Link>
+            <Link
+              href="/terms"
+              className="text-muted transition-colors hover:text-foreground"
+            >
+              Terms
+            </Link>
+            <Link
+              href="/refund-policy"
+              className="text-muted transition-colors hover:text-foreground"
+            >
+              Refund policy
+            </Link>
+            <Link
+              href="/delete-data"
+              className="text-muted transition-colors hover:text-foreground"
+            >
+              Delete my data
+            </Link>
+          </nav>
           <p className="text-xs leading-relaxed text-subtle">
             <strong className="font-semibold text-muted">Safety note:</strong>{" "}
             Always verify you are on the correct domain before connecting your

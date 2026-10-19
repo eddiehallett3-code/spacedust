@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { AlertTriangle, Globe, KeyRound, Lock, ShieldCheck, Wallet } from "lucide-react";
 import { Container } from "@/components/layout/container";
 import { PageHeader } from "@/components/layout/page-header";
@@ -133,6 +134,14 @@ export default function SecurityPage() {
             app really only keeps what it says should not have to go to their
             browser's site settings to find out. */}
         <ClearStoredData />
+        <p className="text-xs leading-relaxed text-muted">
+          To disconnect the wallet and clear every store, including the
+          WalletConnect session, use{" "}
+          <Link href="/delete-data" className="text-violet-glow underline">
+            Delete my data
+          </Link>
+          .
+        </p>
         <p>
           The QR scanner decodes a code on the device with the camera and uploads
           nothing; the camera stops the moment the dialog closes.

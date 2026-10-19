@@ -13,6 +13,7 @@ import { solscanTxUrl } from "@/lib/solana/submit";
 import { planEmptyAccountCloses } from "@/lib/sweep/empty-accounts";
 import { feeFromRentLamports } from "@/lib/solana/rent";
 import { RECLAIM_RATE } from "@/lib/config/tools";
+import { RefundNote } from "@/components/legal/refund-note";
 import { RECLAIM_FEE_BPS } from "@/lib/utils/constants";
 import { formatSol, pluralize, truncateAddress } from "@/lib/utils/format";
 import type { EmptyTokenAccount } from "@/types/token";
@@ -185,6 +186,7 @@ export function RentReclaimPanel({
             cost is the network fee.
           </span>
         </p>
+        <RefundNote />
         {hasPreview ? (
           <div className="flex flex-col gap-3">
             <SimulationReport

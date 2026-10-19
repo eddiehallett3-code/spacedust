@@ -360,6 +360,8 @@ export const STORAGE_KEYS = {
    */
   sweptWallets: "spacedust:v1:sweepHistory:sweptWallets",
   sweptUsd: "spacedust:v1:sweepHistory:sweptUsd",
+  /** Whether the essential-storage notice has been dismissed. */
+  cookieNotice: "spacedust:v1:cookieNotice",
 } as const;
 
 export const HISTORY_MAX_ENTRIES = 25;

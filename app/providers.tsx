@@ -11,6 +11,7 @@ import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { MobileWalletAdapter } from "@/components/wallet/mobile-wallet-adapter";
 import { WalletModalProvider } from "@/components/wallet/wallet-modal";
+import { CookieNotice } from "@/components/legal/cookie-notice";
 import { preloadSounds, primeSounds } from "@/lib/ui/sound";
 
 /**
@@ -169,6 +170,7 @@ export function Providers({ children }: { children: ReactNode }) {
                 },
               }}
             />
+            <CookieNotice />
           </TooltipProvider>
         </WalletModalProvider>
       </WalletProvider>

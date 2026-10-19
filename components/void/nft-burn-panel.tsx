@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { NftArtwork } from "@/components/void/nft-artwork";
+import { RefundNote } from "@/components/legal/refund-note";
 import { SimulationReport } from "@/components/sweep/simulation-report";
 import { WarningsList } from "@/components/sweep/warnings-list";
 import { SweepError } from "@/components/sweep/controls-column";
@@ -587,6 +588,8 @@ export function NftBurnPanel({
           )}
         </span>
       </p>
+
+      <RefundNote />
 
       <div className="flex flex-col gap-2">
         {hasPreview ? (
