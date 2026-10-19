@@ -36,7 +36,7 @@ export function LandingHero() {
             className="mt-5 text-4xl font-semibold leading-[1.04] tracking-tight text-balance sm:text-5xl lg:text-6xl"
           >
             Clean up your{" "}
-            <span className="text-gradient">Solana wallet</span>.
+            <span className="text-gradient">Solana wallet.</span>
           </h1>
 
           <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-muted sm:text-lg lg:mx-0">
