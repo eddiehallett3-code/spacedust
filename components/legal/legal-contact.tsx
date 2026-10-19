@@ -7,9 +7,10 @@ import {
 /**
  * The controller/contact block used by every legal page.
  *
- * It deliberately renders a visible “not configured” state instead of a guessed
- * mailbox or address. A legal page that invents a contact is worse than one that
- * tells the operator, before launch, that the contact still has to be supplied.
+ * A monitored email is the required contact. A postal address is optional for
+ * a hobby project; add a real service/trading address when operating as a sole
+ * trader or company if consumer/trader rules require one. If the email is
+ * missing, the block says so rather than inventing a mailbox.
  */
 export function LegalContact() {
   return (
@@ -20,11 +21,7 @@ export function LegalContact() {
       <p className="font-semibold text-foreground">{LEGAL_ENTITY}</p>
       {LEGAL_ADDRESS ? (
         <p className="mt-1 text-muted whitespace-pre-line">{LEGAL_ADDRESS}</p>
-      ) : (
-        <p className="mt-1 text-warning">
-          Registered postal address is not configured yet.
-        </p>
-      )}
+      ) : null}
       {LEGAL_EMAIL ? (
         <p className="mt-1">
           Email:{" "}

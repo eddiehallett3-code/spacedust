@@ -58,10 +58,11 @@ for this origin.
 
 - Confirm whether a UK/EU representative is required if the operator is not
   established there.
-- Confirm the legal entity, registered/postal address, monitored privacy mailbox
-  and governing law. These are environment variables and are intentionally blank
-  until supplied; the legal pages show a visible "not configured" state rather
-  than inventing details.
+- Confirm the legal entity, monitored privacy mailbox and governing law before
+  launch. A postal address is optional for a hobby project; add a service/trading
+  address when operating as a sole trader or company if consumer/trader rules
+  require it. The legal pages show a visible "not configured" warning until the
+  email is supplied rather than inventing one.
 - If analytics or any optional tracker is added, the storage notice must become a
   real consent control before it ships, and this map and the privacy policy must be
   updated first.

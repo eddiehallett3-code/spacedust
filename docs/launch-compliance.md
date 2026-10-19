@@ -31,29 +31,38 @@ the final wording reviewed by a qualified lawyer in the operator's jurisdiction.
 Set these Vercel environment variables (public values, no secrets):
 
 ```bash
-LEGAL_ENTITY=                      # registered legal name of the operator
-LEGAL_ADDRESS=                     # real postal address for legal/privacy notices
-LEGAL_EMAIL=                       # monitored privacy/legal mailbox
-LEGAL_JURISDICTION=                # e.g. England and Wales; confirm with counsel
+LEGAL_ENTITY=Spacedust             # project/trading name, or your legal name
+LEGAL_EMAIL=                       # monitored privacy/legal mailbox — required
+LEGAL_JURISDICTION=England and Wales
+LEGAL_ADDRESS=                     # optional for a hobby project
 NEXT_PUBLIC_SUPPORT_EMAIL=         # optional general support mailbox
 ```
 
-The pages show a visible "not configured" warning if the entity/address/email is
-missing. Do not launch with that warning visible.
+For a hobby project based in England, a monitored email is enough for the
+privacy contact; a postal address is optional. Add a service/trading address
+when operating as a sole trader or company if consumer/trader rules require it.
+Do not publish a home address just to fill the field.
+
+The pages show a visible "not configured" warning if `LEGAL_EMAIL` is missing.
+Do not launch with that warning visible.
 
 Confirm:
 
-- [ ] The legal entity and postal address are correct.
+- [ ] `LEGAL_ENTITY` is correct (project name for a hobby; legal/trading name
+      once a sole trader or company).
 - [ ] The mailbox exists, is monitored, and can receive legal/privacy requests.
 - [ ] The governing law and jurisdiction are correct.
-- [ ] Counsel has reviewed the privacy policy, terms and refund policy.
-- [ ] The refund wording matches how fees are actually charged on chain.
+- [ ] Counsel has reviewed the privacy policy and terms before the project is
+      run as a business; the current wording is a template, not legal advice.
+- [ ] The refund wording matches how fees are actually charged on chain. A
+      separate refund page is optional if there is no card checkout; a short
+      "Fees and refunds" section is enough.
 - [ ] If the operator is outside the UK/EU but targets those users, whether an
       Article 27 representative is required.
 - [ ] The hosting/RPC/Jupiter/Reown/Upstash processors and their data locations
       are acceptable, with any DPAs in place.
 - [ ] No analytics or optional tracker has been added since this review. If one
-      is, the storage notice must become a real consent control first.
+      is, a real consent control is required first.
 
 ## Key audit result
 
