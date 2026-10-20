@@ -549,6 +549,27 @@ describe("planNftBurn and a proof too long to send inline", () => {
     expect(plan.warnings).toHaveLength(0);
   });
 
+  it("keeps only one cNFT from a merkle tree in a batch", async () => {
+    // A burn changes the tree's root, so a second leaf's proof would be stale.
+    // The second selection is refused before it can produce a transaction.
+    mocked.proofs = [{ root: ROOT, proof: [proof[0] as string] }];
+
+    const plan = await planNftBurn({
+      connection: fakeConnection(),
+      owner: new PublicKey(OWNER),
+      assets: [
+        cnft,
+        { ...cnft, id: "CNFT_SECOND_LEAF", name: "Second Leaf" },
+      ],
+    });
+
+    expect(plan.packed.flatMap((transaction) => transaction.mints)).toEqual([
+      CNFT_ID,
+    ]);
+    expect(plan.skipped).toHaveLength(1);
+    expect(plan.skipped[0]?.reason).toContain("Shares a merkle tree");
+  });
+
   it("fits the same proof once a lookup table is supplied", async () => {
     const table = new AddressLookupTableAccount({
       key: new PublicKey(
