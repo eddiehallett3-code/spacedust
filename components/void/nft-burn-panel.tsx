@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { AlertTriangle, Check, CheckCircle2, Copy, ExternalLink, Eye, EyeOff, Flame, Info } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +48,7 @@ export function NftBurnPanel({
   theBurn,
   onBurnt,
   kind = "nft",
+  tableSetup = false,
   hidden,
   hiddenAssets,
   onSetHidden,
@@ -73,9 +74,9 @@ export function NftBurnPanel({
    *
    * It has to be: the panel only sees one tab's assets, and the pipeline below
    * does not. With a selection per panel, ticking an NFT on one tab and a cNFT on
-   * the other and pressing Burn burned *one* of them — the button said "Burn 1
+   * another and pressing Burn burned *one* of them — the button said "Burn 1
    * NFT" because that was all its own list could see — and the shared result
-   * screen then appeared on both tabs, so it read as though both had gone. One
+   * screen then appeared on every tab, so it read as though all had gone. One
    * selection, one batch, one transaction, whichever tabs they came from.
    */
   selected: ReadonlySet<string>;
@@ -93,10 +94,19 @@ export function NftBurnPanel({
    * comes looking for reassurance. Promising rent back there would be a lie.
    */
   kind?: "nft" | "cnft";
+  /**
+   * This tab holds only cNFTs whose proof needs an address lookup table.
+   *
+   * The parent has already filtered the list; this prop changes the copy and
+   * the empty state, not the contents. That keeps the one asset grid and the
+   * one burn route while letting the setup cost be explained before selection.
+   */
+  tableSetup?: boolean;
 }) {
   const isCnft = kind === "cnft";
+  const isTableSetup = isCnft && tableSetup;
   const noun = isCnft ? "cNFT" : "NFT";
-  // The selection lives in the parent — see the props above. Two panels, two
+  // The selection lives in the parent — see the props above. Three panels, four
   // tabs, one batch.
 
   /**
@@ -123,38 +133,10 @@ export function NftBurnPanel({
    * Split the cNFT tab by what a burn of each tree needs.
    *
    * The proof length is a property of the tree, cached on the scan (see
-   * `proofNodes` on `CompressedLeaf`). A tree whose non-canopy proof fits in one
-   * transaction is left in the ordinary grid; one that does not is put under its
-   * own heading, because selecting it will add a lookup-table setup step that
-   * the user has not been asked to approve yet. Grouping at selection time is
-   * the whole point: the per-card warning used to appear only after a preview,
-   * by which point the cost was easy to miss.
-   *
-   * An unknown proof length stays in the direct group. Unknown is not evidence
-   * of a long proof, and the planner still measures it before building anything.
+   * `proofNodes` on `CompressedLeaf`). The parent now uses that fact to put
+   * over-limit proofs on their own tab before this panel ever sees them; this
+   * panel only needs `rows` for whatever list it was handed.
    */
-  const lookupRows = useMemo(
-    () =>
-      isCnft
-        ? rows.filter((asset) => cnftFitsInline(asset) === false)
-        : [],
-    [isCnft, rows],
-  );
-  const directRows = useMemo(
-    () =>
-      isCnft
-        ? rows.filter((asset) => cnftFitsInline(asset) !== false)
-        : rows,
-    [isCnft, rows],
-  );
-  const groupedCnfts = isCnft && lookupRows.length > 0;
-  // One grid, in reading order: the assets that burn directly, then the ones
-  // that need a table. Headings are inserted as full-width grid items below.
-  const gridRows = useMemo(
-    () => (groupedCnfts ? [...directRows, ...lookupRows] : rows),
-    [groupedCnfts, directRows, lookupRows, rows],
-  );
-
   const verdicts = useMemo(
     () => new Map(assets.map((asset) => [asset.id, nftBurnability(asset)])),
     [assets],
@@ -168,8 +150,8 @@ export function NftBurnPanel({
   /**
    * What the batch contains, by kind — which is what the button has to say.
    *
-   * A selection can span both tabs now, so "Burn 1 NFT" while two assets are
-   * ticked is the exact lie this replaces.
+   * A selection can span more than one tab now, so "Burn 1 NFT" while two assets
+   * are ticked is the exact lie this replaces.
    */
   const nftsSelected = selectedAssets.filter((asset) => !asset.compressed).length;
   const cnftsSelected = selectedAssets.filter((asset) => asset.compressed).length;
@@ -352,7 +334,7 @@ export function NftBurnPanel({
       });
       // Never leave anything ticked for a second run. Burning is opt-in, and a
       // selection that survives a burn is an invitation to sign it again. This
-      // clears the shared selection, so both tabs are emptied by the run.
+      // clears the shared selection, so every tab is emptied by the run.
       onSelectionChange(new Set());
       onBurnt?.(burnedIds);
     }
@@ -376,6 +358,27 @@ export function NftBurnPanel({
         // showed when the user ticked these.
         nameFor={nameFor}
       />
+    );
+  }
+
+  if (
+    isTableSetup &&
+    assets.length === 0 &&
+    (hiddenAssets?.length ?? 0) === 0
+  ) {
+    return (
+      <div className="glass rounded-2xl p-8 text-center">
+        <span className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-linear-to-br from-violet-core/20 to-cyan-core/15 ring-1 ring-inset ring-white/10">
+          <CheckCircle2 className="size-6 text-violet-glow" aria-hidden />
+        </span>
+        <h2 className="mt-4 text-lg font-semibold tracking-tight">
+          Nothing needs a lookup table
+        </h2>
+        <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted">
+          None of this wallet&apos;s cNFTs need one. Any cNFT whose proof fits
+          inside a normal burn transaction is on the cNFTs tab.
+        </p>
+      </div>
     );
   }
 
@@ -419,6 +422,23 @@ export function NftBurnPanel({
         </div>
       </div>
 
+      {/* The whole point of this tab: explain the extra step before a card is
+          ticked. The per-card warning still appears if one of these is selected
+          while this tab is not the one on screen. */}
+      {isTableSetup ? (
+        <div className="rounded-xl border border-violet-core/25 bg-violet-core/5 px-3 py-2.5 text-[11px] leading-relaxed text-muted">
+          <p className="font-medium text-foreground">
+            Needs lookup-table setup
+          </p>
+          <p className="mt-1">
+            Their trees carry more proof accounts than one transaction holds.
+            Burning one creates an address lookup table first — an extra wallet
+            approval and a few network fees. The table&apos;s rent can be
+            reclaimed afterwards.
+          </p>
+        </div>
+      ) : null}
+
       {/* If nothing can be burned, say why — loudly. A grid of cards that do not
           respond to a click reads as a broken page unless it explains itself. */}
       {assets.length > 0 && burnable.length === 0 ? (
@@ -448,7 +468,7 @@ export function NftBurnPanel({
           only after Preview has already built it. Hidden once a preview exists,
           because `lookupTableAssets` then carries the authoritative list and the
           panel below explains the same thing with the real count. */}
-      {isCnft && !hasPreview && selectedNeedingLookupTable.length > 0 ? (
+      {isCnft && !isTableSetup && !hasPreview && selectedNeedingLookupTable.length > 0 ? (
         <div className="rounded-xl border border-violet-core/25 bg-violet-core/5 px-3 py-2.5 text-[11px] leading-relaxed text-muted">
           <p className="font-medium text-foreground">
             {pluralize(selectedNeedingLookupTable.length, "selected cNFT")}{" "}
@@ -472,7 +492,7 @@ export function NftBurnPanel({
         className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
         role="list"
       >
-        {gridRows.map((asset) => {
+        {rows.map((asset) => {
           const verdict = verdicts.get(asset.id);
           const isHidden = hidden?.has(asset.id) === true;
           // A hidden row is not offered for burning: its verdict comes from the
@@ -480,159 +500,122 @@ export function NftBurnPanel({
           const canBurn = !isHidden && verdict?.burnable === true;
           const isSelected = selected.has(asset.id);
           const needsLookupTable = isCnft && cnftFitsInline(asset) === false;
-          // Headings are part of the grid so the list stays one reading order;
-          // they appear only when there is something on both sides to separate.
-          const groupHeading =
-            groupedCnfts && asset.id === directRows[0]?.id
-              ? "direct"
-              : groupedCnfts && asset.id === lookupRows[0]?.id
-                ? "lookup"
-                : null;
-
           return (
-            <Fragment key={asset.id}>
-              {groupHeading ? (
-                <li className="col-span-full mt-1 flex flex-col gap-0.5 px-1 first:mt-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-sm font-medium text-foreground">
-                      {groupHeading === "direct"
-                        ? "Burns directly"
-                        : "Needs lookup-table setup"}
-                    </h3>
-                    <Badge
-                      variant={groupHeading === "direct" ? "muted" : "accent"}
-                      size="sm"
-                    >
-                      {groupHeading === "direct"
-                        ? directRows.length
-                        : lookupRows.length}
-                    </Badge>
-                  </div>
-                  <p className="text-[11px] leading-relaxed text-subtle">
-                    {groupHeading === "direct"
-                      ? "Their proofs fit inside one burn transaction, so no setup is needed."
-                      : "Their trees carry more proof accounts than one transaction holds. " +
-                        "Burning one creates an address lookup table first — an extra " +
-                        "approval and a few network fees."}
-                  </p>
-                </li>
-              ) : null}
-              <li>
-                <div
-                  role={canBurn ? "checkbox" : undefined}
-                  aria-checked={canBurn ? isSelected : undefined}
-                  tabIndex={canBurn ? 0 : undefined}
-                  onClick={canBurn ? () => toggle(asset.id) : undefined}
-                  onKeyDown={
-                    canBurn
-                      ? (event) => {
-                          if (event.key === " " || event.key === "Enter") {
-                            event.preventDefault();
-                            toggle(asset.id);
-                          }
+            <li key={asset.id}>
+              <div
+                role={canBurn ? "checkbox" : undefined}
+                aria-checked={canBurn ? isSelected : undefined}
+                tabIndex={canBurn ? 0 : undefined}
+                onClick={canBurn ? () => toggle(asset.id) : undefined}
+                onKeyDown={
+                  canBurn
+                    ? (event) => {
+                        if (event.key === " " || event.key === "Enter") {
+                          event.preventDefault();
+                          toggle(asset.id);
                         }
-                      : undefined
-                  }
-                  className={cn(
-                    "flex flex-col gap-2 rounded-2xl border p-2 transition-colors",
-                    "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-violet-glow",
-                    canBurn
-                      ? isSelected
-                        ? "cursor-pointer border-danger/45 bg-danger/8"
-                        : "cursor-pointer border-border/60 bg-white/2 hover:border-violet-core/40"
-                      : "border-border/40 bg-white/1",
-                    // A hidden row stays visible only because it was asked for, so
-                    // it is dimmed to say so rather than passing as a normal one.
-                    isHidden && "opacity-45",
-                  )}
-                >
-                  <div className="relative">
-                    <NftArtwork src={asset.imageUri} />
-                    {canBurn ? (
-                      <span className="absolute left-2 top-2">
-                        {/* Decorative: the card owns the state and the click. */}
-                        <Checkbox
-                          checked={isSelected}
-                          tabIndex={-1}
-                          aria-hidden
-                          className="pointer-events-none"
-                        />
-                      </span>
-                    ) : null}
-                    {onSetHidden ? (
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          // The card is the checkbox. Hiding is not selecting, and
-                          // must not tick the asset on the way out.
-                          event.stopPropagation();
-                          onSetHidden(asset.id, !isHidden);
-                        }}
-                        aria-label={
-                          isHidden
-                            ? `Show ${nameFor(asset.id, asset.name)} again`
-                            : `Hide ${nameFor(asset.id, asset.name)}`
-                        }
-                        title={isHidden ? "Show this row again" : "Hide this row"}
-                        className={cn(
-                          "absolute right-1.5 top-1.5 rounded-full border border-border/60 bg-background/85 p-1 text-subtle backdrop-blur transition-colors",
-                          "hover:border-violet-core/50 hover:text-foreground",
-                          "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-violet-glow",
-                        )}
-                      >
-                        {isHidden ? (
-                          <Eye className="size-3.5" aria-hidden />
-                        ) : (
-                          <EyeOff className="size-3.5" aria-hidden />
-                        )}
-                      </button>
-                    ) : null}
-                  </div>
-
-                  <div className="flex min-w-0 flex-col gap-1 px-0.5 pb-0.5">
-                    <p
-                      className="truncate text-xs font-medium"
-                      title={nameFor(asset.id, asset.name)}
+                      }
+                    : undefined
+                }
+                className={cn(
+                  "flex flex-col gap-2 rounded-2xl border p-2 transition-colors",
+                  "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-violet-glow",
+                  canBurn
+                    ? isSelected
+                      ? "cursor-pointer border-danger/45 bg-danger/8"
+                      : "cursor-pointer border-border/60 bg-white/2 hover:border-violet-core/40"
+                    : "border-border/40 bg-white/1",
+                  // A hidden row stays visible only because it was asked for, so
+                  // it is dimmed to say so rather than passing as a normal one.
+                  isHidden && "opacity-45",
+                )}
+              >
+                <div className="relative">
+                  <NftArtwork src={asset.imageUri} />
+                  {canBurn ? (
+                    <span className="absolute left-2 top-2">
+                      {/* Decorative: the card owns the state and the click. */}
+                      <Checkbox
+                        checked={isSelected}
+                        tabIndex={-1}
+                        aria-hidden
+                        className="pointer-events-none"
+                      />
+                    </span>
+                  ) : null}
+                  {onSetHidden ? (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        // The card is the checkbox. Hiding is not selecting, and
+                        // must not tick the asset on the way out.
+                        event.stopPropagation();
+                        onSetHidden(asset.id, !isHidden);
+                      }}
+                      aria-label={
+                        isHidden
+                          ? `Show ${nameFor(asset.id, asset.name)} again`
+                          : `Hide ${nameFor(asset.id, asset.name)}`
+                      }
+                      title={isHidden ? "Show this row again" : "Hide this row"}
+                      className={cn(
+                        "absolute right-1.5 top-1.5 rounded-full border border-border/60 bg-background/85 p-1 text-subtle backdrop-blur transition-colors",
+                        "hover:border-violet-core/50 hover:text-foreground",
+                        "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-violet-glow",
+                      )}
                     >
-                      {nameFor(asset.id, asset.name)}
-                    </p>
-                    {/* The mint, its kind, and one click to copy. This is the
-                        handle for looking an asset up — on a block explorer, or in
-                        a bug report — and the kind matters because the burn route
-                        (and so the failure modes) differ per asset class. */}
-                    <CopyMint mint={asset.id} kind={assetKind(asset)} />
-                    {asset.collection ? (
-                      <p
-                        className="truncate text-[11px] text-subtle"
-                        title={asset.collection.address}
-                      >
-                        {asset.collection.name ??
-                          truncateAddress(asset.collection.address, 4, 4)}
-                      </p>
-                    ) : (
-                      <p className="truncate text-[11px] text-subtle">No collection</p>
-                    )}
-
-                    {canBurn ? (
-                      <div className="flex items-center gap-1 pt-0.5">
-                        <Badge variant="muted" size="sm">
-                          {isCnft ? "no rent" : "rent back"}
-                        </Badge>
-                        {needsLookupTable ? (
-                          <Badge variant="accent" size="sm">
-                            lookup table
-                          </Badge>
-                        ) : null}
-                      </div>
-                    ) : (
-                      <p className="pt-0.5 text-[10px] leading-snug text-warning">
-                        {verdict?.reason}
-                      </p>
-                    )}
-                  </div>
+                      {isHidden ? (
+                        <Eye className="size-3.5" aria-hidden />
+                      ) : (
+                        <EyeOff className="size-3.5" aria-hidden />
+                      )}
+                    </button>
+                  ) : null}
                 </div>
-              </li>
-            </Fragment>
+
+                <div className="flex min-w-0 flex-col gap-1 px-0.5 pb-0.5">
+                  <p
+                    className="truncate text-xs font-medium"
+                    title={nameFor(asset.id, asset.name)}
+                  >
+                    {nameFor(asset.id, asset.name)}
+                  </p>
+                  {/* The mint, its kind, and one click to copy. This is the
+                      handle for looking an asset up — on a block explorer, or in
+                      a bug report — and the kind matters because the burn route
+                      (and so the failure modes) differ per asset class. */}
+                  <CopyMint mint={asset.id} kind={assetKind(asset)} />
+                  {asset.collection ? (
+                    <p
+                      className="truncate text-[11px] text-subtle"
+                      title={asset.collection.address}
+                    >
+                      {asset.collection.name ??
+                        truncateAddress(asset.collection.address, 4, 4)}
+                    </p>
+                  ) : (
+                    <p className="truncate text-[11px] text-subtle">No collection</p>
+                  )}
+
+                  {canBurn ? (
+                    <div className="flex items-center gap-1 pt-0.5">
+                      <Badge variant="muted" size="sm">
+                        {isCnft ? "no rent" : "rent back"}
+                      </Badge>
+                      {needsLookupTable ? (
+                        <Badge variant="accent" size="sm">
+                          lookup table
+                        </Badge>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p className="pt-0.5 text-[10px] leading-snug text-warning">
+                      {verdict?.reason}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </li>
           );
         })}
       </ul>

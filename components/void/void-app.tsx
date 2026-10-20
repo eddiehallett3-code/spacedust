@@ -23,6 +23,7 @@ import { VoidPanel } from "@/components/sweep/void-panel";
 import { preselectForVoid } from "@/lib/sweep/void-prompt";
 import { VoidEmblem } from "@/components/void/void-emblem";
 import { NftBurnPanel } from "@/components/void/nft-burn-panel";
+import { cnftFitsInline } from "@/lib/solana/cnft-size";
 import { previewAction } from "@/lib/sweep/preview";
 import { useNftBurn } from "@/hooks/use-nft-burn";
 import { ConnectWalletCta } from "@/components/wallet/wallet-button";
@@ -64,12 +65,16 @@ export function VoidApp() {
   /**
    * Which list the user is looking at.
    *
-   * Three tabs because the three things a wallet holds are not
-   * interchangeable: dust is swept for its rent, an NFT is a unique asset, and
-   * a cNFT has no rent to reclaim at all. Merging them into one list is exactly
-   * what made NFTs look burnable.
+   * Four tabs because the things a wallet holds are not interchangeable: dust
+   * is swept for its rent, an NFT is a unique asset, and a cNFT has no rent to
+   * reclaim at all. cNFTs are split one step further by what a burn needs: a
+   * tree whose proof fits in one transaction burns directly, while a deeper one
+   * needs an address lookup table first. Mixing those together hid a setup step
+   * the user had not been asked to approve.
    */
-  const [tab, setTab] = useState<"tokens" | "nfts" | "cnfts">("tokens");
+  const [tab, setTab] = useState<
+    "tokens" | "nfts" | "cnfts" | "table-cnfts"
+  >("tokens");
 
   /**
    * What is ticked for burning, across **both** NFT tabs.
@@ -110,6 +115,23 @@ export function VoidApp() {
     () => nonFungibles.filter((asset) => hidden.has(asset.id)),
     [nonFungibles, hidden],
   );
+  // Hidden cNFTs are partitioned the same way as visible ones, so "show
+  // hidden" on the cNFTs tab cannot surface a lookup-table asset from the other
+  // tab. The panel filters by asset kind, not by this split.
+  const hiddenDirectCnfts = useMemo(
+    () =>
+      hiddenNonFungibles.filter(
+        (asset) => asset.compressed && cnftFitsInline(asset) !== false,
+      ),
+    [hiddenNonFungibles],
+  );
+  const hiddenTableCnfts = useMemo(
+    () =>
+      hiddenNonFungibles.filter(
+        (asset) => asset.compressed && cnftFitsInline(asset) === false,
+      ),
+    [hiddenNonFungibles],
+  );
 
   const handleSetHidden = useCallback(
     (id: string, shouldHide: boolean): void => {
@@ -128,11 +150,27 @@ export function VoidApp() {
     () => visibleNonFungibles.filter((asset) => asset.compressed),
     [visibleNonFungibles],
   );
+  /**
+   * The cNFTs that burn without extra setup.
+   *
+   * An unknown proof length stays here: a tree the scan could not read is not
+   * evidence of a long proof, and the planner still measures the real proof
+   * before it builds anything. Only a measured over-limit proof moves a card to
+   * the Table setup tab.
+   */
+  const directCnfts = useMemo(
+    () => cnfts.filter((asset) => cnftFitsInline(asset) !== false),
+    [cnfts],
+  );
+  const tableCnfts = useMemo(
+    () => cnfts.filter((asset) => cnftFitsInline(asset) === false),
+    [cnfts],
+  );
 
   /**
-   * The ticked assets themselves, gathered from both tabs.
+   * The ticked assets themselves, gathered from all three NFT tabs.
    *
-   * This is what a burn batch is built from, so it has to see both lists — the
+   * This is what a burn batch is built from, so it has to see every list — the
    * panel that pressed Burn only knows its own.
    */
   const burnSelectionAssets = useMemo(
@@ -319,8 +357,9 @@ export function VoidApp() {
         </Card>
       ) : null}
 
-      {/* Three kinds of thing live in one wallet and they are not
-          interchangeable, so they get a tab each rather than one merged list. */}
+      {/* Four kinds of list, because they are not interchangeable: dust is
+          swept for rent, an NFT is a unique asset, a cNFT has no rent, and a
+          cNFT with an over-long proof needs a lookup table before it can burn. */}
       <div
         role="tablist"
         aria-label="What to send into The Void"
@@ -330,7 +369,12 @@ export function VoidApp() {
           [
             { key: "tokens", label: "Tokens", count: voidCandidates.length },
             { key: "nfts", label: "NFTs", count: nfts.length },
-            { key: "cnfts", label: "cNFTs", count: cnfts.length },
+            { key: "cnfts", label: "cNFTs", count: directCnfts.length },
+            {
+              key: "table-cnfts",
+              label: "Table setup",
+              count: tableCnfts.length,
+            },
           ] as const
         ).map((entry) => (
           <button
@@ -338,16 +382,28 @@ export function VoidApp() {
             type="button"
             role="tab"
             aria-selected={tab === entry.key}
+            title={
+              entry.key === "table-cnfts"
+                ? "cNFTs whose merkle proofs need an address lookup table before burning"
+                : undefined
+            }
             onClick={() => setTab(entry.key)}
             className={cn(
-              "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
+              "flex min-w-0 flex-1 items-center justify-center gap-1 rounded-lg px-2 py-2 text-[11px] font-medium transition-colors sm:gap-1.5 sm:px-3 sm:text-xs",
               tab === entry.key
                 ? "bg-violet-core/15 text-foreground"
                 : "text-muted hover:text-foreground",
             )}
           >
             {entry.label}
-            <span className="font-mono text-[11px] text-subtle">
+            <span
+              className={cn(
+                "font-mono text-[10px] sm:text-[11px]",
+                entry.key === "table-cnfts" && entry.count > 0
+                  ? "text-violet-glow"
+                  : "text-subtle",
+              )}
+            >
               {entry.count}
             </span>
           </button>
@@ -395,21 +451,40 @@ export function VoidApp() {
           selectedAssets={burnSelectionAssets}
           onSelectionChange={setBurnSelection}
         />
-      ) : (
+      ) : tab === "cnfts" ? (
         // cNFTs use the same panel and the same opt-in rule, but a third burn
         // route underneath: a Bubblegum burn over a merkle proof, which returns
-        // no rent because a leaf is not an account.
+        // no rent because a leaf is not an account. Only the ones whose proof
+        // fits in a normal transaction live here.
         <NftBurnPanel
-          assets={cnfts}
+          assets={directCnfts}
           theBurn={theBurn}
           onBurnt={handleNftBurnt}
           hidden={hidden}
-          hiddenAssets={hiddenNonFungibles}
+          hiddenAssets={hiddenDirectCnfts}
           onSetHidden={handleSetHidden}
           selected={burnSelection}
           selectedAssets={burnSelectionAssets}
           onSelectionChange={setBurnSelection}
           kind="cnft"
+        />
+      ) : (
+        // The same burn route, but one step longer: these trees carry more proof
+        // accounts than a transaction holds, so burning one creates an address
+        // lookup table first. Separating them makes that cost visible before a
+        // card is ticked instead of after a preview.
+        <NftBurnPanel
+          assets={tableCnfts}
+          theBurn={theBurn}
+          onBurnt={handleNftBurnt}
+          hidden={hidden}
+          hiddenAssets={hiddenTableCnfts}
+          onSetHidden={handleSetHidden}
+          selected={burnSelection}
+          selectedAssets={burnSelectionAssets}
+          onSelectionChange={setBurnSelection}
+          kind="cnft"
+          tableSetup
         />
       )}
 

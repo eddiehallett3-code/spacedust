@@ -19,7 +19,7 @@ export default function VoidPage() {
   return (
     <Container size="narrow">
       {/* Same emblem-and-title header as every other tool page. The wrapper is
-          this page's own spacing, since the header sits above a three-tab panel.
+          this page's own spacing, since the header sits above the tabbed panel.
 
           This used to be a wordmark whose O *was* the void; that file is kept in
           the repo, unused, so the change is one line to undo. */}
@@ -28,7 +28,7 @@ export default function VoidPage() {
           className="w-full pb-10 pt-16 sm:pt-20"
           emblem={<ToolEmblem tool="void" />}
           title="The Void"
-          description="The Void is where the things a swap cannot help with go. Tokens with no route to SOL, USDC or JUP are sent into The Void for the rent locked in their accounts, and unwanted NFTs and cNFTs can go too — each with its own tab, its own rules, and nothing pre-selected. Swaps and Void sends never share a transaction."
+          description="The Void is where the things a swap cannot help with go. Tokens with no route to SOL, USDC or JUP are sent into The Void for the rent locked in their accounts, and unwanted NFTs and cNFTs can go too — each with its own tab, its own rules, and nothing pre-selected. cNFTs whose proofs need a lookup table are separated, so that extra step is visible before you select one. Swaps and Void sends never share a transaction."
         />
       </div>
       <VoidApp />
