@@ -14,6 +14,12 @@ import {
   isValidSolanaAddress,
   parseBaseAmount,
 } from "@/lib/utils/sanitize";
+import {
+  MERKLE_TREE_HEADER_SIZE,
+  canopyDepthFromSpace,
+  parseMerkleTreeHeader,
+  truncateProofToCanopy,
+} from "@/lib/solana/canopy";
 
 /**
  * Server-side Helius DAS client.
@@ -202,6 +208,82 @@ export interface AssetProof {
 }
 
 /**
+ * Cache of canopy facts, keyed by tree. A tree's canopy is fixed at creation.
+ * `maxDepth` is kept so the proof helper can tell a full proof apart from an
+ * indexer that already trimmed the canopy tail.
+ */
+interface TreeCanopy {
+  canopyDepth: number;
+  maxDepth: number;
+}
+const canopyDepthCache = new Map<string, TreeCanopy>();
+
+/**
+ * How many proof nodes a tree's canopy already stores on chain.
+ *
+ * DAS `getAssetProof` returns the full proof, including the tail that lives in
+ * the canopy. Sending that tail as transaction accounts is what makes deep
+ * proofs too large, so we read the tree header and derive the canopy depth,
+ * exactly as Metaplex's `getAssetWithProof({ truncateCanopy: true })` does.
+ *
+ * The header slice is 56 bytes, which is cheap even on a tree account that is
+ * hundreds of kilobytes. Any failure is cached as zero so a flaky RPC cannot
+ * turn every proof in a batch into another lookup; the caller then keeps the
+ * full proof, which is the safe fallback.
+ */
+async function fetchTreeCanopy(treeId: string): Promise<TreeCanopy> {
+  const cached = canopyDepthCache.get(treeId);
+  if (cached !== undefined) return cached;
+
+  let canopy: TreeCanopy = { canopyDepth: 0, maxDepth: 0 };
+  try {
+    const response = await fetch(getServerRpcUrl(), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: "1",
+        method: "getAccountInfo",
+        params: [
+          treeId,
+          {
+            encoding: "base64",
+            dataSlice: { offset: 0, length: MERKLE_TREE_HEADER_SIZE },
+          },
+        ],
+      }),
+      signal: AbortSignal.timeout(8_000),
+      cache: "no-store",
+    });
+
+    const json = (await response.json().catch(() => null)) as {
+      result?: {
+        value?: { space?: number; data?: [string, string] } | null;
+      } | null;
+    } | null;
+
+    const value = json?.result?.value;
+    const encoded = value?.data?.[0];
+    if (value?.space && typeof encoded === "string") {
+      const header = parseMerkleTreeHeader(
+        new Uint8Array(Buffer.from(encoded, "base64")),
+      );
+      if (header) {
+        canopy = {
+          canopyDepth: canopyDepthFromSpace(value.space, header),
+          maxDepth: header.maxDepth,
+        };
+      }
+    }
+  } catch {
+    // Keep the full proof if the tree cannot be read.
+  }
+
+  canopyDepthCache.set(treeId, canopy);
+  return canopy;
+}
+
+/**
  * The merkle proof for one compressed asset.
  *
  * Only an indexer can produce this: it needs every other leaf in the tree. That
@@ -223,6 +305,8 @@ export async function fetchAssetProof(id: string): Promise<AssetProof | null> {
       root?: string;
       proof?: string[];
       node_index?: number;
+      /** The tree this leaf belongs to; needed to find its canopy depth. */
+      tree_id?: string;
     };
 
     if (
@@ -234,9 +318,25 @@ export async function fetchAssetProof(id: string): Promise<AssetProof | null> {
       return null;
     }
 
+    // DAS returns the full proof, including nodes that are already on chain in
+    // the tree's canopy. Removing those is the difference between a 24-account
+    // burn that cannot fit and a 7-account one that does.
+    let proof = result.proof;
+    if (
+      typeof result.tree_id === "string" &&
+      isValidSolanaAddress(result.tree_id)
+    ) {
+      const canopy = await fetchTreeCanopy(result.tree_id);
+      proof = truncateProofToCanopy(
+        proof,
+        canopy.canopyDepth,
+        canopy.maxDepth || undefined,
+      );
+    }
+
     return {
       root: result.root,
-      proof: result.proof,
+      proof,
       nodeIndex:
         typeof result.node_index === "number" ? result.node_index : 0,
     };

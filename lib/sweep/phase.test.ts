@@ -64,7 +64,12 @@ describe("every prepare() settles on a resting phase", () => {
   const cases: Array<{ file: string; endMarker: string }> = [
     { file: "hooks/use-sweep.ts", endMarker: "return true;" },
     { file: "hooks/use-void.ts", endMarker: "return result.packed.length;" },
-    { file: "hooks/use-nft-burn.ts", endMarker: "return result.packed.length;" },
+    // The burn preview returns counts, not a bare transaction count, because a
+    // canopy-0 preview can consist entirely of pending lookup-table work.
+    {
+      file: "hooks/use-nft-burn.ts",
+      endMarker: "return {\n          transactions: result.packed.length",
+    },
   ];
 
   for (const { file, endMarker } of cases) {

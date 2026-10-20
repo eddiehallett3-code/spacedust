@@ -39,6 +39,9 @@ export const ALLOWED_METHODS = new Set([
   // rejected call would silently fall back to a constant that can go stale.
   "getMinimumBalanceForRentExemption",
   "getAddressLookupTable",
+  // A recent slot is part of a lookup-table address, and the table's
+  // `lastExtendedSlot` is only usable once the chain has moved past it. Read-only.
+  "getSlot",
   // One transaction, by signature. Read-only, and the only way Payload can prove
   // a test transfer actually credited its destination: the recipient's balance
   // before and after are in the transaction that moved it, which is evidence a

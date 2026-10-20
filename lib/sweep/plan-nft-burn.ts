@@ -1,5 +1,6 @@
 import {
   PublicKey,
+  type AddressLookupTableAccount,
   type Connection,
   type TransactionInstruction,
 } from "@solana/web3.js";
@@ -266,14 +267,36 @@ export interface PlanNftBurnResult {
   /** Assets that were asked for and refused, with the reason shown to the user. */
   skipped: Array<{ id: string; name: string; reason: string }>;
   hasFailures: boolean;
+  /**
+   * cNFTs whose proofs are too long to fit without a lookup table.
+   *
+   * They are not failures and are not in `packed`: a burn cannot reference a
+   * table that has not been created yet. The executor creates the table, waits
+   * for it to become usable, then re-plans these assets with `lookupTables`.
+   */
+  lookupTableAssets: NonFungibleAsset[];
 }
 
 export async function planNftBurn(input: {
   connection: Connection;
   owner: PublicKey;
   assets: NonFungibleAsset[];
+  /**
+   * Proofs to use instead of fetching fresh ones.
+   *
+   * The lookup-table path builds a table from one proof snapshot. Re-fetching
+   * between table creation and burn could produce nodes the table does not
+   * contain, so the executor passes the same snapshot to this planner.
+   */
+  proofs?: Map<string, CnftProof>;
+  /**
+   * Tables the burn may reference. Passing them is what turns a 20- or
+   * 24-node proof from a dropped unit into a transaction that fits.
+   */
+  lookupTables?: AddressLookupTableAccount[];
 }): Promise<PlanNftBurnResult> {
   const { connection, owner, assets } = input;
+  const lookupTables = input.lookupTables ?? [];
   const warnings: string[] = [];
   const skipped: PlanNftBurnResult["skipped"] = [];
   const units: PackUnit[] = [];
@@ -304,7 +327,12 @@ export async function planNftBurn(input: {
       return verdict.burnable && verdict.route === "cnft";
     })
     .map((asset) => asset.id);
-  const proofs = await fetchCnftProofs(cnftIds);
+  // A caller may hand us a snapshot from the lookup-table setup. Copy it:
+  // the stale-proof retry below adds fresh entries, and mutating the caller's
+  // map would make the table and the burn disagree about which snapshot won.
+  const proofs = input.proofs
+    ? new Map(input.proofs)
+    : await fetchCnftProofs(cnftIds);
 
   // pNFT state, in one batched read. A pNFT can be locked or listed *inside the
   // owner's own wallet*, so "the wallet holds it" is not the same as "the
@@ -328,6 +356,7 @@ export async function planNftBurn(input: {
   ).catch(() => new Map<string, PnftState>());
 
   const cnftAssets = new Map<string, NonFungibleAsset>();
+  const lookupTableAssets = new Map<string, NonFungibleAsset>();
 
   /**
    * The Bubblegum burn for one cNFT, from a proof.
@@ -606,27 +635,58 @@ export async function planNftBurn(input: {
     prologue,
     payer: owner,
     blockhash: blockhashInfo.blockhash,
-    // Burns need no ALTs: every account is local to the asset being burned.
-    lookupTables: [],
+    lookupTables,
   });
 
-  warnings.push(
-    ...packedResult.dropped.map((dropped) => {
-      // A cNFT whose proof pushes the transaction past the size limit is not a
-      // fault to report but a limit to explain. The depth of its tree — not
-      // anything about the asset — is what makes it unburnable here, and the
-      // packer only knows the byte count, not the reason for it.
-      const proof = proofs.get(dropped.mint);
-      // The proof's *length* is the whole story: it is one account per node, and
-      // a tree's proof is `depth - canopy`. A tree created with no canopy sends
-      // every level as an account, which is what makes a burn that cannot fit;
-      // an even deeper tree with a canopy burns fine. Metaplex's own guidance
-      // pairs a depth-20 tree with canopy 13, i.e. a 7-node proof.
-      return proof
-        ? `Skipped ${dropped.mint.slice(0, 6)}…: this tree has no canopy, so its burn needs a ${proof.proof.length}-account merkle proof and will not fit in one transaction (the limit is ${MAX_TX_SIZE_BYTES} bytes).`
-        : `Skipped ${dropped.mint.slice(0, 6)}…: ${dropped.reason}`;
-    }),
-  );
+  for (const dropped of packedResult.dropped) {
+    const asset = cnftAssets.get(dropped.mint);
+    const proof = proofs.get(dropped.mint);
+    const canRescue =
+      asset !== undefined && proof !== undefined && lookupTables.length === 0;
+
+    if (canRescue) {
+      // Not a refusal: the proof is simply too long to send inline. The
+      // executor has a lookup-table path for exactly this, so keep the asset
+      // pending instead of reporting it as burned or skipped.
+      lookupTableAssets.set(asset.id, asset);
+      continue;
+    }
+
+    // A cNFT that still does not fit with a lookup table is a real refusal. Say
+    // so on its row rather than leaving it in a warning the user has to connect
+    // back to an asset.
+    if (asset) {
+      const reason =
+        proof && lookupTables.length > 0
+          ? `This tree's ${proof.proof.length}-account proof still did not fit with a lookup table. Rescan and try again.`
+          : "This burn needs more accounts than a single transaction allows.";
+      skipped.push({ id: asset.id, name: asset.name, reason });
+    }
+
+    // A non-cNFT drop is a genuine size or instruction limit, not a canopy
+    // problem. Keep the packer's own explanation.
+    const proofNote =
+      proof && lookupTables.length === 0
+        ? `this tree's canopy leaves a ${proof.proof.length}-account merkle proof, and that will not fit in one transaction (the limit is ${MAX_TX_SIZE_BYTES} bytes)`
+        : dropped.reason;
+    warnings.push(`Skipped ${dropped.mint.slice(0, 6)}…: ${proofNote}`);
+  }
+
+  if (lookupTableAssets.size > 0) {
+    warnings.push(
+      `${lookupTableAssets.size} cNFT${
+        lookupTableAssets.size === 1 ? " needs" : "s need"
+      } an address lookup table because their merkle proofs are too long to send inline. The table is created when you burn; it takes an extra approval step, a few network fees, and its rent stays locked in the table.`,
+    );
+  }
+
+  if (packedResult.transactions.length === 0 && lookupTableAssets.size === 0) {
+    throw new VoidError(
+      "None of the selected NFTs can be burned.",
+      skipped[0]?.reason ?? "Rescan the wallet and try again.",
+      warnings,
+    );
+  }
 
   let simulations = await simulateAll(connection, packedResult.transactions);
 
@@ -656,11 +716,31 @@ export async function planNftBurn(input: {
     const refreshed = await fetchCnftProofs(failedCnfts);
     if (refreshed.size === 0) break;
 
+    const tableAddresses = lookupTableAddresses(lookupTables);
     let rebuilt = 0;
     for (const unit of units) {
       const asset = cnftAssets.get(unit.mint);
       const proof = refreshed.get(unit.mint);
       if (!asset || !proof) continue;
+      // A refreshed proof can contain sibling hashes the lookup table was not
+      // built with. Rebuilding a *table-dependent* burn from it would compile
+      // those nodes inline and can push it back over the limit, so leave the old
+      // proof in place and let the simulation report the stale-root failure
+      // honestly. A burn that never used the table has short enough a proof to
+      // rebuild normally; skipping it would turn a routine stale-root retry into
+      // a permanent failure just because another asset in the batch needed one.
+      const previousProof = proofs.get(unit.mint);
+      const dependsOnTable =
+        previousProof !== undefined &&
+        previousProof.proof.length > 0 &&
+        previousProof.proof.every((node) => tableAddresses.has(node));
+      if (
+        lookupTables.length > 0 &&
+        dependsOnTable &&
+        !proofUsesOnlyTableAddresses(proof, tableAddresses)
+      ) {
+        continue;
+      }
       unit.instructions = (await cnftBurnUnit(asset, proof)).instructions;
       // Kept in step with what was actually built, so the size explanation for a
       // dropped unit describes the proof we ended up using.
@@ -674,7 +754,7 @@ export async function planNftBurn(input: {
       prologue,
       payer: owner,
       blockhash: blockhashInfo.blockhash,
-      lookupTables: [],
+      lookupTables,
     });
     simulations = await simulateAll(connection, packedResult.transactions);
   }
@@ -698,7 +778,10 @@ export async function planNftBurn(input: {
 
   const hasFailures = simulations.some((simulation) => !simulation.ok);
 
-  if (simulations.every((simulation) => !simulation.ok)) {
+  if (
+    packedResult.transactions.length > 0 &&
+    simulations.every((simulation) => !simulation.ok)
+  ) {
     const firstError = simulations.find((simulation) => !simulation.ok);
     throw new VoidError(
       firstError?.error ?? "Every burn failed to simulate.",
@@ -733,5 +816,32 @@ export async function planNftBurn(input: {
     rentByAsset,
     skipped,
     hasFailures,
+    lookupTableAssets: [...lookupTableAssets.values()],
   };
+}
+
+/** Every address the supplied tables can compress, as a lookup set. */
+function lookupTableAddresses(
+  lookupTables: AddressLookupTableAccount[],
+): Set<string> {
+  return new Set(
+    lookupTables.flatMap((table) =>
+      table.state.addresses.map((address) => address.toBase58()),
+    ),
+  );
+}
+
+/**
+ * True when every node of a proof is already in one of the tables.
+ *
+ * Used by the stale-proof retry: a table is built from one proof snapshot, and
+ * a newer proof may name sibling hashes that are not in it. Rebuilding with
+ * those nodes would put them back inline, so the retry is skipped rather than
+ * quietly undoing the compression.
+ */
+function proofUsesOnlyTableAddresses(
+  proof: CnftProof,
+  tableAddresses: Set<string>,
+): boolean {
+  return proof.proof.every((node) => tableAddresses.has(node));
 }

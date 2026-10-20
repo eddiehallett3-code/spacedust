@@ -8,6 +8,13 @@ import { getConnection } from "@/lib/solana/connection";
 import { isBlockhashExpired, BLOCKHASH_PROMPT_MARGIN_SLOTS } from "@/lib/solana/blockhash";
 import { planNftBurn, type PlanNftBurnResult } from "@/lib/sweep/plan-nft-burn";
 import { signTransactions, submitTransactions } from "@/lib/solana/submit";
+import {
+  buildCnftLookupTableSetup,
+  LOOKUP_TABLE_META_SIZE,
+  waitForLookupTables,
+} from "@/lib/solana/cnft-lookup-table";
+import { fetchCnftProofs } from "@/lib/sweep/asset-proof";
+import { BASE_FEE_LAMPORTS } from "@/lib/utils/constants";
 import { toFriendlyError, type FriendlyError } from "@/lib/utils/errors";
 import { isBusyPhase } from "@/lib/sweep/phase";
 import type { NonFungibleAsset } from "@/types/token";
@@ -46,8 +53,23 @@ export interface NftBurnSummary {
   rentReclaimedLamports: number;
   feeLamports: number;
   signatures: string[];
+  /**
+   * Rent locked in a lookup table created to fit a long proof.
+   *
+   * A lookup table is an on-chain account and the burn does not close it, so
+   * this is a real cost of the rescue — not a fee and not refunded by the
+   * result. Reported separately so the screen can say so.
+   */
+  lookupTableRentLamports: number;
   /** Assets we refused to build for, with the reason shown on the row. */
   skipped: Array<{ id: string; name: string; reason: string }>;
+}
+
+export interface NftBurnPrepareResult {
+  /** Transactions that are built and simulated now. */
+  transactions: number;
+  /** cNFTs whose burns will need a lookup table at execution time. */
+  lookupTables: number;
 }
 
 interface NftBurnState {
@@ -59,6 +81,8 @@ interface NftBurnState {
   error: FriendlyError | null;
   warnings: string[];
   skipped: Array<{ id: string; name: string; reason: string }>;
+  /** cNFTs waiting for a lookup-table setup before they can be simulated. */
+  lookupTableAssets: NonFungibleAsset[];
   progress: { completed: number; total: number };
 }
 
@@ -71,6 +95,7 @@ const INITIAL: NftBurnState = {
   error: null,
   warnings: [],
   skipped: [],
+  lookupTableAssets: [],
   progress: { completed: 0, total: 0 },
 };
 
@@ -108,12 +133,15 @@ export function useNftBurn() {
   }, []);
 
   /**
-   * Build and simulate. Returns the transaction count (0 = failed), so the
-   * caller can react without waiting for a re-render.
+   * Build and simulate. Returns counts rather than a bare number, because a
+   * preview can consist entirely of cNFTs waiting for a lookup table — in which
+   * case there are zero transactions but the preview is still valid.
    */
   const prepare = useCallback(
-    async (assets: NonFungibleAsset[]): Promise<number> => {
-      if (busyRef.current) return 0;
+    async (assets: NonFungibleAsset[]): Promise<NftBurnPrepareResult> => {
+      if (busyRef.current) {
+        return { transactions: 0, lookupTables: 0 };
+      }
 
       if (!publicKey) {
         patch({
@@ -122,7 +150,7 @@ export function useNftBurn() {
             message: "Connect your wallet before sending anything into The Void.",
           },
         });
-        return 0;
+        return { transactions: 0, lookupTables: 0 };
       }
       if (assets.length === 0) {
         patch({
@@ -131,7 +159,7 @@ export function useNftBurn() {
             message: "Select at least one NFT to send.",
           },
         });
-        return 0;
+        return { transactions: 0, lookupTables: 0 };
       }
 
       busyRef.current = true;
@@ -154,8 +182,12 @@ export function useNftBurn() {
           simulations: result.simulations,
           warnings: result.warnings,
           skipped: result.skipped,
+          lookupTableAssets: result.lookupTableAssets,
         });
-        return result.packed.length;
+        return {
+          transactions: result.packed.length,
+          lookupTables: result.lookupTableAssets.length,
+        };
       } catch (caught) {
         preparedRef.current = null;
         patch({
@@ -163,9 +195,10 @@ export function useNftBurn() {
           packed: [],
           simulations: [],
           skipped: [],
+          lookupTableAssets: [],
           error: toFriendlyError(caught),
         });
-        return 0;
+        return { transactions: 0, lookupTables: 0 };
       } finally {
         busyRef.current = false;
       }
@@ -242,7 +275,152 @@ export function useNftBurn() {
           simulations: result.simulations,
           skipped: result.skipped,
           warnings: result.warnings,
+          lookupTableAssets: result.lookupTableAssets,
         });
+      }
+
+      // ── The lookup-table rescue ───────────────────────────────────────────
+      // A canopy-0 proof cannot fit inline, so it was not packed. The table has
+      // to exist and be one slot old before a burn can reference it, which
+      // means a setup approval and a short wait before the burn can even be
+      // simulated. This only runs for the leaves that actually need it.
+      const lookupTableSignatures: string[] = [];
+      let lookupTableRentLamports = 0;
+      let lookupTableFeeLamports = 0;
+
+      if (result.lookupTableAssets.length > 0) {
+        patch({ phase: "planning", error: null });
+
+        // One proof snapshot for both the table and the burn. Re-fetching after
+        // the table is built could name sibling hashes the table does not
+        // contain, which would put them back inline.
+        const cnftIds = assets
+          .filter((asset) => asset.compressed)
+          .map((asset) => asset.id);
+        const proofs = await fetchCnftProofs(cnftIds);
+
+        const pending = result.lookupTableAssets.map((asset) => ({
+          asset,
+          proof: proofs.get(asset.id),
+        }));
+        if (pending.some((entry) => entry.proof === undefined)) {
+          throw new Error(
+            "A cNFT's merkle proof could not be fetched while preparing its lookup table. Nothing was burned; try again in a moment.",
+          );
+        }
+
+        const addresses = [
+          ...new Set(
+            pending.flatMap((entry) => entry.proof?.proof ?? []),
+          ),
+        ];
+        if (addresses.length === 0) {
+          throw new Error(
+            "The selected cNFTs have no proof nodes to put in a lookup table. Nothing was burned.",
+          );
+        }
+
+        const setup = await buildCnftLookupTableSetup({
+          connection,
+          payer: publicKey,
+          addresses,
+        });
+        if (setup.packed.length === 0 || setup.tables.length === 0) {
+          throw new Error(
+            "The proof nodes could not be placed in a lookup table. Nothing was burned.",
+          );
+        }
+
+        patch({ phase: "awaiting-signature", error: null });
+        const signedSetup = await signTransactions(
+          { signTransaction, signAllTransactions },
+          setup.packed,
+        );
+
+        patch({
+          phase: "confirming",
+          progress: { completed: 0, total: signedSetup.length },
+        });
+
+        // Setup transactions are ordered: create must land before extend. The
+        // regular submitter broadcasts a batch in parallel, so submit these one
+        // at a time and stop at the first failure rather than extending a table
+        // that does not exist.
+        for (let index = 0; index < signedSetup.length; index += 1) {
+          const transaction = signedSetup[index];
+          const meta = setup.packed[index];
+          if (!transaction || !meta) continue;
+
+          const [submitted] = await submitTransactions(
+            connection,
+            [transaction],
+            [meta],
+            {
+              blockhash: setup.blockhash,
+              lastValidBlockHeight: setup.lastValidBlockHeight,
+            },
+          );
+
+          if (!submitted?.ok) {
+            throw new Error(
+              submitted?.error ??
+                "A lookup-table setup transaction did not land. Nothing was burned.",
+            );
+          }
+          if (submitted.signature) {
+            lookupTableSignatures.push(submitted.signature);
+            lookupTableFeeLamports += BASE_FEE_LAMPORTS;
+          }
+          patch({
+            phase: "confirming",
+            progress: {
+              completed: index + 1,
+              total: signedSetup.length,
+            },
+          });
+        }
+
+        const lookupTables = await waitForLookupTables(
+          connection,
+          setup.tables,
+        );
+
+        // The table account is real and funded now; price its rent so the
+        // result screen can say what stayed locked instead of hiding it.
+        const rents = await Promise.all(
+          setup.tables.map(async (table) => {
+            try {
+              return await connection.getMinimumBalanceForRentExemption(
+                LOOKUP_TABLE_META_SIZE + table.addresses.length * 32,
+              );
+            } catch {
+              return 0;
+            }
+          }),
+        );
+        lookupTableRentLamports = rents.reduce((sum, rent) => sum + rent, 0);
+
+        result = await planNftBurn({
+          connection,
+          owner: publicKey,
+          assets,
+          proofs,
+          lookupTables,
+        });
+        preparedRef.current = result;
+        patch({
+          packed: result.packed,
+          simulations: result.simulations,
+          skipped: result.skipped,
+          warnings: result.warnings,
+          lookupTableAssets: result.lookupTableAssets,
+        });
+
+        if (result.lookupTableAssets.length > 0) {
+          throw new Error(
+            "A cNFT still does not fit after creating its lookup table. The burn was not signed.",
+          );
+        }
       }
 
       patch({ phase: "awaiting-signature", error: null });
@@ -315,13 +493,20 @@ export function useNftBurn() {
             0,
           ),
         // Fees are owed for every submitted transaction, whatever the outcome.
-        feeLamports: result.simulations.reduce(
-          (sum, simulation) => sum + (simulation.feeLamports ?? 0),
-          0,
-        ),
-        signatures: submits
-          .filter((submit) => submit.ok && submit.signature)
-          .map((submit) => submit.signature as string),
+        // The lookup-table setup is a real transaction too, so its base fee is
+        // part of what this burn cost even though it carries no asset.
+        feeLamports:
+          result.simulations.reduce(
+            (sum, simulation) => sum + (simulation.feeLamports ?? 0),
+            0,
+          ) + lookupTableFeeLamports,
+        signatures: [
+          ...lookupTableSignatures,
+          ...submits
+            .filter((submit) => submit.ok && submit.signature)
+            .map((submit) => submit.signature as string),
+        ],
+        lookupTableRentLamports,
         skipped: result.skipped,
       };
 

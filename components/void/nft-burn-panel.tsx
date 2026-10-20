@@ -15,7 +15,7 @@ import { burnResultCopy, countBurned } from "@/lib/sweep/burn-result-copy";
 import { labelNonFungibles } from "@/lib/sweep/asset-labels";
 import { previewAction } from "@/lib/sweep/preview";
 import { solscanTxUrl } from "@/lib/solana/submit";
-import { pluralize, truncateAddress } from "@/lib/utils/format";
+import { formatSol, pluralize, truncateAddress } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
 import { TOAST_BRIEF_MS, TOAST_READ_MS } from "@/lib/utils/constants";
 import type {
@@ -180,11 +180,14 @@ export function NftBurnPanel({
     error,
     warnings,
     skipped,
+    lookupTableAssets,
     progress,
     isBusy,
   } = theBurn;
 
-  const hasPreview = packed.length > 0;
+  // A preview is valid even when no burn transaction is built yet: cNFTs from
+  // a canopy-0 tree wait for their lookup table until execution.
+  const hasPreview = packed.length > 0 || lookupTableAssets.length > 0;
   const okCount = simulations.filter((simulation) => simulation.ok).length;
 
   /**
@@ -219,11 +222,24 @@ export function NftBurnPanel({
   };
 
   const handlePreview = async (): Promise<void> => {
-    const count = await theBurn.prepare(selectedAssets);
-    if (count > 0) {
+    const preview = await theBurn.prepare(selectedAssets);
+    if (preview.transactions > 0 || preview.lookupTables > 0) {
+      const parts: string[] = [];
+      if (preview.transactions > 0) {
+        parts.push(
+          `${pluralize(preview.transactions, "transaction")} built and simulated`,
+        );
+      }
+      if (preview.lookupTables > 0) {
+        parts.push(
+          `${pluralize(preview.lookupTables, "cNFT")} ${
+            preview.lookupTables === 1 ? "needs" : "need"
+          } a lookup table when you burn`,
+        );
+      }
       toast.success("Preview ready", {
         duration: TOAST_BRIEF_MS,
-        description: `${pluralize(count, "transaction")} built and simulated. Review before signing.`,
+        description: `${parts.join("; ")}. Review before signing.`,
       });
     }
   };
@@ -245,7 +261,7 @@ export function NftBurnPanel({
       currentKey: selectionKey,
       isBusy: theBurn.isBusy,
       hasSummary: theBurn.summary !== null,
-      hasPreview: theBurn.packed.length > 0,
+      hasPreview: theBurn.packed.length > 0 || theBurn.lookupTableAssets.length > 0,
     });
     if (action === "none") return;
     selectionKeyRef.current = selectionKey;
@@ -533,12 +549,33 @@ export function NftBurnPanel({
 
       {hasPreview ? (
         <div className="flex flex-col gap-3">
-          <SimulationReport
-            packed={packed}
-            simulations={simulations}
-            okCount={okCount}
-            unitLabel={`${noun} send`}
-          />
+          {packed.length > 0 ? (
+            <SimulationReport
+              packed={packed}
+              simulations={simulations}
+              okCount={okCount}
+              unitLabel={`${noun} send`}
+            />
+          ) : null}
+          {lookupTableAssets.length > 0 ? (
+            <div className="rounded-xl border border-violet-core/25 bg-violet-core/5 px-3 py-2.5 text-[11px] leading-relaxed text-muted">
+              <p className="font-medium text-foreground">
+                {pluralize(lookupTableAssets.length, "cNFT")}{" "}
+                {lookupTableAssets.length === 1 ? "needs" : "need"} an address
+                lookup table.
+              </p>
+              <p className="mt-1">
+                {lookupTableAssets.length === 1
+                  ? "Its merkle proof is too long to send inline."
+                  : "Their merkle proofs are too long to send inline."}{" "}
+                When you burn, Spacedust creates a lookup table first — that is
+                an extra approval step and a few network fees — waits for it to
+                become usable, then simulates and asks you to sign the burn. The
+                table&apos;s rent stays locked in it; the burn does not return
+                that rent.
+              </p>
+            </div>
+          ) : null}
           <WarningsList warnings={warnings} />
         </div>
       ) : null}
@@ -738,6 +775,14 @@ function BurnResult({
         <p className="text-[11px] leading-relaxed text-muted">{copy.note}</p>
       ) : null}
 
+      {summary.lookupTableRentLamports > 0 ? (
+        <p className="rounded-xl border border-border/60 bg-white/2 px-3 py-2 text-[11px] leading-relaxed text-muted">
+          A lookup table was created to fit the long merkle proofs.{" "}
+          {formatSol(summary.lookupTableRentLamports)} of rent is locked in that
+          table; the burn does not return it.
+        </p>
+      ) : null}
+
       {/* A failure is never swallowed. */}
       {failed.length > 0 ? (
         <ul className="space-y-1 rounded-xl border border-warning/25 bg-warning/6 px-3 py-2 text-[11px] text-muted">
@@ -795,6 +840,11 @@ function BurnResult({
           <p className="text-[11px] font-medium uppercase tracking-wide text-subtle">
             Transactions
           </p>
+          {summary.lookupTableRentLamports > 0 ? (
+            <p className="text-[11px] leading-relaxed text-subtle">
+              Includes the lookup-table setup transactions.
+            </p>
+          ) : null}
           <div className="flex flex-wrap gap-1.5">
             {summary.signatures.map((signature) => (
               <a

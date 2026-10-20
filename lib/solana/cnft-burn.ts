@@ -29,10 +29,14 @@ import { programRepositoryShim } from "@/lib/solana/umi-program-repository";
  * that cannot fit. Measured against mainnet, a burn costs about 33 bytes per
  * proof node: 1052 bytes at 14 nodes, 1151 at 17, and 1250 at 20, against a
  * 1232-byte protocol limit. Metaplex's own tree guidance pairs a depth-20 tree
- * with canopy 13, i.e. a 7-node proof, which fits with room to spare — so this
- * bites only trees created with no canopy, where the proof is every level. Those
- * are refused by the caller rather than built into a transaction the cluster
- * will reject.
+ * with canopy 13, i.e. a 7-node proof, which fits with room to spare.
+ *
+ * The caller handles the two cases that do not fit. If the tree has a canopy,
+ * the indexer's full proof is truncated to the non-canopy tail before it gets
+ * here (see `lib/solana/canopy.ts`). If the tree genuinely has no canopy, the
+ * planner marks the leaf as pending and the executor builds an address lookup
+ * table for its proof; this builder still sees the full remaining proof and
+ * does not need to know which path produced it.
  */
 export interface CnftBurnRequest {
   /** The leaf's asset id (DAS `id`). Only used for error messages. */

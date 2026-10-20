@@ -63,7 +63,10 @@ export async function POST(request: Request) {
       // `nodeIndex` is deliberately not forwarded: it is the leaf's position in
       // the tree's node array, not the index a burn takes, and the only reason
       // to send it would be to have it used by mistake.
-      if (proof?.root && proof.proof.length > 0) {
+      // An empty proof is valid for a leaf whose whole path is in the canopy:
+      // there is nothing left to send as accounts. Refusing it here would make
+      // exactly the best-canopied trees look unburnable.
+      if (proof?.root) {
         proofs[id] = { root: proof.root, proof: proof.proof };
       }
     }

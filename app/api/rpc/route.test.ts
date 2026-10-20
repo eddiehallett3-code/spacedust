@@ -61,6 +61,9 @@ const RPC_METHOD_FOR: Record<string, string> = {
   getBlockHeight: "getBlockHeight",
   getLatestBlockhash: "getLatestBlockhash",
   getMinimumBalanceForRentExemption: "getMinimumBalanceForRentExemption",
+  // Needed to derive a lookup-table address from a recent slot, and to wait
+  // until a freshly extended table is usable. Read-only.
+  getSlot: "getSlot",
   getMultipleAccountsInfo: "getMultipleAccounts",
   getMultipleParsedAccounts: "getMultipleAccounts",
   getParsedTokenAccountsByOwner: "getTokenAccountsByOwner",

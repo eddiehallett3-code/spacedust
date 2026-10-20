@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import bs58 from "bs58";
 import {
+  AddressLookupTableAccount,
   PublicKey,
   VersionedTransaction,
   type Connection,
@@ -215,6 +216,40 @@ describe("planNftBurn and a stale cNFT proof", () => {
     );
     expect(instruction).toBeDefined();
     // And it carries the *second* root — the one that survived.
+    expect(bs58.encode(cnftData(onlyTx(plan)).subarray(8, 40))).toBe(SECOND_ROOT);
+  });
+
+  it("still retries a burn whose proof never needed the lookup table", async () => {
+    const FIRST_NODE = "9AtiDDT8GDDs5NpSBEgCrFrbPV4atve4CDVJZ6xeFwdR";
+    const SECOND_NODE = "AtZYkS9LiQeryQbMxP2Qg5YyrGFcFnHc5jvBLFy6Qvfc";
+    mocked.proofs = [{ root: SECOND_ROOT, proof: [SECOND_NODE] }];
+    mocked.simulateFails = 1;
+
+    // The table belongs to another asset in the batch. This leaf's short proof
+    // fits inline, so a stale-root retry must rebuild it instead of skipping it
+    // just because a lookup table happens to be present.
+    const table = new AddressLookupTableAccount({
+      key: new PublicKey(bs58.encode(Buffer.alloc(32, 77))),
+      state: {
+        deactivationSlot: BigInt("0xffffffffffffffff"),
+        lastExtendedSlot: 0,
+        lastExtendedSlotStartIndex: 0,
+        authority: new PublicKey(OWNER),
+        addresses: [],
+      },
+    });
+
+    const plan = await planNftBurn({
+      connection: fakeConnection(),
+      owner: new PublicKey(OWNER),
+      assets: [cnft],
+      proofs: new Map([
+        [cnft.id, { root: FIRST_ROOT, proof: [FIRST_NODE] }],
+      ]),
+      lookupTables: [table],
+    });
+
+    expect(plan.simulations.every((simulation) => simulation.ok)).toBe(true);
     expect(bs58.encode(cnftData(onlyTx(plan)).subarray(8, 40))).toBe(SECOND_ROOT);
   });
 
@@ -457,5 +492,87 @@ describe("planNftBurn", () => {
         assets: [{ ...asset, frozen: true }],
       }),
     ).rejects.toThrow(/None of the selected NFTs/);
+  });
+});
+
+/**
+ * A canopy-0 proof cannot fit inline. The planner must not lie about that: it
+ * reports the asset as pending, not skipped, and produces no burn transaction
+ * until the executor has created a lookup table. Passing the table back in is
+ * what turns the same proof into a transaction that fits.
+ */
+describe("planNftBurn and a proof too long to send inline", () => {
+  const CNFT_ID = "HhWaxhccnjuaFgUU2NGsSKQZ7j7mYFwoHYaJFFa3z899";
+  const ROOT = "ENZ5LNawYGdiYRzmeHpXVCRUbydgAKuD8aHVF5eyfBKm";
+  const proof = Array.from({ length: 24 }, (_, index) =>
+    bs58.encode(Buffer.alloc(32, 200 + index)),
+  );
+
+  const cnft: NonFungibleAsset = {
+    ...asset,
+    id: CNFT_ID,
+    name: "Deep Leaf",
+    compressed: true,
+    tokenAccount: null,
+    interface: "V1_NFT",
+    merkle: {
+      tree: CNFT_TREE,
+      leafId: 42,
+      dataHash: "3eNTexmWmu1cEYKhCsoXDCZJRSvgdujR1RQDGVa3t8H9",
+      creatorHash: "98UuRrUaTrQF5gQocbrabinCDqmPh2UeyF9t7GwzNVCK",
+      assetDataHash: null,
+      flags: null,
+    },
+  };
+
+  beforeEach(() => {
+    mocked.simulateFails = 0;
+    mocked.proofs = [];
+    mocked.nftBuilderFails = false;
+  });
+
+  it("keeps the leaf pending instead of refusing it", async () => {
+    mocked.proofs = [{ root: ROOT, proof }];
+
+    const plan = await planNftBurn({
+      connection: fakeConnection(),
+      owner: new PublicKey(OWNER),
+      assets: [cnft],
+    });
+
+    expect(plan.packed).toHaveLength(0);
+    expect(plan.lookupTableAssets.map((entry) => entry.id)).toEqual([CNFT_ID]);
+    expect(plan.skipped).toHaveLength(0);
+    // The warning has to explain why this is not an ordinary refusal.
+    expect(plan.warnings.join(" ")).toContain("address lookup table");
+  });
+
+  it("fits the same proof once a lookup table is supplied", async () => {
+    const table = new AddressLookupTableAccount({
+      key: new PublicKey(
+        bs58.encode(Buffer.alloc(32, 111)),
+      ),
+      state: {
+        deactivationSlot: BigInt("0xffffffffffffffff"),
+        lastExtendedSlot: 0,
+        lastExtendedSlotStartIndex: 0,
+        authority: new PublicKey(OWNER),
+        addresses: proof.map((node) => new PublicKey(node)),
+      },
+    });
+
+    const plan = await planNftBurn({
+      connection: fakeConnection(),
+      owner: new PublicKey(OWNER),
+      assets: [cnft],
+      proofs: new Map([[CNFT_ID, { root: ROOT, proof }]]),
+      lookupTables: [table],
+    });
+
+    expect(plan.lookupTableAssets).toHaveLength(0);
+    expect(plan.packed).toHaveLength(1);
+    // The whole point: the lookup-table form is comfortably below the wire
+    // limit, while the same proof inline was not.
+    expect(plan.packed[0]?.sizeBytes).toBeLessThan(900);
   });
 });
