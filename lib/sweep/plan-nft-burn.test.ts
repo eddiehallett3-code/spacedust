@@ -543,8 +543,10 @@ describe("planNftBurn and a proof too long to send inline", () => {
     expect(plan.packed).toHaveLength(0);
     expect(plan.lookupTableAssets.map((entry) => entry.id)).toEqual([CNFT_ID]);
     expect(plan.skipped).toHaveLength(0);
-    // The warning has to explain why this is not an ordinary refusal.
-    expect(plan.warnings.join(" ")).toContain("address lookup table");
+    // The lookup-table notice is derived from `lookupTableAssets` by the UI. It
+    // must not also be a warning: the warning list is counted as skipped units,
+    // so one summary string used to render as "1 token skipped".
+    expect(plan.warnings).toHaveLength(0);
   });
 
   it("fits the same proof once a lookup table is supplied", async () => {

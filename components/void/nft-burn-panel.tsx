@@ -714,7 +714,7 @@ export function NftBurnPanel({
               </p>
             </div>
           ) : null}
-          <WarningsList warnings={warnings} />
+          <WarningsList warnings={warnings} unitLabel="asset" />
         </div>
       ) : null}
 

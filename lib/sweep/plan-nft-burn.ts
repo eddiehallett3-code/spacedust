@@ -661,23 +661,17 @@ export async function planNftBurn(input: {
           ? `This tree's ${proof.proof.length}-account proof still did not fit with a lookup table. Rescan and try again.`
           : "This burn needs more accounts than a single transaction allows.";
       skipped.push({ id: asset.id, name: asset.name, reason });
+    } else {
+      // A non-cNFT drop is a genuine size or instruction limit, not a canopy
+      // problem. Keep the packer's own explanation. cNFT drops already have a
+      // row-level reason in `skipped`; repeating them here made the warning
+      // count look like a count of assets.
+      const proofNote =
+        proof && lookupTables.length === 0
+          ? `this tree's canopy leaves a ${proof.proof.length}-account merkle proof, and that will not fit in one transaction (the packed budget is ${CNFT_INLINE_PROOF_BUDGET_BYTES} bytes)`
+          : dropped.reason;
+      warnings.push(`Skipped ${dropped.mint.slice(0, 6)}…: ${proofNote}`);
     }
-
-    // A non-cNFT drop is a genuine size or instruction limit, not a canopy
-    // problem. Keep the packer's own explanation.
-    const proofNote =
-      proof && lookupTables.length === 0
-        ? `this tree's canopy leaves a ${proof.proof.length}-account merkle proof, and that will not fit in one transaction (the packed budget is ${CNFT_INLINE_PROOF_BUDGET_BYTES} bytes)`
-        : dropped.reason;
-    warnings.push(`Skipped ${dropped.mint.slice(0, 6)}…: ${proofNote}`);
-  }
-
-  if (lookupTableAssets.size > 0) {
-    warnings.push(
-      `${lookupTableAssets.size} cNFT${
-        lookupTableAssets.size === 1 ? " needs" : "s need"
-      } an address lookup table because their merkle proofs are too long to send inline. The table is created when you burn; it takes an extra approval step and a few network fees, and its rent is returned when you reclaim and close the table after the burn.`,
-    );
   }
 
   if (packedResult.transactions.length === 0 && lookupTableAssets.size === 0) {
