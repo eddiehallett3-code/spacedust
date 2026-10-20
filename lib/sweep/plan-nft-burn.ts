@@ -8,7 +8,6 @@ import { createBurnInstruction } from "@solana/spl-token";
 import {
   BASE_FEE_LAMPORTS,
   COMPUTE_UNIT_LIMIT,
-  MAX_TX_SIZE_BYTES,
   PRIORITY_FEE_MICRO_LAMPORTS,
 } from "@/lib/utils/constants";
 import {
@@ -21,6 +20,7 @@ import { simulateAll } from "@/lib/solana/simulate";
 import { fetchRentMinimums } from "@/lib/solana/rent";
 import { buildCoreBurnInstruction } from "@/lib/solana/core-burn";
 import { buildCnftBurnInstruction } from "@/lib/solana/cnft-burn";
+import { CNFT_INLINE_PROOF_BUDGET_BYTES } from "@/lib/solana/cnft-size";
 import {
   buildNftBurnInstruction,
   findMasterEditionPda,
@@ -667,7 +667,7 @@ export async function planNftBurn(input: {
     // problem. Keep the packer's own explanation.
     const proofNote =
       proof && lookupTables.length === 0
-        ? `this tree's canopy leaves a ${proof.proof.length}-account merkle proof, and that will not fit in one transaction (the limit is ${MAX_TX_SIZE_BYTES} bytes)`
+        ? `this tree's canopy leaves a ${proof.proof.length}-account merkle proof, and that will not fit in one transaction (the packed budget is ${CNFT_INLINE_PROOF_BUDGET_BYTES} bytes)`
         : dropped.reason;
     warnings.push(`Skipped ${dropped.mint.slice(0, 6)}…: ${proofNote}`);
   }

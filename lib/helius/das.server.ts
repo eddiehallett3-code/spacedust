@@ -215,8 +215,27 @@ export interface AssetProof {
 interface TreeCanopy {
   canopyDepth: number;
   maxDepth: number;
+  /** Whether the header was actually read, as opposed to a failed lookup. */
+  resolved: boolean;
 }
-const canopyDepthCache = new Map<string, TreeCanopy>();
+interface CachedTreeCanopy {
+  canopy: TreeCanopy;
+  cachedAt: number;
+}
+const canopyDepthCache = new Map<string, CachedTreeCanopy>();
+
+/**
+ * How long a failed tree read is trusted before it is retried.
+ *
+ * A success is cached for the process lifetime because a tree's canopy is fixed
+ * at creation. A failure is not: one RPC blip during a scan used to cache
+ * "canopy 0" forever, which made every proof from that tree look longer than it
+ * is — and, after proof lengths were added to the scan, made every cNFT in the
+ * tree look like it needed a lookup table. Retrying after half a minute keeps a
+ * burst of failures from hammering the RPC without turning a transient error
+ * into a permanent fact.
+ */
+const CANOPY_FAILURE_TTL_MS = 30_000;
 
 /**
  * How many proof nodes a tree's canopy already stores on chain.
@@ -227,15 +246,24 @@ const canopyDepthCache = new Map<string, TreeCanopy>();
  * exactly as Metaplex's `getAssetWithProof({ truncateCanopy: true })` does.
  *
  * The header slice is 56 bytes, which is cheap even on a tree account that is
- * hundreds of kilobytes. Any failure is cached as zero so a flaky RPC cannot
- * turn every proof in a batch into another lookup; the caller then keeps the
- * full proof, which is the safe fallback.
+ * hundreds of kilobytes. A failed read falls back to the full proof, which is
+ * the safe answer for a burn even though it can make the transaction too big.
  */
 async function fetchTreeCanopy(treeId: string): Promise<TreeCanopy> {
   const cached = canopyDepthCache.get(treeId);
-  if (cached !== undefined) return cached;
+  if (
+    cached !== undefined &&
+    (cached.canopy.resolved ||
+      Date.now() - cached.cachedAt < CANOPY_FAILURE_TTL_MS)
+  ) {
+    return cached.canopy;
+  }
 
-  let canopy: TreeCanopy = { canopyDepth: 0, maxDepth: 0 };
+  let canopy: TreeCanopy = {
+    canopyDepth: 0,
+    maxDepth: 0,
+    resolved: false,
+  };
   try {
     const response = await fetch(getServerRpcUrl(), {
       method: "POST",
@@ -272,6 +300,7 @@ async function fetchTreeCanopy(treeId: string): Promise<TreeCanopy> {
         canopy = {
           canopyDepth: canopyDepthFromSpace(value.space, header),
           maxDepth: header.maxDepth,
+          resolved: true,
         };
       }
     }
@@ -279,7 +308,7 @@ async function fetchTreeCanopy(treeId: string): Promise<TreeCanopy> {
     // Keep the full proof if the tree cannot be read.
   }
 
-  canopyDepthCache.set(treeId, canopy);
+  canopyDepthCache.set(treeId, { canopy, cachedAt: Date.now() });
   return canopy;
 }
 
@@ -559,12 +588,14 @@ export async function scanWalletTokens(owner: string): Promise<ScanResult> {
     holding.hasTransferHook = info.hasTransferHook;
   }
 
+  const live =
+    nonFungibles.length > 0
+      ? await liveNonFungibles(rpcUrl, nonFungibles)
+      : nonFungibles;
+
   return {
     holdings,
-    nonFungibles:
-      nonFungibles.length > 0
-        ? await liveNonFungibles(rpcUrl, nonFungibles)
-        : nonFungibles,
+    nonFungibles: await annotateProofNodeCounts(live),
     nativeLamports,
     pages,
     truncated,
@@ -625,6 +656,53 @@ async function liveNonFungibles(
   }
 
   return assets.filter((asset) => !gone.has(asset.id));
+}
+
+/**
+ * Fill in each compressed leaf's proof length from its tree.
+ *
+ * The length is `maxDepth - canopyDepth`, and both come from the tree account,
+ * so it is resolved once per tree rather than once per asset. This is the one
+ * fact the UI needs to know before planning: with it, the cNFT tab can separate
+ * leaves that fit in a single transaction from those whose proof needs an
+ * address lookup table. Without it, that distinction only appears after a
+ * preview, which is too late to explain why a card is different.
+ *
+ * A tree that cannot be read leaves `proofNodes` unset. That is deliberately not
+ * treated as "needs a lookup table": the planner measures the real proof later,
+ * and a failed tree read is not evidence about its depth.
+ */
+async function annotateProofNodeCounts(
+  assets: NonFungibleAsset[],
+): Promise<NonFungibleAsset[]> {
+  const trees = [
+    ...new Set(
+      assets.flatMap((asset) => (asset.merkle ? [asset.merkle.tree] : [])),
+    ),
+  ];
+  if (trees.length === 0) return assets;
+
+  const proofNodesByTree = new Map<string, number>();
+  await Promise.all(
+    trees.map(async (tree) => {
+      const canopy = await fetchTreeCanopy(tree);
+      if (!canopy.resolved) return;
+      proofNodesByTree.set(
+        tree,
+        Math.max(0, canopy.maxDepth - canopy.canopyDepth),
+      );
+    }),
+  );
+
+  return assets.map((asset) => {
+    if (!asset.merkle) return asset;
+    const proofNodes = proofNodesByTree.get(asset.merkle.tree);
+    if (proofNodes === undefined) return asset;
+    return {
+      ...asset,
+      merkle: { ...asset.merkle, proofNodes },
+    };
+  });
 }
 
 /**
