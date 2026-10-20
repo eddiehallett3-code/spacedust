@@ -2,17 +2,29 @@
 
 import { playFlowSound } from "@/lib/ui/sound";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { getConnection } from "@/lib/solana/connection";
+import { useSolanaConnection } from "@/lib/solana/connection";
 import { isBlockhashExpired, BLOCKHASH_PROMPT_MARGIN_SLOTS } from "@/lib/solana/blockhash";
 import { planNftBurn, type PlanNftBurnResult } from "@/lib/sweep/plan-nft-burn";
 import { signTransactions, submitTransactions } from "@/lib/solana/submit";
 import {
+  buildCnftLookupTableClose,
+  buildCnftLookupTableDeactivation,
   buildCnftLookupTableSetup,
-  LOOKUP_TABLE_META_SIZE,
+  fetchCnftLookupTableStates,
+  lookupTableRef,
+  readCnftLookupTableBalances,
   waitForLookupTables,
+  waitForLookupTablesClosable,
+  type CnftLookupTable,
+  type CnftLookupTableState,
 } from "@/lib/solana/cnft-lookup-table";
+import {
+  forgetPendingLookupTableCleanup,
+  listPendingLookupTableCleanups,
+  rememberPendingLookupTableCleanup,
+} from "@/lib/solana/cnft-lookup-table-store";
 import { fetchCnftProofs } from "@/lib/sweep/asset-proof";
 import { BASE_FEE_LAMPORTS } from "@/lib/utils/constants";
 import { toFriendlyError, type FriendlyError } from "@/lib/utils/errors";
@@ -54,16 +66,56 @@ export interface NftBurnSummary {
   feeLamports: number;
   signatures: string[];
   /**
-   * Rent locked in a lookup table created to fit a long proof.
+   * Rent that was paid into lookup tables created to fit long proofs.
    *
-   * A lookup table is an on-chain account and the burn does not close it, so
-   * this is a real cost of the rescue — not a fee and not refunded by the
-   * result. Reported separately so the screen can say so.
+   * This is the amount that was locked at burn time. It is not a fee: the
+   * cleanup flow can deactivate and close those tables to return it, which is
+   * why the result screen reports the cleanup separately rather than treating
+   * this figure as permanently spent.
    */
   lookupTableRentLamports: number;
   /** Assets we refused to build for, with the reason shown on the row. */
   skipped: Array<{ id: string; name: string; reason: string }>;
 }
+
+/** Where the lookup-table rent reclaim is in its lifecycle. */
+export type LookupTableCleanupStatus =
+  | "available"
+  | "deactivating"
+  | "waiting"
+  | "closing"
+  | "reclaimed"
+  | "failed";
+
+/**
+ * The state of the post-burn table cleanup.
+ *
+ * A lookup table is an ordinary account, so the rent paid at creation is not
+ * gone — but a burn does not close it. Reclaiming it takes two approvals with
+ * the wallet as authority (deactivate, then close) and a mandatory 512-slot
+ * cooldown in between. The status is carried separately from the burn so the
+ * result screen can show that wait without pretending the burn is unfinished.
+ */
+export interface LookupTableCleanupState {
+  status: LookupTableCleanupStatus;
+  /** Base58 addresses of the tables this run created. */
+  tables: string[];
+  /** Rent that was funded into those tables, in lamports. */
+  rentLamports: number;
+  /** Rent actually returned by closes that landed, in lamports. */
+  reclaimedLamports: number;
+  /** Network fees paid for cleanup transactions, in lamports. */
+  feeLamports: number;
+  signatures: string[];
+  error: FriendlyError | null;
+  /** Cooldown progress, present while `status === "waiting"`. */
+  progress: { slotsRemaining: number; deactivationSlot: number } | null;
+}
+
+/** A table state whose account is known to still exist. */
+type OpenLookupTableState = CnftLookupTableState & {
+  account: NonNullable<CnftLookupTableState["account"]>;
+};
 
 export interface NftBurnPrepareResult {
   /** Transactions that are built and simulated now. */
@@ -83,6 +135,8 @@ interface NftBurnState {
   skipped: Array<{ id: string; name: string; reason: string }>;
   /** cNFTs waiting for a lookup-table setup before they can be simulated. */
   lookupTableAssets: NonFungibleAsset[];
+  /** Rent-reclaim state for lookup tables created by this run. */
+  lookupTableCleanup: LookupTableCleanupState | null;
   progress: { completed: number; total: number };
 }
 
@@ -96,8 +150,21 @@ const INITIAL: NftBurnState = {
   warnings: [],
   skipped: [],
   lookupTableAssets: [],
+  lookupTableCleanup: null,
   progress: { completed: 0, total: 0 },
 };
+
+/** Keep the burn's own error wording, but name the part that failed. */
+function cleanupFailure(caught: unknown): FriendlyError {
+  const friendly = toFriendlyError(caught);
+  return {
+    title: "Could not reclaim the lookup-table rent",
+    message: friendly.message,
+    hint:
+      friendly.hint ??
+      "The table and its rent are still on chain. Nothing else was charged; try the reclaim again.",
+  };
+}
 
 /**
  * The NFT burn orchestrator.
@@ -112,11 +179,14 @@ const INITIAL: NftBurnState = {
  */
 export function useNftBurn() {
   const { publicKey, signTransaction, signAllTransactions } = useWallet();
-  const connection = getConnection();
+  const connection = useSolanaConnection();
 
   const busyRef = useRef(false);
   const preparedRef = useRef<PlanNftBurnResult | null>(null);
   const assetsRef = useRef<NonFungibleAsset[]>([]);
+  /** Tables this run created, kept for the post-burn reclaim. */
+  const lookupTablesRef = useRef<CnftLookupTable[]>([]);
+  const reclaimBusyRef = useRef(false);
 
   const [state, setState] = useState<NftBurnState>(INITIAL);
 
@@ -125,10 +195,96 @@ export function useNftBurn() {
     setState((previous) => ({ ...previous, ...next }));
   }, []);
 
+  /**
+   * Bring back a reclaim that was interrupted by a refresh or a closed tab.
+   *
+   * The table address is persisted the moment setup lands, so the rent is never
+   * only in memory. On reconnect we re-read the chain: closed tables are dropped
+   * from the store, and any still-open table becomes an available reclaim.
+   */
+  useEffect(() => {
+    if (!publicKey) return;
+    const authority = publicKey.toBase58();
+    const pending = listPendingLookupTableCleanups(authority);
+    if (pending.length === 0) return;
+
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const refs = pending.map((table) => lookupTableRef(table.address));
+        const states = await fetchCnftLookupTableStates(connection, refs);
+        const missing = states
+          .filter((state) => state.account === null)
+          .map((state) => state.table.address);
+        if (missing.length > 0) {
+          forgetPendingLookupTableCleanup(authority, missing);
+        }
+
+        const open = states.filter(
+          (state): state is OpenLookupTableState => state.account !== null,
+        );
+        if (open.length === 0 || cancelled) return;
+
+        let balances = new Map<string, number>();
+        try {
+          balances = await readCnftLookupTableBalances(
+            connection,
+            open.map((state) => state.table),
+          );
+        } catch {
+          // The saved figure is still a useful estimate; the reclaim re-reads
+          // the balance before closing.
+          balances = new Map();
+        }
+
+        const pendingRent = new Map(
+          pending.map((table) => [table.address, table.rentLamports]),
+        );
+        const rentLamports = open.reduce(
+          (sum, state) =>
+            sum +
+            (balances.get(state.table.address) ??
+              pendingRent.get(state.table.address) ??
+              0),
+          0,
+        );
+        if (cancelled) return;
+
+        lookupTablesRef.current = open.map((state) => state.table);
+        setState((previous) => {
+          // Never replace a cleanup that belongs to the run already on screen.
+          if (previous.lookupTableCleanup !== null) return previous;
+          return {
+            ...previous,
+            lookupTableCleanup: {
+              status: "available",
+              tables: open.map((state) => state.table.address),
+              rentLamports,
+              reclaimedLamports: 0,
+              feeLamports: 0,
+              signatures: [],
+              error: null,
+              progress: null,
+            },
+          };
+        });
+      } catch {
+        // A transient read failure leaves the record in place for next time.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [connection, publicKey]);
+
   const reset = useCallback((): void => {
     busyRef.current = false;
+    reclaimBusyRef.current = false;
     preparedRef.current = null;
     assetsRef.current = [];
+    lookupTablesRef.current = [];
     setState(INITIAL);
   }, []);
 
@@ -163,7 +319,14 @@ export function useNftBurn() {
       }
 
       busyRef.current = true;
-      patch({ phase: "planning", error: null, warnings: [], skipped: [] });
+      lookupTablesRef.current = [];
+      patch({
+        phase: "planning",
+        error: null,
+        warnings: [],
+        skipped: [],
+        lookupTableCleanup: null,
+      });
 
       try {
         const result = await planNftBurn({
@@ -371,6 +534,21 @@ export function useNftBurn() {
             lookupTableSignatures.push(submitted.signature);
             lookupTableFeeLamports += BASE_FEE_LAMPORTS;
           }
+          // Creates are emitted first, one per table. Register each as soon as
+          // its create lands, so a later extension failure still leaves a
+          // reclaimable address rather than an orphaned table.
+          if (index < setup.tables.length) {
+            const created = setup.tables[index];
+            if (created) {
+              lookupTablesRef.current = [
+                ...lookupTablesRef.current,
+                created,
+              ];
+              rememberPendingLookupTableCleanup(publicKey.toBase58(), [
+                { address: created.address, rentLamports: 0 },
+              ]);
+            }
+          }
           patch({
             phase: "confirming",
             progress: {
@@ -380,25 +558,46 @@ export function useNftBurn() {
           });
         }
 
+        // Register the table the moment its setup transactions land. The
+        // usability wait below can fail, and the table would still exist — so
+        // the rent must be reclaimable on that error path too.
+        lookupTablesRef.current = setup.tables;
+        let balances = new Map<string, number>();
+        try {
+          balances = await readCnftLookupTableBalances(connection, setup.tables);
+        } catch {
+          // A failed read must not fail the burn. Cleanup re-reads the balance
+          // before closing, so a zero here is only a display estimate.
+          balances = new Map();
+        }
+        lookupTableRentLamports = [...balances.values()].reduce(
+          (sum, rent) => sum + rent,
+          0,
+        );
+        rememberPendingLookupTableCleanup(
+          publicKey.toBase58(),
+          setup.tables.map((table) => ({
+            address: table.address,
+            rentLamports: balances.get(table.address) ?? 0,
+          })),
+        );
+        patch({
+          lookupTableCleanup: {
+            status: "available",
+            tables: setup.tables.map((table) => table.address),
+            rentLamports: lookupTableRentLamports,
+            reclaimedLamports: 0,
+            feeLamports: 0,
+            signatures: [],
+            error: null,
+            progress: null,
+          },
+        });
+
         const lookupTables = await waitForLookupTables(
           connection,
           setup.tables,
         );
-
-        // The table account is real and funded now; price its rent so the
-        // result screen can say what stayed locked instead of hiding it.
-        const rents = await Promise.all(
-          setup.tables.map(async (table) => {
-            try {
-              return await connection.getMinimumBalanceForRentExemption(
-                LOOKUP_TABLE_META_SIZE + table.addresses.length * 32,
-              );
-            } catch {
-              return 0;
-            }
-          }),
-        );
-        lookupTableRentLamports = rents.reduce((sum, rent) => sum + rent, 0);
 
         result = await planNftBurn({
           connection,
@@ -529,14 +728,325 @@ export function useNftBurn() {
         .map((outcome) => outcome.id);
     } catch (caught) {
       playFlowSound("error");
-      patch({ phase: "error", error: toFriendlyError(caught) });
+      const friendly = toFriendlyError(caught);
+      const strayTables = lookupTablesRef.current;
+
+      // A table created just before the failure still exists. Surface it as a
+      // reclaim instead of letting the error bury the only handle to its rent.
+      let strayRent = 0;
+      if (strayTables.length > 0) {
+        try {
+          const balances = await readCnftLookupTableBalances(
+            connection,
+            strayTables,
+          );
+          strayRent = [...balances.values()].reduce(
+            (sum, rent) => sum + rent,
+            0,
+          );
+          rememberPendingLookupTableCleanup(
+            publicKey.toBase58(),
+            strayTables.map((table) => ({
+              address: table.address,
+              rentLamports: balances.get(table.address) ?? 0,
+            })),
+          );
+        } catch {
+          // Zero is only a display estimate; the reclaim reads the chain again.
+        }
+      }
+
+      setState((previous) => ({
+        ...previous,
+        phase: "error",
+        error: friendly,
+        lookupTableCleanup:
+          previous.lookupTableCleanup ??
+          (strayTables.length > 0
+            ? {
+                status: "available",
+                tables: strayTables.map((table) => table.address),
+                rentLamports: strayRent,
+                reclaimedLamports: 0,
+                feeLamports: 0,
+                signatures: [],
+                error: null,
+                progress: null,
+              }
+            : null),
+      }));
       return [];
     } finally {
       busyRef.current = false;
     }
   }, [connection, patch, publicKey, signAllTransactions, signTransaction]);
 
+  /**
+   * Deactivate, wait out the 512-slot cooldown, and close every table this run
+   * created, returning its rent to the wallet.
+   *
+   * This is opt-in rather than automatic for one reason: the wallet is the
+   * table's authority, so the close needs a signature. Running it silently after
+   * a burn would surprise the user with a second approval minutes later. The
+   * result screen keeps it one button away, and reads the chain first so a
+   * retry after a partial attempt does not try to deactivate a table twice.
+   */
+  const reclaimLookupTableRent = useCallback(async (): Promise<void> => {
+    const tables = lookupTablesRef.current;
+    const current = state.lookupTableCleanup;
+    if (tables.length === 0 || current === null || reclaimBusyRef.current) return;
+    if (current.status !== "available" && current.status !== "failed") return;
+
+    if (!publicKey) {
+      patch({
+        lookupTableCleanup: {
+          ...current,
+          status: "failed",
+          error: {
+            title: "Wallet not connected",
+            message: "Connect your wallet to reclaim the table rent.",
+          },
+        },
+      });
+      return;
+    }
+    if (!signTransaction && !signAllTransactions) {
+      patch({
+        lookupTableCleanup: {
+          ...current,
+          status: "failed",
+          error: {
+            title: "Wallet cannot sign",
+            message: "This wallet does not support signing transactions.",
+            hint: "Try a different wallet, such as Phantom or Solflare.",
+          },
+        },
+      });
+      return;
+    }
+
+    reclaimBusyRef.current = true;
+    let cleanup: LookupTableCleanupState = {
+      ...current,
+      status: "deactivating",
+      error: null,
+      progress: null,
+    };
+    patch({ phase: "awaiting-signature", lookupTableCleanup: cleanup });
+
+    try {
+      const states = await fetchCnftLookupTableStates(connection, tables);
+      const open = states.filter(
+        (entry): entry is OpenLookupTableState => entry.account !== null,
+      );
+
+      // Every table is already gone. This happens if a previous attempt closed
+      // them and the user pressed retry, or if someone closed them elsewhere.
+      if (open.length === 0) {
+        forgetPendingLookupTableCleanup(
+          publicKey.toBase58(),
+          tables.map((table) => table.address),
+        );
+        cleanup = { ...cleanup, status: "reclaimed", progress: null };
+        patch({
+          phase: state.summary !== null ? "success" : "error",
+          lookupTableCleanup: cleanup,
+        });
+        return;
+      }
+
+      // ── Deactivate ────────────────────────────────────────────────────────
+      const active = open.filter((entry) => entry.account.isActive());
+      if (active.length > 0) {
+        const batch = await buildCnftLookupTableDeactivation({
+          connection,
+          authority: publicKey,
+          tables: active.map((entry) => entry.table),
+        });
+        const signed = await signTransactions(
+          { signTransaction, signAllTransactions },
+          batch.packed,
+        );
+        patch({ phase: "submitting", lookupTableCleanup: cleanup });
+
+        const submits = await submitTransactions(
+          connection,
+          signed,
+          batch.packed,
+          {
+            blockhash: batch.blockhash,
+            lastValidBlockHeight: batch.lastValidBlockHeight,
+          },
+        );
+        const failure = submits.find((submit) => !submit.ok);
+        if (failure) {
+          throw new Error(failure.error ?? "The table deactivation did not land.");
+        }
+
+        const signatures = submits
+          .filter((submit) => submit.ok && submit.signature)
+          .map((submit) => submit.signature as string);
+        cleanup = {
+          ...cleanup,
+          feeLamports:
+            cleanup.feeLamports + signatures.length * BASE_FEE_LAMPORTS,
+          signatures: [...cleanup.signatures, ...signatures],
+        };
+        patch({ phase: "confirming", lookupTableCleanup: cleanup });
+      }
+
+      // ── Cooldown ──────────────────────────────────────────────────────────
+      cleanup = { ...cleanup, status: "waiting" };
+      patch({ phase: "confirming", lookupTableCleanup: cleanup });
+
+      await waitForLookupTablesClosable(connection, tables, {
+        onProgress: ({ slotsRemaining, deactivationSlot }) => {
+          cleanup = {
+            ...cleanup,
+            progress: { slotsRemaining, deactivationSlot },
+          };
+          patch({ lookupTableCleanup: cleanup });
+        },
+      });
+
+      // ── Close ─────────────────────────────────────────────────────────────
+      // Re-read after the wait: a table can disappear between the cooldown and
+      // this point, and closing an account that no longer exists would fail the
+      // whole batch for no reason.
+      const afterWait = await fetchCnftLookupTableStates(connection, tables);
+      const live = afterWait.filter(
+        (entry): entry is OpenLookupTableState => entry.account !== null,
+      );
+      if (live.length === 0) {
+        forgetPendingLookupTableCleanup(
+          publicKey.toBase58(),
+          tables.map((table) => table.address),
+        );
+        cleanup = { ...cleanup, status: "reclaimed", progress: null };
+        patch({
+          phase: state.summary !== null ? "success" : "error",
+          lookupTableCleanup: cleanup,
+        });
+        return;
+      }
+
+      const liveTables = live.map((entry) => entry.table);
+      // A balance read failure must not block a close that would return the
+      // rent. Fall back to the figure recorded at setup for display.
+      let balances = new Map<string, number>();
+      try {
+        balances = await readCnftLookupTableBalances(connection, liveTables);
+      } catch {
+        balances = new Map();
+      }
+      const batch = await buildCnftLookupTableClose({
+        connection,
+        authority: publicKey,
+        recipient: publicKey,
+        tables: liveTables,
+      });
+
+      cleanup = { ...cleanup, status: "closing", progress: null };
+      patch({ phase: "awaiting-signature", lookupTableCleanup: cleanup });
+
+      const signed = await signTransactions(
+        { signTransaction, signAllTransactions },
+        batch.packed,
+      );
+      patch({ phase: "submitting", lookupTableCleanup: cleanup });
+
+      const submits = await submitTransactions(
+        connection,
+        signed,
+        batch.packed,
+        {
+          blockhash: batch.blockhash,
+          lastValidBlockHeight: batch.lastValidBlockHeight,
+        },
+      );
+
+      let reclaimedLamports = cleanup.reclaimedLamports;
+      const signatures: string[] = [];
+      const closedTables: string[] = [];
+      let closeFeeLamports = 0;
+      let failure: string | null = null;
+
+      // The builder emits one transaction per table, in `liveTables` order, so
+      // a successful close can be attributed to the balance it returned.
+      submits.forEach((submit, index) => {
+        const table = liveTables[index];
+        if (submit.signature) {
+          signatures.push(submit.signature);
+          closeFeeLamports += BASE_FEE_LAMPORTS;
+        }
+        if (submit.ok) {
+          if (table) {
+            reclaimedLamports +=
+              balances.get(table.address) ??
+              (liveTables.length === 1 ? cleanup.rentLamports : 0);
+            closedTables.push(table.address);
+          }
+        } else if (failure === null) {
+          failure = submit.error ?? "A lookup-table close did not land.";
+        }
+      });
+
+      // Only remove what actually closed. A partial close must leave the rest
+      // in storage so the retry can find it.
+      forgetPendingLookupTableCleanup(publicKey.toBase58(), closedTables);
+
+      cleanup = {
+        ...cleanup,
+        status: failure === null ? "reclaimed" : "failed",
+        reclaimedLamports,
+        feeLamports: cleanup.feeLamports + closeFeeLamports,
+        signatures: [...cleanup.signatures, ...signatures],
+        error:
+          failure === null
+            ? null
+            : {
+                title: "Some lookup-table rent was not returned",
+                message: failure,
+                hint: "The table is deactivated and its rent is still recoverable. Try the reclaim again.",
+              },
+      };
+
+      patch({
+        phase: state.summary !== null ? "success" : "error",
+        lookupTableCleanup: cleanup,
+      });
+    } catch (caught) {
+      cleanup = {
+        ...cleanup,
+        status: "failed",
+        error: cleanupFailure(caught),
+        progress: null,
+      };
+      patch({
+        phase: state.summary !== null ? "success" : "error",
+        lookupTableCleanup: cleanup,
+      });
+    } finally {
+      reclaimBusyRef.current = false;
+    }
+  }, [
+    connection,
+    patch,
+    publicKey,
+    signAllTransactions,
+    signTransaction,
+    state.lookupTableCleanup,
+    state.summary,
+  ]);
+
   const isBusy = isBusyPhase(state.phase);
 
-  return { ...state, prepare, execute, reset, isBusy };
+  return {
+    ...state,
+    prepare,
+    execute,
+    reclaimLookupTableRent,
+    reset,
+    isBusy,
+  };
 }

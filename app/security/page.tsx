@@ -126,8 +126,9 @@ export default function SecurityPage() {
           The only things kept in your browser are a few preferences and a log,
           all in <code>localStorage</code>: your dust threshold, the output asset
           you chose, the smart-filter toggle, your past-sweep history, the
-          site-wide tally those sweeps add to, and the assets you have hidden.
-          None of it leaves the device.
+          site-wide tally those sweeps add to, the assets you have hidden, and
+          the addresses of lookup tables whose rent is still waiting to be
+          reclaimed. None of it leaves the device.
         </p>
 
         {/* The claim above, made actionable. A reader who wants to check that this

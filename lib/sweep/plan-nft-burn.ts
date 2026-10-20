@@ -676,7 +676,7 @@ export async function planNftBurn(input: {
     warnings.push(
       `${lookupTableAssets.size} cNFT${
         lookupTableAssets.size === 1 ? " needs" : "s need"
-      } an address lookup table because their merkle proofs are too long to send inline. The table is created when you burn; it takes an extra approval step, a few network fees, and its rent stays locked in the table.`,
+      } an address lookup table because their merkle proofs are too long to send inline. The table is created when you burn; it takes an extra approval step and a few network fees, and its rent is returned when you reclaim and close the table after the burn.`,
     );
   }
 

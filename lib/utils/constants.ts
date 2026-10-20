@@ -349,6 +349,14 @@ export const STORAGE_KEYS = {
    */
   hiddenAssets: "spacedust:v1:hiddenAssets",
   /**
+   * Lookup tables created for a cNFT burn whose rent has not been reclaimed.
+   *
+   * A table outlives the burn and can only be closed after a 512-slot wait, so
+   * the addresses have to survive a refresh. Losing them would strand exactly
+   * the rent the reclaim flow exists to return.
+   */
+  lookupTableCleanup: "spacedust:v1:lookupTableCleanup",
+  /**
    * The site-wide tally under the app: how many sweeps this browser has run and
    * what they recovered.
    *

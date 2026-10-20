@@ -632,8 +632,14 @@ rather than assumed:
   ("only 17 proof accounts fit in a single transaction"). A tree's proof is
   `depth − canopy`, so a canopy is what keeps this small: their recommended
   depth-20 tree uses canopy 13, a 7-node proof, which fits with room to spare.
-  Only a tree built with **no canopy** sends every level, and those are refused
-  with the reason on the row rather than broadcast into a rejection.
+  Only a tree built with **no canopy** sends every level. Those burns are
+  rescued with an address lookup table: the proof nodes are stored in a table,
+  the burn references them by index, and the table is created in a separate
+  setup approval because it must be one slot old before use. The table is an
+  on-chain account, so its rent is real — but not lost. After the burn the app
+  can deactivate it, wait out the program's 512-slot cooldown, close it, and
+  return the rent; the table address is kept in `localStorage` so a refresh
+  during the wait does not strand it.
 - **Bubblegum V2 is supported, and is a different instruction rather than a
   variation.** A V2 leaf commits to its own asset-data hash and a flags word —
   both of which the index reports, and both of which the program checks — and it

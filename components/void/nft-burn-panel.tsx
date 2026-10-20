@@ -15,10 +15,12 @@ import { burnResultCopy, countBurned } from "@/lib/sweep/burn-result-copy";
 import { labelNonFungibles } from "@/lib/sweep/asset-labels";
 import { previewAction } from "@/lib/sweep/preview";
 import { solscanTxUrl } from "@/lib/solana/submit";
+import { LOOKUP_TABLE_DEACTIVATION_SLOTS } from "@/lib/solana/cnft-lookup-table";
 import { formatSol, pluralize, truncateAddress } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
 import { TOAST_BRIEF_MS, TOAST_READ_MS } from "@/lib/utils/constants";
 import type {
+  LookupTableCleanupState,
   NftBurnOutcome,
   NftBurnSummary,
   useNftBurn,
@@ -181,6 +183,7 @@ export function NftBurnPanel({
     warnings,
     skipped,
     lookupTableAssets,
+    lookupTableCleanup,
     progress,
     isBusy,
   } = theBurn;
@@ -313,6 +316,9 @@ export function NftBurnPanel({
       <BurnResult
         summary={summary}
         outcomes={theBurn.outcomes}
+        cleanup={lookupTableCleanup}
+        onReclaim={() => void theBurn.reclaimLookupTableRent()}
+        isBusy={isBusy}
         onDone={handleDone}
         // Passed, not recomputed: the report has to use the same names the grid
         // showed when the user ticked these.
@@ -531,6 +537,17 @@ export function NftBurnPanel({
 
       <SweepError error={error} />
 
+      {/* A burn can fail after its lookup table was created. The table outlives
+          the failed attempt, so its rent must stay reclaimable on this screen
+          rather than disappearing with the error. */}
+      {summary === null && lookupTableCleanup ? (
+        <LookupTableCleanupPanel
+          cleanup={lookupTableCleanup}
+          isBusy={isBusy}
+          onReclaim={() => void theBurn.reclaimLookupTableRent()}
+        />
+      ) : null}
+
       {skipped.length > 0 ? (
         <ul className="space-y-1 rounded-xl border border-warning/25 bg-warning/6 px-3 py-2 text-[11px] text-muted">
           {skipped.map((entry) => (
@@ -570,9 +587,11 @@ export function NftBurnPanel({
                   : "Their merkle proofs are too long to send inline."}{" "}
                 When you burn, Spacedust creates a lookup table first — that is
                 an extra approval step and a few network fees — waits for it to
-                become usable, then simulates and asks you to sign the burn. The
-                table&apos;s rent stays locked in it; the burn does not return
-                that rent.
+                become usable, then simulates and asks you to sign the burn. Its
+                rent is recoverable: after the burn, a Reclaim action deactivates
+                the table, waits out the program&apos;s 512-slot cooldown (about
+                four minutes), then asks you to approve closing it and returns
+                the rent.
               </p>
             </div>
           ) : null}
@@ -720,14 +739,155 @@ function CopyMint({ mint, kind }: { mint: string; kind: string }) {
   );
 }
 
+/**
+ * Reclaim control for the lookup tables a burn had to create.
+ *
+ * Kept separate from the burn result because the burn can be finished while the
+ * table is not: deactivation needs one approval, closing needs another only
+ * after 512 slots. The panel says exactly which step is waiting so a long
+ * cooldown never looks like a stuck screen.
+ */
+function LookupTableCleanupPanel({
+  cleanup,
+  isBusy,
+  onReclaim,
+}: {
+  cleanup: LookupTableCleanupState;
+  isBusy: boolean;
+  onReclaim: () => void;
+}) {
+  const { status, tables, rentLamports, reclaimedLamports, feeLamports, signatures, error, progress } =
+    cleanup;
+  const tableLabel = pluralize(tables.length, "lookup table");
+  const rent = formatSol(rentLamports);
+  const reclaimed = formatSol(reclaimedLamports);
+  const canReclaim = (status === "available" || status === "failed") && !isBusy;
+  const cooldownSlots = LOOKUP_TABLE_DEACTIVATION_SLOTS + 1;
+  const cooldownMinutes = progress
+    ? Math.max(1, Math.ceil((progress.slotsRemaining * 0.4) / 60))
+    : 0;
+  const progressPercent = progress
+    ? Math.min(
+        100,
+        Math.max(
+          0,
+          ((cooldownSlots - progress.slotsRemaining) / cooldownSlots) * 100,
+        ),
+      )
+    : 0;
+
+  const message = (() => {
+    switch (status) {
+      case "available":
+        return `The burn left ${rent} locked in ${tableLabel}. Deactivating and closing the table returns it. This takes two wallet approvals and one 512-slot wait (about four minutes). The address is saved on this device, so you can finish the reclaim later if you close this tab.`;
+      case "deactivating":
+        return "Approve the deactivation in your wallet. The table cannot be closed until the 512-slot cooldown ends.";
+      case "waiting":
+        return `Cooling down: ${progress?.slotsRemaining ?? LOOKUP_TABLE_DEACTIVATION_SLOTS} slots left (about ${cooldownMinutes} min). Keep this tab open; you will approve the close when the cooldown ends.`;
+      case "closing":
+        return `Approve the close in your wallet to return ${rent}.`;
+      case "reclaimed":
+        return reclaimedLamports > 0
+          ? `${reclaimed} was returned to your wallet.`
+          : "The table was already closed; there was no rent left to return.";
+      case "failed":
+        return "The table and its rent are still on chain. Nothing else was charged; try the reclaim again.";
+    }
+  })();
+
+  return (
+    <div
+      className={cn(
+        "rounded-xl border px-3 py-2.5 text-[11px] leading-relaxed",
+        status === "reclaimed"
+          ? "border-success/25 bg-success/6"
+          : status === "failed"
+            ? "border-warning/30 bg-warning/8"
+            : "border-violet-core/25 bg-violet-core/5",
+      )}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="font-medium text-foreground">
+            {status === "reclaimed"
+              ? reclaimedLamports > 0
+                ? `${reclaimed} lookup-table rent reclaimed`
+                : "Lookup tables closed"
+              : `${rent} lookup-table rent`}
+          </p>
+          <p className="mt-1 text-muted">{message}</p>
+        </div>
+        {canReclaim ? (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onReclaim}
+            disabled={isBusy}
+            className="shrink-0"
+          >
+            {status === "failed" ? "Try reclaim again" : `Reclaim ${rent}`}
+          </Button>
+        ) : null}
+      </div>
+
+      {status === "waiting" && progress ? (
+        <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/10">
+          <div
+            className="h-full rounded-full bg-violet-core transition-all"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+      ) : null}
+
+      {error ? (
+        <div className="mt-2 rounded-lg border border-warning/25 bg-warning/6 px-2.5 py-1.5">
+          <p className="font-medium text-foreground">{error.title}</p>
+          <p className="mt-0.5 text-muted">{error.message}</p>
+          {error.hint ? <p className="mt-1 text-subtle">{error.hint}</p> : null}
+        </div>
+      ) : null}
+
+      {feeLamports > 0 ? (
+        <p className="mt-2 text-subtle">
+          Cleanup network fees: {formatSol(feeLamports)}.
+        </p>
+      ) : null}
+
+      {signatures.length > 0 ? (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {signatures.map((signature) => (
+            <a
+              key={signature}
+              href={solscanTxUrl(signature)}
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+              className="inline-flex items-center gap-1 rounded-lg border border-border bg-white/3 px-2 py-1 font-mono text-[11px] text-muted transition-colors hover:border-violet-core/40 hover:text-foreground"
+            >
+              {truncateAddress(signature, 4, 4)}
+              <ExternalLink className="size-3" aria-hidden />
+              <span className="sr-only">View cleanup transaction on Solscan</span>
+            </a>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function BurnResult({
   summary,
   outcomes,
+  cleanup,
+  onReclaim,
+  isBusy,
   onDone,
   nameFor,
 }: {
   summary: NftBurnSummary;
   outcomes: NftBurnOutcome[];
+  cleanup: LookupTableCleanupState | null;
+  onReclaim: () => void;
+  isBusy: boolean;
   onDone: () => void;
   /**
    * The name to show for an asset id, from the panel's own labelling.
@@ -775,11 +935,17 @@ function BurnResult({
         <p className="text-[11px] leading-relaxed text-muted">{copy.note}</p>
       ) : null}
 
-      {summary.lookupTableRentLamports > 0 ? (
+      {cleanup ? (
+        <LookupTableCleanupPanel
+          cleanup={cleanup}
+          isBusy={isBusy}
+          onReclaim={onReclaim}
+        />
+      ) : summary.lookupTableRentLamports > 0 ? (
         <p className="rounded-xl border border-border/60 bg-white/2 px-3 py-2 text-[11px] leading-relaxed text-muted">
           A lookup table was created to fit the long merkle proofs.{" "}
           {formatSol(summary.lookupTableRentLamports)} of rent is locked in that
-          table; the burn does not return it.
+          table, and this screen could not load its cleanup state.
         </p>
       ) : null}
 
@@ -863,7 +1029,13 @@ function BurnResult({
         </div>
       ) : null}
 
-      <Button size="md" variant="outline" className="w-full" onClick={onDone}>
+      <Button
+        size="md"
+        variant="outline"
+        className="w-full"
+        onClick={onDone}
+        disabled={isBusy}
+      >
         Done
       </Button>
     </div>

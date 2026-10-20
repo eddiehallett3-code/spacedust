@@ -98,8 +98,8 @@ export default function PrivacyPage() {
           <li>
             <strong>Local browser data.</strong> Your dust threshold, preferred
             output asset, smart-filter setting, sweep history, hidden assets, the
-            local sweep tally and whether you dismissed the storage notice. This
-            stays on your device.
+            local sweep tally, pending lookup-table cleanup addresses and
+            whether you dismissed the storage notice. This stays on your device.
           </li>
           <li>
             <strong>Support messages.</strong> If you email us, we receive your

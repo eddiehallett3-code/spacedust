@@ -9,9 +9,10 @@ import { Button } from "@/components/ui/button";
  *
  * There is no Spacedust account, so there is no server record to delete. What
  * exists is local: preferences, sweep history, hidden assets, the local tally,
- * the cookie-notice flag, and whatever WalletConnect/Reown stored for the
- * connection. This clears all of it for this origin, disconnects the wallet and
- * reloads. On-chain data is public and cannot be deleted, which the copy says.
+ * pending lookup-table cleanup addresses, the cookie-notice flag, and whatever
+ * WalletConnect/Reown stored for the connection. This clears all of it for this
+ * origin, disconnects the wallet and reloads. On-chain data is public and cannot
+ * be deleted, which the copy says.
  */
 export function DeleteData({ contactEmail }: { contactEmail: string | null }) {
   const { disconnect } = useWallet();
@@ -111,9 +112,10 @@ export function DeleteData({ contactEmail }: { contactEmail: string | null }) {
       <p className="text-sm leading-relaxed text-muted">
         This disconnects your wallet and deletes this app&apos;s local storage,
         session storage, cookies, caches and IndexedDB databases for this site.
-        That includes preferences, sweep history, hidden assets, the local tally
-        and WalletConnect session data. It does not delete anything on chain, and
-        it cannot delete data held by your wallet provider.
+        That includes preferences, sweep history, hidden assets, the local tally,
+        pending lookup-table cleanup addresses and WalletConnect session data. It
+        does not delete anything on chain, and it cannot delete data held by your
+        wallet provider.
       </p>
       <p className="mt-2 text-xs leading-relaxed text-muted">
         There is no Spacedust account to delete. If you have sent us a support

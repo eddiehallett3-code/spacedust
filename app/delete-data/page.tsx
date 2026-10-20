@@ -26,8 +26,9 @@ export default function DeleteDataPage() {
           Spacedust is non-custodial and has no signup, password or server-side
           user account. It cannot hold a balance and it never receives a private
           key or seed phrase. The data it keeps is in your browser: preferences,
-          sweep history, hidden assets, the local tally, the notice flag, and the
-          wallet-connection session stored by Reown/WalletConnect.
+          sweep history, hidden assets, the local tally, pending lookup-table
+          cleanup addresses, the notice flag, and the wallet-connection session
+          stored by Reown/WalletConnect.
         </p>
         <p>
           The button below disconnects the wallet and clears those stores for this
