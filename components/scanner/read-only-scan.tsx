@@ -8,6 +8,7 @@ import {
   Eye,
   Landmark,
   QrCode,
+  ScanLine,
   Search,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -105,7 +106,7 @@ export function ReadOnlyScan({ initialOwner }: { initialOwner: string | null }) 
 
     try {
       const result = await apiFetch<WalletScan>(
-        `/api/tokens?owner=${encodeURIComponent(address)}`,
+        `/api/tokens?owner=${encodeURIComponent(address)}&approvals=1`,
         {
           signal: controller.signal,
           timeoutMs: 45_000,
@@ -281,22 +282,193 @@ function ScanForm({
   );
 }
 
-/** One headline figure, with the caveat that belongs beside it. */
-function Stat({
+/** One figure with its own label and an accessible explanation. */
+function Metric({
   label,
   value,
   hint,
+  accent = false,
 }: {
   label: string;
   value: string;
   hint: string;
+  accent?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-border/70 bg-white/2 p-3">
-      <p className="text-xs text-muted">{label}</p>
-      <p className="mt-1 font-mono text-base tabular-nums">{value}</p>
-      <p className="mt-1 text-[11px] leading-relaxed text-subtle">{hint}</p>
+    <div className="rounded-xl border border-border/60 bg-white/[0.02] p-2.5">
+      <dt className="text-[10px] leading-tight text-subtle">{label}</dt>
+      <dd
+        title={hint}
+        className={
+          accent
+            ? "mt-1 truncate text-base font-semibold tracking-tight text-success sm:text-lg"
+            : "mt-1 truncate text-base font-semibold tracking-tight sm:text-lg"
+        }
+      >
+        {value}
+      </dd>
     </div>
+  );
+}
+
+/**
+ * The headline, deliberately shaped like the example on the landing page: one
+ * address card, three figures, and the rent breakdown beside them. The detailed
+ * charts and rows stay below; this is the at-a-glance answer.
+ */
+function ScanSummary({
+  scan,
+  recoverable,
+  owner,
+  copied,
+  onCopyLink,
+}: {
+  scan: WalletScan;
+  recoverable: RecoverableBreakdown;
+  owner: string | null;
+  copied: boolean;
+  onCopyLink: () => void;
+}) {
+  const tokenAccounts = scan.tokens.length + scan.emptyAccounts.length;
+  const approvals = scan.approvalsCount;
+  const approvalsValue =
+    scan.approvalsError !== null && scan.approvalsError !== undefined
+      ? "—"
+      : approvals == null
+        ? "—"
+        : String(approvals);
+  const rent = formatSol(recoverable.rentLamports);
+  const rentValue = rent.endsWith(" SOL") ? rent.slice(0, -4) : rent;
+  const rentUsd = recoverable.rentUsd;
+  const totalUsd = recoverable.totalUsd;
+  const rentShare =
+    rentUsd !== null && totalUsd !== null && totalUsd > 0
+      ? Math.min(1, Math.max(0, rentUsd / totalUsd))
+      : null;
+  const source =
+    scan.source === "helius-das" ? "Helius's DAS index" : "the free core RPC";
+
+  return (
+    <Card sheen className="overflow-hidden rounded-2xl border-border/70">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 px-4 py-3 sm:px-5">
+        <div className="flex items-center gap-2.5">
+          <span className="flex size-8 items-center justify-center rounded-lg bg-violet-core/12 text-violet-glow ring-1 ring-inset ring-violet-core/20">
+            <ScanLine className="size-4" aria-hidden />
+          </span>
+          <div>
+            <p className="text-sm font-medium">Wallet Scan</p>
+            <p className="text-[11px] text-subtle">
+              Read-only · no wallet connection
+            </p>
+          </div>
+        </div>
+        <Badge variant="success" size="sm">
+          Read-only
+        </Badge>
+      </div>
+
+      <div className="grid gap-3 p-4 sm:grid-cols-[1.15fr_0.85fr] sm:p-5">
+        <div>
+          <div className="rounded-xl border border-border/60 bg-black/20 p-3">
+            <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-subtle">
+              Wallet address
+            </p>
+            <div className="mt-1 flex items-center gap-2">
+              <span className="font-mono text-sm text-foreground">
+                {owner ? truncateAddress(owner, 4, 4) : "—"}
+              </span>
+              <span className="rounded-full border border-success/20 bg-success/8 px-2 py-0.5 text-[10px] text-emerald-300">
+                Read-only
+              </span>
+            </div>
+          </div>
+
+          <dl className="mt-3 grid grid-cols-3 gap-2">
+            <Metric
+              label="Token accounts"
+              value={String(tokenAccounts)}
+              hint={`${pluralize(scan.tokens.length, "dust position")} plus ${pluralize(scan.emptyAccounts.length, "empty account")}.`}
+            />
+            <Metric
+              label="Reclaimable"
+              value={rentValue}
+              accent
+              hint="Rent sitting in accounts that are already empty."
+            />
+            <Metric
+              label="Approvals"
+              value={approvalsValue}
+              hint={
+                scan.approvalsError
+                  ? `Could not check approvals: ${scan.approvalsError}`
+                  : approvals == null
+                    ? "Approvals were not checked."
+                    : approvals === 0
+                      ? "No open approvals."
+                      : pluralize(approvals, "open approval")
+              }
+            />
+          </dl>
+
+          <p className="mt-2 px-0.5 text-[10px] leading-snug text-subtle">
+            Wallet total {formatUsd(recoverable.walletValueUsd)} · Native{" "}
+            {scan.native.sol.toFixed(4)} SOL
+          </p>
+        </div>
+        <div className="rounded-xl border border-border/60 bg-white/[0.02] p-3">
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-subtle">
+              Potential reclaim
+            </p>
+            <p className="text-sm font-semibold text-success">+{rent}</p>
+          </div>
+          <div
+            className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/6"
+            role="img"
+            aria-label={
+              rentShare === null
+                ? "Rent share unavailable"
+                : `${Math.round(rentShare * 100)}% of recoverable value is rent`
+            }
+          >
+            <div
+              className="h-full rounded-full bg-linear-to-r from-violet-core to-cyan-core"
+              style={{ width: `${(rentShare ?? 0) * 100}%` }}
+            />
+          </div>
+          <ul className="mt-3 space-y-1.5 text-[11px] text-muted">
+            <li className="flex justify-between gap-2">
+              <span>Dust positions</span>
+              <span className="text-foreground">{scan.tokens.length}</span>
+            </li>
+            <li className="flex justify-between gap-2">
+              <span>Empty token accounts</span>
+              <span className="text-foreground">{scan.emptyAccounts.length}</span>
+            </li>
+            <li className="flex justify-between gap-2">
+              <span>Open approvals</span>
+              <span className="text-foreground">{approvalsValue}</span>
+            </li>
+          </ul>
+          <p className="mt-3 text-[10px] leading-snug text-subtle">
+            {scan.approvalsError
+              ? "Approvals could not be read. That is not a clean bill of health."
+              : "Read-only result. Nothing is signed."}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 px-4 py-3 sm:px-5">
+        <p className="text-[11px] text-subtle">
+          Read {Math.round(scan.durationMs)}ms ago through {source}, across{" "}
+          {pluralize(scan.pages, "page")}.
+        </p>
+        <Button variant="ghost" size="sm" onClick={onCopyLink}>
+          {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
+          {copied ? "Copied" : "Copy link"}
+        </Button>
+      </div>
+    </Card>
   );
 }
 
@@ -374,70 +546,13 @@ function ScanResult({
 
   return (
     <div className="flex flex-col gap-4">
-      <Card>
-        <CardHeader className="flex-row items-start justify-between gap-3">
-          <div className="min-w-0">
-            <CardTitle className="text-sm font-medium text-muted">
-              Recoverable
-            </CardTitle>
-            <p className="mt-1 font-mono text-3xl tabular-nums">
-              {recoverable.totalUsd == null
-                ? "—"
-                : formatUsd(recoverable.totalUsd)}
-            </p>
-            <p className="mt-2 text-xs leading-relaxed text-subtle">
-              {recoverable.emptyAccounts > 0
-                ? `${formatSol(recoverable.rentLamports)} of that is rent sitting in ${pluralize(
-                    recoverable.emptyAccounts,
-                    "account",
-                  )} that ${recoverable.emptyAccounts === 1 ? "is" : "are"} already empty — close them and it is yours.`
-                : `Nothing here is rent: ${pluralize(
-                    recoverable.closableAccounts,
-                    "account",
-                  )} still ${recoverable.closableAccounts === 1 ? "holds" : "hold"} a balance, and rent only comes back once that balance is sold or burned.`}
-              {recoverable.rentUsd == null
-                ? " Valued in SOL above because there is no SOL price to convert at."
-                : ""}
-            </p>
-          </div>
-          {owner ? (
-            <span className="shrink-0 rounded-full border border-border bg-white/3 px-2.5 py-1 font-mono text-[11px] text-muted">
-              {truncateAddress(owner, 4, 4)}
-            </span>
-          ) : null}
-        </CardHeader>
-
-        <CardContent className="grid gap-3 pt-5 sm:grid-cols-2">
-          <Stat
-            label="Dust value"
-            value={formatUsd(recoverable.sweepableValueUsd)}
-            hint={`Across ${pluralize(scan.tokens.length, "token")}, valued by Jupiter.`}
-          />
-          <Stat
-            label="Rent in empty accounts"
-            value={formatSol(recoverable.rentLamports)}
-            hint={
-              recoverable.emptyAccounts > 0
-                ? `${pluralize(recoverable.emptyAccounts, "account")} ${recoverable.emptyAccounts === 1 ? "is" : "are"} already empty. Funded accounts are not counted — their rent only returns once the balance is sold or burned.`
-                : "No account here is empty yet, so there is no rent to collect today."
-            }
-          />
-          <Stat
-            label="Native SOL"
-            value={`${scan.native.sol.toFixed(4)} SOL`}
-            hint="Not counted as recoverable: a sweep cannot spend the balance that pays for it."
-          />
-          <Stat
-            label="Wallet total"
-            value={
-              recoverable.walletValueUsd == null
-                ? "—"
-                : formatUsd(recoverable.walletValueUsd)
-            }
-            hint={`Every token plus native SOL, across ${pluralize(scan.tokens.length, "token")}, valued by Jupiter. NFTs are not priced here.`}
-          />
-        </CardContent>
-      </Card>
+      <ScanSummary
+        scan={scan}
+        recoverable={recoverable}
+        owner={owner}
+        copied={copied}
+        onCopyLink={onCopyLink}
+      />
 
       {limitations > 0 ? (
         <LimitationsCard limitations={recoverable.limitations} />
@@ -477,10 +592,6 @@ function ScanResult({
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <ConnectWalletCta size="md" />
-            <Button variant="secondary" size="md" onClick={onCopyLink}>
-              {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
-              {copied ? "Copied" : "Copy link"}
-            </Button>
           </div>
         </CardContent>
       </Card>

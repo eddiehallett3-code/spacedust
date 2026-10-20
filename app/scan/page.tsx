@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/scan" },
   title: "Wallet Scan — read-only wallet lookup",
   description:
-    "Paste any Solana address and see what a sweep would recover from it: dust value, the rent locked in empty token accounts, and the holdings a sweep would refuse. No wallet connection, nothing signed.",
+    "Paste any Solana address and see what a sweep would recover from it: token accounts, the rent locked in empty accounts, standing approvals, and the holdings a sweep would refuse. No wallet connection, nothing signed.",
 };
 
 /**
@@ -36,7 +36,7 @@ export default async function ScanPage({
       <PageHeader
         emblem={<ToolEmblem tool="scan" />}
         title="Wallet Scan"
-        description="Paste a Solana address to see what is recoverable from it: the dust it holds, the rent locked in its empty token accounts, and what a sweep would refuse to touch. Nothing is connected and nothing is signed."
+        description="Paste a Solana address to see its token accounts, the rent recoverable from empty ones, standing approvals, and what a sweep would refuse to touch. Nothing is connected and nothing is signed."
       />
       <ReadOnlyScan initialOwner={owner} />
     </Container>

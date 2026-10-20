@@ -391,6 +391,17 @@ export interface WalletScan {
    * a single misclassification puts an NFT one click from destruction.
    */
   nonFungibles: NonFungibleAsset[];
+  /**
+   * Standing token approvals, included when the caller asks for them.
+   *
+   * `null` means the read was attempted and failed; `undefined` means this
+   * response did not ask for approvals. The distinction matters: "no approvals"
+   * and "we could not look" are different answers, and only one is a clean bill
+   * of health.
+   */
+  approvalsCount?: number | null;
+  /** Why the approvals read failed, when `approvalsCount` is null. */
+  approvalsError?: string | null;
 }
 
 /** Reasons a token is hidden when "Smart Filter" is on. */

@@ -16,6 +16,7 @@ import { getServerRpcUrl, MissingEnvError } from "@/lib/config/env";
 import { isPoolPosition } from "@/lib/sweep/pool-positions";
 import { stakedTokenFor } from "@/lib/staking/staked-tokens";
 import { readNativeStakeAccounts } from "@/lib/staking/native-stake.server";
+import { readTokenApprovals } from "@/lib/solana/approvals";
 import { fetchRentMinimums } from "@/lib/solana/rent";
 import { OUTPUT_ASSETS } from "@/lib/utils/constants";
 import {
@@ -69,6 +70,10 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const parsed = QuerySchema.safeParse({ owner: url.searchParams.get("owner") });
+  // `/scan` asks for this; the sweeper does not need an approvals read on every
+  // rescan, so it stays opt-in rather than adding two owner-wide account reads
+  // to every request.
+  const wantsApprovals = url.searchParams.get("approvals") === "1";
 
   if (!parsed.success) {
     return NextResponse.json(
@@ -116,6 +121,20 @@ export async function GET(request: Request) {
     const poolLike = new Set<string>();
     let poolLikeError: string | null = null;
     const connection = new Connection(getServerRpcUrl(), "confirmed");
+    const approvalsRead: Promise<{
+      count: number | null;
+      error: string | null;
+    }> | null = wantsApprovals
+      ? readTokenApprovals(connection, new PublicKey(parsed.data.owner))
+          .then((approvals) => ({ count: approvals.length, error: null }))
+          .catch((error) => ({
+            count: null,
+            error:
+              error instanceof Error
+                ? error.message
+                : "Could not read token approvals.",
+          }))
+      : null;
     try {
       const holdingByMint = new Map(
         holdings.map((holding) => [holding.mint, holding]),
@@ -310,6 +329,8 @@ export async function GET(request: Request) {
       prices[OUTPUT_ASSETS.SOL.mint]?.usdPrice ??
       null;
 
+    const approvals = approvalsRead === null ? null : await approvalsRead;
+
     const payload: WalletScan = {
       owner: parsed.data.owner,
       tokens: dustTokens,
@@ -347,6 +368,12 @@ export async function GET(request: Request) {
       durationMs: Date.now() - startedAt,
       truncated,
       source,
+      ...(approvals === null
+        ? {}
+        : {
+            approvalsCount: approvals.count,
+            approvalsError: approvals.error,
+          }),
     };
 
     // Short shared-cache window: repeated rescans of the same wallet are common
