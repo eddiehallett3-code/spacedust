@@ -357,6 +357,12 @@ export const STORAGE_KEYS = {
    */
   lookupTableCleanup: "spacedust:v1:lookupTableCleanup",
   /**
+   * Whether to start the lookup-table cleanup automatically after a burn that
+   * created one. Off by default: the cleanup needs two wallet approvals, so it
+   * is a choice rather than something that happens behind the user's back.
+   */
+  lookupTableAutoReclaim: "spacedust:v1:lookupTableAutoReclaim",
+  /**
    * The site-wide tally under the app: how many sweeps this browser has run and
    * what they recovered.
    *

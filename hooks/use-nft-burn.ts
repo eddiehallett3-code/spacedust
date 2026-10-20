@@ -26,7 +26,8 @@ import {
   rememberPendingLookupTableCleanup,
 } from "@/lib/solana/cnft-lookup-table-store";
 import { fetchCnftProofs } from "@/lib/sweep/asset-proof";
-import { BASE_FEE_LAMPORTS } from "@/lib/utils/constants";
+import { BASE_FEE_LAMPORTS, STORAGE_KEYS } from "@/lib/utils/constants";
+import { useLocalStorage, isBoolean } from "@/hooks/use-local-storage";
 import { toFriendlyError, type FriendlyError } from "@/lib/utils/errors";
 import { isBusyPhase } from "@/lib/sweep/phase";
 import type { NonFungibleAsset } from "@/types/token";
@@ -187,8 +188,24 @@ export function useNftBurn() {
   /** Tables this run created, kept for the post-burn reclaim. */
   const lookupTablesRef = useRef<CnftLookupTable[]>([]);
   const reclaimBusyRef = useRef(false);
+  /** Ensures the auto-cleanup starts once per burn, never in a loop on failure. */
+  const autoReclaimStartedRef = useRef(false);
 
   const [state, setState] = useState<NftBurnState>(INITIAL);
+  /**
+   * Whether the user wants the cleanup to start on its own after a burn.
+   *
+   * Off by default, which is the behaviour this screen has always had. The
+   * preference is stored so a user who chose it does not have to find the toggle
+   * again on the next wallet. It does not remove either wallet approval: it only
+   * decides whether Spacedust starts the process without another click.
+   */
+  const [autoReclaimLookupTableRent, setAutoReclaimLookupTableRent] =
+    useLocalStorage<boolean>(
+      STORAGE_KEYS.lookupTableAutoReclaim,
+      false,
+      isBoolean,
+    );
 
 
   const patch = useCallback((next: Partial<NftBurnState>): void => {
@@ -282,6 +299,7 @@ export function useNftBurn() {
   const reset = useCallback((): void => {
     busyRef.current = false;
     reclaimBusyRef.current = false;
+    autoReclaimStartedRef.current = false;
     preparedRef.current = null;
     assetsRef.current = [];
     lookupTablesRef.current = [];
@@ -320,6 +338,7 @@ export function useNftBurn() {
 
       busyRef.current = true;
       lookupTablesRef.current = [];
+      autoReclaimStartedRef.current = false;
       patch({
         phase: "planning",
         error: null,
@@ -1039,6 +1058,36 @@ export function useNftBurn() {
     state.summary,
   ]);
 
+  /**
+   * Start the cleanup automatically once the burn has finished.
+   *
+   * Only `available` starts it. A failed attempt must not retry in a loop: the
+   * error is shown with a button, and the user decides whether to try again. A
+   * restored table from a previous session is also left alone until it has a
+   * result on screen, so opening the page does not immediately ask for a
+   * signature.
+   */
+  useEffect(() => {
+    if (!autoReclaimLookupTableRent) {
+      autoReclaimStartedRef.current = false;
+      return;
+    }
+    if (autoReclaimStartedRef.current) return;
+    const finished =
+      (state.phase === "success" && state.summary !== null) ||
+      (state.phase === "error" && state.summary === null);
+    if (!finished || state.lookupTableCleanup?.status !== "available") return;
+
+    autoReclaimStartedRef.current = true;
+    void reclaimLookupTableRent();
+  }, [
+    autoReclaimLookupTableRent,
+    reclaimLookupTableRent,
+    state.lookupTableCleanup?.status,
+    state.phase,
+    state.summary,
+  ]);
+
   const isBusy = isBusyPhase(state.phase);
 
   return {
@@ -1048,5 +1097,7 @@ export function useNftBurn() {
     reclaimLookupTableRent,
     reset,
     isBusy,
+    autoReclaimLookupTableRent,
+    setAutoReclaimLookupTableRent,
   };
 }

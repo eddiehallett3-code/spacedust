@@ -55,9 +55,10 @@ export function ClearStoredData() {
     <div role="alert" className="rounded-xl border border-danger/25 bg-danger/6 p-3">
       <p className="text-xs leading-relaxed text-muted">
         This deletes your threshold, output asset, filter settings, sweep history,
-        hidden assets, the local tally, pending lookup-table cleanup addresses and
-        the storage-notice choice from this browser, then reloads the page.
-        Nothing on chain changes and no funds are affected.
+        hidden assets, the local tally, pending lookup-table cleanup addresses, the
+        automatic-reclaim preference and the storage-notice choice from this
+        browser, then reloads the page. Nothing on chain changes and no funds are
+        affected.
       </p>
       <div className="mt-3 flex flex-col gap-2 sm:flex-row">
         <Button variant="danger" size="sm" onClick={clear}>

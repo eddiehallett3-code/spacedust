@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { NftArtwork } from "@/components/void/nft-artwork";
 import { SimulationReport } from "@/components/sweep/simulation-report";
 import { WarningsList } from "@/components/sweep/warnings-list";
@@ -205,6 +206,8 @@ export function NftBurnPanel({
     lookupTableCleanup,
     progress,
     isBusy,
+    autoReclaimLookupTableRent,
+    setAutoReclaimLookupTableRent,
   } = theBurn;
 
   // A preview is valid even when no burn transaction is built yet: cNFTs from
@@ -353,6 +356,8 @@ export function NftBurnPanel({
         cleanup={lookupTableCleanup}
         onReclaim={() => void theBurn.reclaimLookupTableRent()}
         isBusy={isBusy}
+        autoReclaim={autoReclaimLookupTableRent}
+        onAutoReclaimChange={setAutoReclaimLookupTableRent}
         onDone={handleDone}
         // Passed, not recomputed: the report has to use the same names the grid
         // showed when the user ticked these.
@@ -436,6 +441,11 @@ export function NftBurnPanel({
             approval and a few network fees. The table&apos;s rent can be
             reclaimed afterwards.
           </p>
+          <AutoReclaimToggle
+            checked={autoReclaimLookupTableRent}
+            onChange={setAutoReclaimLookupTableRent}
+            disabled={isBusy}
+          />
         </div>
       ) : null}
 
@@ -485,6 +495,11 @@ export function NftBurnPanel({
             afterwards: deactivate it, wait out the program&apos;s 512-slot
             cooldown (about four minutes), then approve closing it.
           </p>
+          <AutoReclaimToggle
+            checked={autoReclaimLookupTableRent}
+            onChange={setAutoReclaimLookupTableRent}
+            disabled={isBusy}
+          />
         </div>
       ) : null}
 
@@ -647,6 +662,8 @@ export function NftBurnPanel({
           cleanup={lookupTableCleanup}
           isBusy={isBusy}
           onReclaim={() => void theBurn.reclaimLookupTableRent()}
+          autoReclaim={autoReclaimLookupTableRent}
+          onAutoReclaimChange={setAutoReclaimLookupTableRent}
         />
       ) : null}
 
@@ -842,6 +859,43 @@ function CopyMint({ mint, kind }: { mint: string; kind: string }) {
 }
 
 /**
+ * The auto/manual choice, in the two places the table is discussed.
+ *
+ * Auto only starts the existing cleanup flow; it cannot skip a wallet approval.
+ * Saying that here is the difference between a useful preference and a promise
+ * that the wallet will silently sign twice.
+ */
+function AutoReclaimToggle({
+  checked,
+  onChange,
+  disabled = false,
+}: {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="mt-2.5 flex items-start justify-between gap-3 border-t border-border/60 pt-2.5">
+      <div className="min-w-0">
+        <p className="font-medium text-foreground">
+          Reclaim the table rent automatically
+        </p>
+        <p className="mt-0.5 text-subtle">
+          Start the cleanup when the burn finishes. You will still approve the
+          deactivation and the close; the close waits out the 512-slot cooldown.
+        </p>
+      </div>
+      <Switch
+        checked={checked}
+        onCheckedChange={onChange}
+        disabled={disabled}
+        aria-label="Reclaim lookup-table rent automatically after a burn"
+      />
+    </div>
+  );
+}
+
+/**
  * Reclaim control for the lookup tables a burn had to create.
  *
  * Kept separate from the burn result because the burn can be finished while the
@@ -853,10 +907,14 @@ function LookupTableCleanupPanel({
   cleanup,
   isBusy,
   onReclaim,
+  autoReclaim,
+  onAutoReclaimChange,
 }: {
   cleanup: LookupTableCleanupState;
   isBusy: boolean;
   onReclaim: () => void;
+  autoReclaim: boolean;
+  onAutoReclaimChange: (next: boolean) => void;
 }) {
   const { status, tables, rentLamports, reclaimedLamports, feeLamports, signatures, error, progress } =
     cleanup;
@@ -932,6 +990,12 @@ function LookupTableCleanupPanel({
         ) : null}
       </div>
 
+      <AutoReclaimToggle
+        checked={autoReclaim}
+        onChange={onAutoReclaimChange}
+        disabled={isBusy}
+      />
+
       {status === "waiting" && progress ? (
         <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/10">
           <div
@@ -982,6 +1046,8 @@ function BurnResult({
   cleanup,
   onReclaim,
   isBusy,
+  autoReclaim,
+  onAutoReclaimChange,
   onDone,
   nameFor,
 }: {
@@ -990,6 +1056,8 @@ function BurnResult({
   cleanup: LookupTableCleanupState | null;
   onReclaim: () => void;
   isBusy: boolean;
+  autoReclaim: boolean;
+  onAutoReclaimChange: (next: boolean) => void;
   onDone: () => void;
   /**
    * The name to show for an asset id, from the panel's own labelling.
@@ -1042,6 +1110,8 @@ function BurnResult({
           cleanup={cleanup}
           isBusy={isBusy}
           onReclaim={onReclaim}
+          autoReclaim={autoReclaim}
+          onAutoReclaimChange={onAutoReclaimChange}
         />
       ) : summary.lookupTableRentLamports > 0 ? (
         <p className="rounded-xl border border-border/60 bg-white/2 px-3 py-2 text-[11px] leading-relaxed text-muted">
