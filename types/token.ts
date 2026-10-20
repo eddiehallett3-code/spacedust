@@ -242,12 +242,12 @@ export interface CompressedLeaf {
    * How many proof accounts a burn of this leaf has to send, or `null`/absent
    * when the tree could not be read during the scan.
    *
-   * This is a property of the tree — `maxDepth - canopyDepth` — not of this
-   * leaf, and it is fixed for the tree's lifetime. It is cached here so the UI
-   * can separate cNFTs that burn inside one transaction from those whose proof
-   * needs an address lookup table, without fetching a proof for every card.
-   * The proof itself is still fetched fresh at plan time; only its *length* is
-   * carried over.
+   * This is a property of the tree — the length `getAssetProof` returns after
+   * its canopy nodes are removed — not of this leaf, and it is fixed for the
+   * tree's lifetime. It is cached here so the UI can separate cNFTs that burn
+   * inside one transaction from those whose proof needs an address lookup
+   * table, without fetching a proof for every card. The proof itself is still
+   * fetched fresh at plan time; only its *length* is carried over.
    */
   proofNodes?: number | null;
 }

@@ -20,6 +20,7 @@ import {
   parseMerkleTreeHeader,
   truncateProofToCanopy,
 } from "@/lib/solana/canopy";
+import { runWithConcurrency } from "@/lib/utils/concurrency";
 
 /**
  * Server-side Helius DAS client.
@@ -238,6 +239,23 @@ const canopyDepthCache = new Map<string, CachedTreeCanopy>();
 const CANOPY_FAILURE_TTL_MS = 30_000;
 
 /**
+ * Cache of the exact proof length a burn of a tree will send, keyed by tree.
+ *
+ * The tree header gives `maxDepth - canopyDepth`, but that is only one of the
+ * two possible shapes an indexer answers with: some return the full proof, some
+ * already return the non-canopy tail. `fetchAssetProof` owns that decision, so
+ * reading one proof per tree is the only way the tab split can agree with the
+ * planner. The length is fixed for the tree's lifetime; a failed read is retried
+ * after the same short TTL as a failed canopy read.
+ */
+interface CachedProofLength {
+  nodes: number | null;
+  cachedAt: number;
+}
+const proofLengthCache = new Map<string, CachedProofLength>();
+const PROOF_LENGTH_FAILURE_TTL_MS = 30_000;
+
+/**
  * How many proof nodes a tree's canopy already stores on chain.
  *
  * DAS `getAssetProof` returns the full proof, including the tail that lives in
@@ -374,6 +392,37 @@ export async function fetchAssetProof(id: string): Promise<AssetProof | null> {
     // answer to the caller, and all reported downstream in plain words.
     return null;
   }
+}
+
+/**
+ * The exact number of proof accounts a burn of `tree` will send.
+ *
+ * `fetchAssetProof` is also what the planner calls, including its canopy
+ * truncation, so using it here makes the scan's answer and the transaction's
+ * answer the same fact. A tree header alone cannot tell us whether an indexer
+ * returns a full proof or an already-trimmed one.
+ *
+ * Cached per tree: the tree's depth and canopy are fixed, so the length is too.
+ * A failure is not cached for longer than the TTL — one RPC blip must not put a
+ * whole tree on the wrong tab for the life of the process.
+ */
+async function fetchTreeProofNodes(
+  tree: string,
+  assetId: string,
+): Promise<number | null> {
+  const cached = proofLengthCache.get(tree);
+  if (
+    cached !== undefined &&
+    (cached.nodes !== null ||
+      Date.now() - cached.cachedAt < PROOF_LENGTH_FAILURE_TTL_MS)
+  ) {
+    return cached.nodes;
+  }
+
+  const proof = await fetchAssetProof(assetId);
+  const nodes = proof ? proof.proof.length : null;
+  proofLengthCache.set(tree, { nodes, cachedAt: Date.now() });
+  return nodes;
 }
 
 /** Details we need from each mint account, resolved on-chain. */
@@ -661,30 +710,53 @@ async function liveNonFungibles(
 /**
  * Fill in each compressed leaf's proof length from its tree.
  *
- * The length is `maxDepth - canopyDepth`, and both come from the tree account,
- * so it is resolved once per tree rather than once per asset. This is the one
- * fact the UI needs to know before planning: with it, the cNFT tab can separate
- * leaves that fit in a single transaction from those whose proof needs an
- * address lookup table. Without it, that distinction only appears after a
- * preview, which is too late to explain why a card is different.
+ * The length is whatever `fetchAssetProof` returns after canopy truncation —
+ * the same call the planner makes. Deriving it from the tree header alone was
+ * not enough: an indexer that returns a full proof and one that returns only
+ * the non-canopy tail are indistinguishable from `maxDepth`, so a leaf near the
+ * inline limit could be filed under cNFTs and then be told it needs a lookup
+ * table during Preview.
  *
- * A tree that cannot be read leaves `proofNodes` unset. That is deliberately not
- * treated as "needs a lookup table": the planner measures the real proof later,
- * and a failed tree read is not evidence about its depth.
+ * Resolved once per tree rather than once per asset, with one representative
+ * leaf per tree supplying the answer. A tree that cannot be read leaves
+ * `proofNodes` unset: the planner still measures the real proof later, and a
+ * failed read is not evidence about its depth.
  */
 async function annotateProofNodeCounts(
   assets: NonFungibleAsset[],
 ): Promise<NonFungibleAsset[]> {
-  const trees = [
-    ...new Set(
-      assets.flatMap((asset) => (asset.merkle ? [asset.merkle.tree] : [])),
-    ),
-  ];
+  const representativeByTree = new Map<string, string>();
+  for (const asset of assets) {
+    if (!asset.merkle || representativeByTree.has(asset.merkle.tree)) continue;
+    representativeByTree.set(asset.merkle.tree, asset.id);
+  }
+  const trees = [...representativeByTree.keys()];
   if (trees.length === 0) return assets;
 
   const proofNodesByTree = new Map<string, number>();
+  const proofReads = await runWithConcurrency(
+    trees,
+    async (tree) => {
+      const representative = representativeByTree.get(tree);
+      if (!representative) return null;
+      return fetchTreeProofNodes(tree, representative);
+    },
+    { concurrency: 6 },
+  );
+
+  for (const [index, tree] of trees.entries()) {
+    const proofRead = proofReads[index];
+    if (proofRead?.result !== null && proofRead?.result !== undefined) {
+      proofNodesByTree.set(tree, proofRead.result);
+    }
+  }
+
+  // A failed proof read falls back to the tree header when it can be read.
+  // That is still useful, but it is no longer the primary answer: the proof
+  // above is the same object the planner will build from.
   await Promise.all(
     trees.map(async (tree) => {
+      if (proofNodesByTree.has(tree)) return;
       const canopy = await fetchTreeCanopy(tree);
       if (!canopy.resolved) return;
       proofNodesByTree.set(

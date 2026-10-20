@@ -23,9 +23,10 @@ import type { NonFungibleAsset } from "@/types/token";
  *   V2 leaf                   587 bytes
  *   V2 leaf + Core collection 651 bytes
  *
- * A burnable leaf never adds a delegate account: `nftBurnability` refuses any
- * asset with a delegate, and an undelegated V1 leaf's delegate is its owner, so
- * the builder's default dedupes to the same key.
+ * An undelegated V1 leaf's delegate is its owner, so the builder's default
+ * dedupes to the same key. A delegated leaf adds one distinct account instead
+ * (32 bytes of key plus one account index), which is why the base grows by
+ * exactly the same 33 bytes as a proof node when one is present.
  *
  * The budget is the protocol's 1232 bytes minus the packer's 40-byte headroom,
  * which is the same limit `packTransactions` enforces before it reports a
@@ -36,10 +37,11 @@ import type { NonFungibleAsset } from "@/types/token";
  *   V2                        18 nodes (1181 bytes; 19 needs 1214)
  *   V2 + Core collection      16 nodes (1179 bytes; 17 needs 1212)
  *
- * These are deliberately the same constants the planner measures against, so a
- * tree sitting exactly on the boundary is described the same way in the grid
- * and in the preview. If the compute-budget prologue or the Bubblegum account
- * list changes, re-measure rather than adjusting these by guesswork.
+ * A distinct delegate shifts each of those by one node. These are deliberately
+ * the same constants the planner measures against, so a tree sitting exactly on
+ * the boundary is described the same way in the grid and in the preview. If the
+ * compute-budget prologue or the Bubblegum account list changes, re-measure
+ * rather than adjusting these by guesswork.
  */
 export const CNFT_PROOF_NODE_BYTES = 33;
 
@@ -56,17 +58,22 @@ export const CNFT_INLINE_PROOF_BUDGET_BYTES =
 export function cnftBurnBaseBytes(input: {
   v2: boolean;
   hasCollection: boolean;
+  hasDelegate?: boolean;
 }): number {
-  if (!input.v2) return CNFT_BURN_BASE_BYTES.v1;
-  return input.hasCollection
-    ? CNFT_BURN_BASE_BYTES.v2WithCollection
-    : CNFT_BURN_BASE_BYTES.v2;
+  const base = !input.v2
+    ? CNFT_BURN_BASE_BYTES.v1
+    : input.hasCollection
+      ? CNFT_BURN_BASE_BYTES.v2WithCollection
+      : CNFT_BURN_BASE_BYTES.v2;
+  // A distinct leaf delegate is another 32-byte key and one account index.
+  return base + (input.hasDelegate ? CNFT_PROOF_NODE_BYTES : 0);
 }
 
 /** The longest proof — in nodes — that still fits without a lookup table. */
 export function cnftInlineProofLimit(input: {
   v2: boolean;
   hasCollection: boolean;
+  hasDelegate?: boolean;
 }): number {
   const remaining = CNFT_INLINE_PROOF_BUDGET_BYTES - cnftBurnBaseBytes(input);
   return Math.max(0, Math.floor(remaining / CNFT_PROOF_NODE_BYTES));
@@ -97,6 +104,10 @@ export function cnftFitsInline(asset: NonFungibleAsset): boolean | null {
   const v2 = asset.interface === "MplBubblegumV2";
   return (
     proofNodes <=
-    cnftInlineProofLimit({ v2, hasCollection: asset.collection !== null })
+    cnftInlineProofLimit({
+      v2,
+      hasCollection: asset.collection !== null,
+      hasDelegate: asset.delegate !== null,
+    })
   );
 }

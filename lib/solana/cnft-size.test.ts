@@ -19,7 +19,7 @@ import type { NonFungibleAsset } from "@/types/token";
 
 function asset(
   proofNodes: number | null | undefined,
-  options: { v2?: boolean; collection?: boolean } = {},
+  options: { v2?: boolean; collection?: boolean; delegated?: boolean } = {},
 ): NonFungibleAsset {
   return {
     id: "JEKMoZLzbHgsUwpNrDp7aDNKXNN432hJrbegzTTCLnwQ",
@@ -43,7 +43,9 @@ function asset(
       flags: options.v2 ? 0 : null,
       proofNodes,
     },
-    delegate: null,
+    delegate: options.delegated
+      ? "Fq9auFr6JAd5FDZDMFBikzqAycFKMryvkQUB71VTLbqi"
+      : null,
   };
 }
 
@@ -57,6 +59,18 @@ describe("cnftBurnBaseBytes", () => {
   it("ignores a collection on a V1 leaf, whose burn never carries it", () => {
     expect(cnftBurnBaseBytes({ v2: false, hasCollection: true })).toBe(514);
   });
+
+  it("charges one account for a distinct delegate", () => {
+    expect(
+      cnftBurnBaseBytes({ v2: false, hasCollection: false, hasDelegate: true }),
+    ).toBe(547);
+    expect(
+      cnftBurnBaseBytes({ v2: true, hasCollection: false, hasDelegate: true }),
+    ).toBe(620);
+    expect(
+      cnftBurnBaseBytes({ v2: true, hasCollection: true, hasDelegate: true }),
+    ).toBe(684);
+  });
 });
 
 describe("cnftInlineProofLimit", () => {
@@ -66,6 +80,30 @@ describe("cnftInlineProofLimit", () => {
     expect(cnftInlineProofLimit({ v2: false, hasCollection: false })).toBe(20);
     expect(cnftInlineProofLimit({ v2: true, hasCollection: false })).toBe(18);
     expect(cnftInlineProofLimit({ v2: true, hasCollection: true })).toBe(16);
+  });
+
+  it("moves the boundary one node for a distinct delegate", () => {
+    expect(
+      cnftInlineProofLimit({
+        v2: false,
+        hasCollection: false,
+        hasDelegate: true,
+      }),
+    ).toBe(19);
+    expect(
+      cnftInlineProofLimit({
+        v2: true,
+        hasCollection: false,
+        hasDelegate: true,
+      }),
+    ).toBe(17);
+    expect(
+      cnftInlineProofLimit({
+        v2: true,
+        hasCollection: true,
+        hasDelegate: true,
+      }),
+    ).toBe(15);
   });
 
   it("places the boundary where the next node would cross the budget", () => {
@@ -98,6 +136,21 @@ describe("cnftFitsInline", () => {
     expect(cnftFitsInline(asset(17, { v2: true, collection: true }))).toBe(
       false,
     );
+  });
+
+  it("accounts for the delegate account when deciding the boundary", () => {
+    expect(cnftFitsInline(asset(19, { delegated: true }))).toBe(true);
+    expect(cnftFitsInline(asset(20, { delegated: true }))).toBe(false);
+
+    expect(cnftFitsInline(asset(17, { v2: true, delegated: true }))).toBe(true);
+    expect(cnftFitsInline(asset(18, { v2: true, delegated: true }))).toBe(false);
+
+    expect(
+      cnftFitsInline(asset(15, { v2: true, collection: true, delegated: true })),
+    ).toBe(true);
+    expect(
+      cnftFitsInline(asset(16, { v2: true, collection: true, delegated: true })),
+    ).toBe(false);
   });
 
   it("does not turn an unknown proof length into a lookup-table claim", () => {
