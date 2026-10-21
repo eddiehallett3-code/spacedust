@@ -37,6 +37,15 @@ export interface SubmitResult {
 export interface SigningCapableWallet {
   signTransaction?: <T extends VTx>(transaction: T) => Promise<T>;
   signAllTransactions?: <T extends VTx>(transactions: T[]) => Promise<T[]>;
+  /**
+   * The adapter's display name.
+   *
+   * Phantom's simulation guidance asks dApps to sign with `signTransaction`
+   * rather than a batch `signAllTransactions` call, so a multi-transaction flow
+   * needs to know which wallet is attached. Optional because every signing test
+   * and every wallet that only exposes one method should keep working unchanged.
+   */
+  walletName?: string;
 }
 
 /** True when at least one signature slot is still all zeroes. */
@@ -104,11 +113,13 @@ async function withSigningTimeout<T>(call: () => Promise<T>): Promise<T> {
 }
 
 /**
- * Ask the wallet to sign every transaction at once.
+ * Ask the wallet to sign the packed transactions.
  *
- * `signAllTransactions` is used whenever there is more than one transaction:
- * it triggers a single approval flow in most wallets rather than N separate
- * prompts, which is the entire point of packing swaps together.
+ * `signAllTransactions` is used for wallets that support it and are not Phantom:
+ * it triggers a single approval flow rather than N separate prompts. Phantom is
+ * deliberately signed one transaction at a time, because its simulation
+ * guidance requires `signTransaction` and a batch can produce its generic
+ * warning instead of a reviewed approval.
  */
 export async function signTransactions(
   wallet: SigningCapableWallet,
@@ -120,6 +131,12 @@ export async function signTransactions(
 
   const single = wallet.signTransaction;
   const batch = wallet.signAllTransactions;
+  // Phantom asks dApps to hand it one transaction at a time so it can simulate
+  // the exact transaction before showing its approval sheet. Other wallets keep
+  // the single-prompt batch path, which is the better UX when available.
+  const preferSingle =
+    wallet.walletName?.toLowerCase().includes("phantom") === true &&
+    single !== undefined;
 
   if (decoded.length === 1 && single) {
     const signed = await withSigningTimeout(() => single(decoded[0] as VTx));
@@ -131,7 +148,7 @@ export async function signTransactions(
 
   // Multiple transactions: prefer the batch call so most wallets show a single
   // approval rather than a queue of prompts. Fall back to signing each one.
-  if (batch) {
+  if (batch && !preferSingle) {
     const signed = await withSigningTimeout(() => batch(decoded as VTx[]));
 
     // A wallet must answer with one transaction per request, in the same order.

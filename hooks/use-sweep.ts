@@ -96,7 +96,7 @@ const INITIAL: SweepState = {
  * asset — is re-validated server-side before any instruction is built.
  */
 export function useSweep() {
-  const { publicKey, signTransaction, signAllTransactions } = useWallet();
+  const { publicKey, signTransaction, signAllTransactions, wallet } = useWallet();
   const connection = getConnection();
 
   // Ref guard: React state updates are async, so two rapid clicks would both
@@ -339,9 +339,10 @@ export function useSweep() {
 
       patch({ phase: "awaiting-signature", error: null });
 
-      // ── 1. Ask the wallet to sign everything in one approval ──────────────
+      // ── 1. Ask the wallet to sign. Phantom gets one transaction at a time;
+      // other wallets can still use their single-prompt batch method. ────────
       const signed = await signTransactions(
-        { signTransaction, signAllTransactions },
+        { signTransaction, signAllTransactions, walletName: wallet?.adapter.name },
         result.packed,
       );
 
@@ -429,7 +430,7 @@ export function useSweep() {
     } finally {
       busyRef.current = false;
     }
-  }, [connection, patch, publicKey, signAllTransactions, signTransaction]);
+  }, [connection, patch, publicKey, signAllTransactions, signTransaction, wallet]);
 
   return { ...state, prepare, execute, reset, isBusy };
 }

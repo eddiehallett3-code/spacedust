@@ -75,7 +75,7 @@ const INITIAL: RevokeState = {
 };
 
 export function useRevoke() {
-  const { publicKey, signTransaction, signAllTransactions } = useWallet();
+  const { publicKey, signTransaction, signAllTransactions, wallet } = useWallet();
   // Memoised, so `scan`/`prepare`/`execute` keep stable identities across
   // renders. A fresh Connection per render would change every callback every
   // render, which makes them unusable as effect dependencies.
@@ -213,7 +213,7 @@ export function useRevoke() {
     [connection, patch, publicKey],
   );
 
-  /** Sign everything in one approval, then submit and attribute the results. */
+  /** Sign the batch, then submit and attribute the results. */
   const execute = useCallback(async (): Promise<boolean> => {
     const prepared = preparedRef.current;
     if (!prepared) {
@@ -270,7 +270,7 @@ export function useRevoke() {
       patch({ phase: "awaiting-signature", error: null });
 
       const signed = await signTransactions(
-        { signTransaction, signAllTransactions },
+        { signTransaction, signAllTransactions, walletName: wallet?.adapter.name },
         result.packed,
       );
 
@@ -362,7 +362,7 @@ export function useRevoke() {
     } finally {
       busyRef.current = false;
     }
-  }, [connection, patch, publicKey, signAllTransactions, signTransaction]);
+  }, [connection, patch, publicKey, signAllTransactions, signTransaction, wallet]);
 
   return {
     ...state,

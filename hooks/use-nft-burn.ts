@@ -213,7 +213,7 @@ interface NftBurnRoundReport {
 }
 
 export function useNftBurn() {
-  const { publicKey, signTransaction, signAllTransactions } = useWallet();
+  const { publicKey, signTransaction, signAllTransactions, wallet } = useWallet();
   const connection = useSolanaConnection();
 
   const busyRef = useRef(false);
@@ -472,7 +472,7 @@ export function useNftBurn() {
   );
 
   /**
-   * Sign everything in one approval, then submit and attribute the results.
+   * Sign the batch, then submit and attribute the results.
    *
    * Returns the ids that actually burned, so the caller can stop showing them.
    * The chain forgets a destroyed asset at once; the index that feeds the scan
@@ -718,7 +718,11 @@ export function useNftBurn() {
 
         patch({ phase: "awaiting-signature", error: null });
         const signedSetup = await signTransactions(
-          { signTransaction, signAllTransactions },
+          {
+            signTransaction,
+            signAllTransactions,
+            walletName: wallet?.adapter.name,
+          },
           setup.packed,
         );
 
@@ -857,7 +861,11 @@ export function useNftBurn() {
       patch({ phase: "awaiting-signature", error: null });
 
       const signed = await signTransactions(
-        { signTransaction, signAllTransactions },
+        {
+          signTransaction,
+          signAllTransactions,
+          walletName: wallet?.adapter.name,
+        },
         result.packed,
       );
 
@@ -1030,6 +1038,7 @@ export function useNftBurn() {
     publicKey,
     signAllTransactions,
     signTransaction,
+    wallet,
   ]);
 
   /**
@@ -1115,7 +1124,11 @@ export function useNftBurn() {
           tables: active.map((entry) => entry.table),
         });
         const signed = await signTransactions(
-          { signTransaction, signAllTransactions },
+          {
+            signTransaction,
+            signAllTransactions,
+            walletName: wallet?.adapter.name,
+          },
           batch.packed,
         );
         patch({ phase: "submitting", lookupTableCleanup: cleanup });
@@ -1201,7 +1214,11 @@ export function useNftBurn() {
       patch({ phase: "awaiting-signature", lookupTableCleanup: cleanup });
 
       const signed = await signTransactions(
-        { signTransaction, signAllTransactions },
+        {
+          signTransaction,
+          signAllTransactions,
+          walletName: wallet?.adapter.name,
+        },
         batch.packed,
       );
       patch({ phase: "submitting", lookupTableCleanup: cleanup });
@@ -1286,6 +1303,7 @@ export function useNftBurn() {
     publicKey,
     signAllTransactions,
     signTransaction,
+    wallet,
     state.lookupTableCleanup,
     state.summary,
   ]);

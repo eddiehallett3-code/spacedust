@@ -275,6 +275,30 @@ describe("signTransactions — a wallet that never answers", () => {
     expect(result?.signatures[0]?.some((byte) => byte !== 0)).toBe(true);
   });
 
+  it("hands Phantom one transaction at a time instead of a batch", async () => {
+    // Phantom's simulation guidance requires signTransaction; a batch call can
+    // make its approval sheet a simulation warning instead of a clear review.
+    let singles = 0;
+    let batches = 0;
+    const wallet = {
+      walletName: "Phantom",
+      signTransaction: async (transaction: VersionedTransaction) => {
+        singles += 1;
+        return signed(transaction);
+      },
+      signAllTransactions: async (transactions: VersionedTransaction[]) => {
+        batches += 1;
+        return transactions.map(signed);
+      },
+    } as unknown as SigningCapableWallet;
+
+    const result = await signTransactions(wallet, [packed(0), packed(1)]);
+
+    expect(result).toHaveLength(2);
+    expect(singles).toBe(2);
+    expect(batches).toBe(0);
+  });
+
   it("passes a wallet's own refusal through untouched, not the timeout", async () => {
     const wallet = {
       signTransaction: async () => {

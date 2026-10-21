@@ -107,7 +107,7 @@ const INITIAL: PayloadState = {
  *    figure is allowed to be negative and the UI is expected to say so.
  */
 export function usePayload() {
-  const { publicKey, signTransaction, signAllTransactions } = useWallet();
+  const { publicKey, signTransaction, signAllTransactions, wallet } = useWallet();
   const connection = getConnection();
 
   const busyRef = useRef(false);
@@ -234,7 +234,7 @@ export function usePayload() {
   );
 
   /**
-   * Sign everything in one approval, submit, and attribute the results.
+   * Sign the batch, submit, and attribute the results.
    *
    * Takes the recipient as it stands in the form right now, because this is the
    * last moment at which a changed address can be caught. The plan carries the
@@ -318,9 +318,13 @@ export function usePayload() {
 
         patch({ phase: "awaiting-signature", error: null });
 
-        // ── 1. One approval for the whole batch ──────────────────────────
+        // ── 1. One approval for wallets that support it; Phantom signs each ─
         const signed = await signTransactions(
-          { signTransaction, signAllTransactions },
+          {
+            signTransaction,
+            signAllTransactions,
+            walletName: wallet?.adapter.name,
+          },
           result.packed,
         );
 
@@ -451,7 +455,7 @@ export function usePayload() {
         busyRef.current = false;
       }
     },
-    [connection, patch, publicKey, signAllTransactions, signTransaction],
+    [connection, patch, publicKey, signAllTransactions, signTransaction, wallet],
   );
 
   return { ...state, prepare, execute, reset, isBusy: isBusyPhase(state.phase) };

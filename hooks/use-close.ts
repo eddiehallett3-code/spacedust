@@ -87,7 +87,7 @@ const INITIAL: CloseState = {
 };
 
 export function useClose() {
-  const { publicKey, signTransaction, signAllTransactions } = useWallet();
+  const { publicKey, signTransaction, signAllTransactions, wallet } = useWallet();
   const connection = getConnection();
 
   const busyRef = useRef(false);
@@ -181,7 +181,7 @@ export function useClose() {
     [connection, patch, publicKey],
   );
 
-  /** Sign everything in one approval, then submit and attribute the results. */
+  /** Sign the batch, then submit and attribute the results. */
   const execute = useCallback(async (): Promise<boolean> => {
     const prepared = preparedRef.current;
     if (!prepared) {
@@ -248,7 +248,7 @@ export function useClose() {
       patch({ phase: "awaiting-signature", error: null });
 
       const signed = await signTransactions(
-        { signTransaction, signAllTransactions },
+        { signTransaction, signAllTransactions, walletName: wallet?.adapter.name },
         result.packed,
       );
 
@@ -351,7 +351,7 @@ export function useClose() {
     } finally {
       busyRef.current = false;
     }
-  }, [connection, patch, publicKey, signAllTransactions, signTransaction]);
+  }, [connection, patch, publicKey, signAllTransactions, signTransaction, wallet]);
 
   return {
     ...state,

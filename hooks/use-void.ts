@@ -84,7 +84,7 @@ const INITIAL: VoidState = {
  * asks the wallet to sign, then submits and confirms.
  */
 export function useVoid() {
-  const { publicKey, signTransaction, signAllTransactions } = useWallet();
+  const { publicKey, signTransaction, signAllTransactions, wallet } = useWallet();
   const connection = getConnection();
 
   const busyRef = useRef(false);
@@ -181,7 +181,7 @@ export function useVoid() {
     [connection, patch, publicKey],
   );
 
-  /** Sign everything in one approval, then submit and attribute the results. */
+  /** Sign the batch, then submit and attribute the results. */
   const execute = useCallback(async (): Promise<boolean> => {
     const prepared = preparedRef.current;
     if (!prepared) {
@@ -249,9 +249,9 @@ export function useVoid() {
 
       patch({ phase: "awaiting-signature", error: null });
 
-      // ── 1. One approval for the whole batch ───────────────────────────────
+      // ── 1. One approval for wallets that support it; Phantom signs each ───
       const signed = await signTransactions(
-        { signTransaction, signAllTransactions },
+        { signTransaction, signAllTransactions, walletName: wallet?.adapter.name },
         result.packed,
       );
 
@@ -370,7 +370,7 @@ export function useVoid() {
     } finally {
       busyRef.current = false;
     }
-  }, [connection, patch, publicKey, signAllTransactions, signTransaction]);
+  }, [connection, patch, publicKey, signAllTransactions, signTransaction, wallet]);
 
   const isBusy = isBusyPhase(state.phase);
 

@@ -70,7 +70,7 @@ export const TOOLS: Tool[] = [
     name: "Slingshot",
     href: "/slingshot",
     tagline:
-      "Swap your leftover tokens into SOL, USDC or JUP, in one approval.",
+      "Swap your leftover tokens into SOL, USDC or JUP, packed into as few transactions as possible.",
     cta: "Open Slingshot",
   },
   {

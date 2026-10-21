@@ -42,7 +42,7 @@ other flow here charges for a reclaim.
 | **Slingshot** | The swap flow. Connect a wallet, pick a USD threshold, and it packs as many dust swaps into as few transactions as the 1232-byte limit allows. |
 | **The Void** | The burn flow, for tokens with no market left. Named, for a reason — see below. |
 | **Non-custodial** | Transactions are built in your browser and signed by *your* wallet. Spacedust has no keyring, no seed phrase field, and no ability to move funds. |
-| **Fewest signatures** | Swaps are packed into as few versioned transactions as the 1232-byte limit allows — often clearing 10+ dust tokens in a single approval. |
+| **Fewest signatures** | Swaps are packed into as few versioned transactions as the 1232-byte limit allows — often clearing 10+ dust tokens in a single transaction. Wallets that support batch signing can approve those transactions together; Phantom signs them one at a time. |
 | **Rent reclaim** | Emptied token accounts are closed in the same flow, returning each account's own rent (~0.0015 SOL for a fresh one), less the 1.5% reclaim fee. Frequently worth more than the dust itself. |
 | **Simulated first** | Every transaction is dry-run against the cluster *before* you are asked to sign. |
 | **Revoke approvals** | Finds token accounts where someone else still holds a delegate — from NFT listings and old dApp approvals — and clears them. |
@@ -438,7 +438,9 @@ that allow-list it would be an open RPC relay pointed at your Helius account.
    serialising** it with signature slots, because the 1232-byte cap applies to
    the whole packet — measuring the message alone under-reports by 64 bytes per
    signer.
-4. `signAllTransactions` covers multiple transactions in one approval.
+4. `signAllTransactions` covers multiple transactions in one approval for wallets
+   that support it. Phantom is signed with `signTransaction` one transaction at
+   a time, matching its simulation guidance.
 5. There is one fee, and it is charged on rent rather than on a swap: 1.5% of
    any rent reclaimed — a Void burn, an account a swap emptied and closed, an
    already-empty account closed, a Payload send that emptied its account. Nothing
@@ -883,7 +885,7 @@ That rent is read from each account rather than assumed — a fresh 165-byte acc
 held 1,488,440 lamports when this was written, and an older account (funded
 before the network's rent change) or a Token-2022 account carrying extensions
 holds more. Spacedust finds these accounts, shows what each one is holding, and
-closes them in one approval.
+closes them in one batch.
 
 **This is the only flow with nothing to decide.** There is no route, no price,
 no slippage and no selection — the accounts hold no assets, so there is no value
