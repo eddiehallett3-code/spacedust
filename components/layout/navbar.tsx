@@ -74,7 +74,7 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-50 border-b border-border/70 bg-space-950/70 backdrop-blur-xl">
       <Container>
-        <div className="flex h-16 items-center justify-between gap-4">
+        <div className="flex h-14 items-center justify-between gap-4">
           {/* Brand */}
           <Link
             href="/"
@@ -236,7 +236,7 @@ export function Navbar() {
                 //
                 // `cn` runs through tailwind-merge, so these replace the
                 // dialog's default centring: a sheet pinned below the header.
-                className="top-20 w-[calc(100vw-1.5rem)] max-w-sm translate-y-0 rounded-2xl p-4"
+                className="top-[4.5rem] w-[calc(100vw-1.5rem)] max-w-sm translate-y-0 rounded-2xl p-4"
               >
                 <DialogHeader className="mb-2">
                   <DialogTitle className="text-sm font-medium text-muted">

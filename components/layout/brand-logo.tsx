@@ -23,7 +23,7 @@ export function BrandLogo({ className }: { className?: string }) {
         height={156}
         decoding="async"
         draggable={false}
-        style={{ height: 32, width: "auto" }}
+        style={{ height: 28, width: "auto" }}
       />
     </picture>
   );
