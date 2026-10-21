@@ -162,14 +162,15 @@ export const CLOSE_COMPUTE_UNIT_LIMIT = 200_000;
 export const CLOSE_COMPUTE_UNITS_PER_ACCOUNT = 2_000;
 
 /**
- * Measured compute for one SNS domain delete.
+ * Compute budget for one SNS name burn.
  *
- * A mainnet name account measured 1,801 CU. The 5,000 CU per unit is a safety
- * margin; the delete budget is sized from the unit count instead of the sweep's
- * 800,000 because the priority fee is billed on the budget requested, and a
- * delete has no business paying for swap headroom it cannot use.
+ * The legacy registry delete measured 1,801 CU on mainnet. The current registrar
+ * burn wraps that delete with reverse and resale-state cleanup, so 30,000 CU per
+ * name is a deliberately conservative allowance rather than the old measured
+ * figure. It costs a few lamports of priority fee and avoids a batch failing on
+ * the one instruction that does more than the measurement covered.
  */
-export const DELETE_COMPUTE_UNITS_PER_UNIT = 5_000;
+export const DELETE_COMPUTE_UNITS_PER_UNIT = 30_000;
 
 /** Floor for a delete transaction's compute budget. */
 export const DELETE_COMPUTE_UNIT_FLOOR = 50_000;

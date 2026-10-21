@@ -8,8 +8,7 @@ import {
 import { allowRequest, rateLimitResponse } from "@/lib/api/rate-limit";
 import { z } from "zod";
 import {
-  NAME_PROGRAM_ID,
-  deleteInstruction,
+  burnDomain,
   getDomainMint,
   getSnsDomainsForOwner,
 } from "@bonfida/spl-name-service";
@@ -19,7 +18,7 @@ import type { ApiInstruction } from "@/types/jupiter";
 
 /**
  * `GET /api/domains?owner=<pubkey>` — the `.sns` domains a wallet owns.
- * `POST /api/domains` — the delete instructions for the ones the user picked.
+ * `POST /api/domains` — the burn instructions for the ones the user picked.
  *
  * **Why this is a route rather than a client call.** The SNS SDK lists a wallet's
  * domains with `connection.getProgramAccounts` on the name-service program, and
@@ -29,8 +28,8 @@ import type { ApiInstruction } from "@/types/jupiter";
  * browser talks to our own endpoints and never to a provider.
  *
  * **Why the instructions are built here too.** They are *not* hand-encoded. An SNS
- * name account is deleted by a program-specific instruction with a discriminator
- * and a fixed account list, and this codebase's rule is that such instructions come
+ * name is burned by a program-specific instruction with a discriminator and a
+ * fixed account list, and this codebase's rule is that such instructions come
  * from the package that owns them — never from a buffer we assembled ourselves.
  * Keeping the SDK server-side also keeps it out of the browser bundle.
  *
@@ -208,17 +207,23 @@ export async function GET(request: Request): Promise<NextResponse> {
 
 const DeleteSchema = z.object({
   owner: OwnerSchema,
-  /** Name accounts to build deletes for, exactly as the GET returned them. */
-  accounts: z
-    .array(z.string().refine(isValidSolanaAddress, "Invalid name account"))
+  /** Name + account pairs, exactly as the GET returned them. */
+  domains: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1).max(255),
+        address: z.string().refine(isValidSolanaAddress, "Invalid name account"),
+      }),
+    )
     .min(1)
     .max(50),
 });
 
 /**
- * Build the deletes. The refund target is the owner and the name owner is the
- * owner, which is what SNS's own documentation does — the wallet signs and the
- * wallet is paid.
+ * Build the burns. `burnDomain` derives the name account from the name and
+ * clears the registrar's reverse and resale state as well as deleting the
+ * registry; the address the client selected is checked against the derivation
+ * so a stale or mismatched pair cannot burn a different name.
  */
 export async function POST(request: Request): Promise<NextResponse> {
   let body: unknown;
@@ -238,11 +243,17 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   try {
     const owner = new PublicKey(parsed.data.owner);
-    const instructions = parsed.data.accounts.map((address) =>
-      serializeInstruction(
-        deleteInstruction(NAME_PROGRAM_ID, new PublicKey(address), owner, owner),
-      ),
-    );
+    const instructions = parsed.data.domains.map(({ name, address }) => {
+      const canonical = name.replace(/\.(sns|sol)$/i, "").toLowerCase();
+      const instruction = burnDomain(`${canonical}.sns`, owner, owner);
+      const derived = instruction.keys[2]?.pubkey.toBase58();
+      if (!derived || derived !== address) {
+        throw new Error(
+          `The name ${canonical}.sns does not derive the selected name account.`,
+        );
+      }
+      return serializeInstruction(instruction);
+    });
 
     return NextResponse.json({ instructions });
   } catch (error) {
@@ -251,7 +262,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         error:
           error instanceof Error
             ? error.message
-            : "Could not build the delete instructions",
+            : "Could not build the burn instructions",
       },
       { status: 502 },
     );

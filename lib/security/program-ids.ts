@@ -55,8 +55,11 @@ export const CORE_PROGRAM_ID = "CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d";
 /** SPL Noop — Bubblegum's leaf-owner verification CPI. Moves nothing. */
 export const NOOP_PROGRAM_ID = "noopb9bkMVfRPU8AsbpTUg8AQkHtKwMYZiFUjNRtMmV";
 
-/** The SNS name registry. Its delete instruction is the only thing Salvage uses it for. */
+/** The SNS name registry. Its legacy delete instruction acts on a name account. */
 export const SNS_NAME_PROGRAM_ID = "namesLPneVptA9Z5rqUDD9tMTWEJwofgaYwp8cawRkX";
+
+/** The SNS registrar. Current `.sns` names are burned through this program. */
+export const SNS_REGISTER_PROGRAM_ID = "jCebN34bUfdeUYJT13J1yG16XWQpt5PDx6Mse9GUqhR";
 
 /**
  * Human names, so a refusal can say *who* it refused rather than showing a
@@ -79,6 +82,7 @@ export const PROGRAM_LABELS: Record<string, string> = {
   [CORE_PROGRAM_ID]: "Metaplex Core",
   [NOOP_PROGRAM_ID]: "SPL Noop",
   [SNS_NAME_PROGRAM_ID]: "SNS Name Registry",
+  [SNS_REGISTER_PROGRAM_ID]: "SNS Registrar",
 };
 
 /** The name to use for a program, or a short form of an unknown id. */
@@ -145,6 +149,7 @@ export const FLOW_PROGRAMS: Record<AuditFlowName, readonly string[]> = {
     COMPUTE_BUDGET_PROGRAM_ID,
     TOKEN_PROGRAM_ID,
     SNS_NAME_PROGRAM_ID,
+    SNS_REGISTER_PROGRAM_ID,
     SYSTEM_PROGRAM_ID,
   ],
   approvals: [

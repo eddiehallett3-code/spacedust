@@ -21,6 +21,7 @@ import {
   JUPITER_PROGRAM_ID,
   NOOP_PROGRAM_ID,
   SNS_NAME_PROGRAM_ID,
+  SNS_REGISTER_PROGRAM_ID,
   programLabel,
   type AuditFlowName,
 } from "./program-ids";
@@ -243,6 +244,42 @@ function decodeSnsDelete(
   const refund = instruction.keys[2]?.pubkey.toBase58();
   if (!nameAccount || !authority || !refund) return null;
   return { nameAccount, authority, refund };
+}
+
+/**
+ * An SNS registrar burn, from the current SDK's own builder: one tag byte `16`,
+ * then `[name program, system, domain, reverse, reselling state, state, central
+ * state, authority (signer), refund target]`.
+ *
+ * This is the route current `.sns` names take. The legacy registry delete above
+ * is kept because a name account can still be deleted directly, but the burn is
+ * the one that also clears the registrar's reverse and resale state.
+ */
+interface SnsBurnDecoded {
+  nameProgram: string;
+  nameAccount: string;
+  authority: string;
+  refund: string;
+  authorityIsSigner: boolean;
+}
+
+function decodeSnsBurn(
+  instruction: TransactionInstruction,
+): SnsBurnDecoded | null {
+  if (instruction.data.length !== 1 || instruction.data[0] !== 16) return null;
+  if (instruction.keys.length < 9) return null;
+  const nameProgram = instruction.keys[0]?.pubkey.toBase58();
+  const nameAccount = instruction.keys[2]?.pubkey.toBase58();
+  const authority = instruction.keys[7]?.pubkey.toBase58();
+  const refund = instruction.keys[8]?.pubkey.toBase58();
+  if (!nameProgram || !nameAccount || !authority || !refund) return null;
+  return {
+    nameProgram,
+    nameAccount,
+    authority,
+    refund,
+    authorityIsSigner: instruction.keys[7]?.isSigner === true,
+  };
 }
 
 interface AtaCreateDecoded {
@@ -890,10 +927,74 @@ export function auditInstructions(
         return;
       }
 
-      // ── 7. SNS: the delete, field by field ──────────────────────────────
+      // ── 7. SNS: the burn and the legacy delete, field by field ───────────
       // The instruction arrives over the network from `/api/domains`, so every
       // field is checked rather than trusted — and the refund target is the one
       // where a wrong value is a theft rather than a failure.
+      if (programId === SNS_REGISTER_PROGRAM_ID) {
+        const burn = decodeSnsBurn(instruction);
+        if (!burn) {
+          noteProgram(into, programId);
+          refuse(
+            into,
+            "unreadable-instruction",
+            "The batch contains an SNS registrar instruction that is not a name burn.",
+            programId,
+            index,
+          );
+          return;
+        }
+        if (burn.nameProgram !== SNS_NAME_PROGRAM_ID) {
+          noteProgram(into, programId);
+          refuse(
+            into,
+            "unexpected-subject",
+            `A name burn would call name program ${short(burn.nameProgram)}, not SNS's registry.`,
+            programId,
+            index,
+          );
+          return;
+        }
+        if (!burn.authorityIsSigner || burn.authority !== owner) {
+          noteProgram(into, programId);
+          refuse(
+            into,
+            "unexpected-subject",
+            `A name burn would be authorised by ${short(burn.authority)}, not by your wallet.`,
+            programId,
+            index,
+          );
+          return;
+        }
+        if (burn.refund !== owner) {
+          noteProgram(into, programId);
+          refuse(
+            into,
+            "refund-to-third-party",
+            `Burning a name would refund its rent to ${short(burn.refund)} instead of your wallet.`,
+            programId,
+            index,
+          );
+          return;
+        }
+        if (
+          plannedSubjects.size > 0 &&
+          !plannedSubjects.has(burn.nameAccount)
+        ) {
+          noteProgram(into, programId);
+          refuse(
+            into,
+            "unexpected-subject",
+            `A burn acts on name account ${short(burn.nameAccount)}, which is not one of the names you selected.`,
+            programId,
+            index,
+          );
+          return;
+        }
+        noteProgram(into, programId, "burn a name you selected, rent to you");
+        return;
+      }
+
       if (programId === SNS_NAME_PROGRAM_ID) {
         const deletion = decodeSnsDelete(instruction);
         if (!deletion) {

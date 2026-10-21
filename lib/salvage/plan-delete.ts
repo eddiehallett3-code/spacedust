@@ -36,10 +36,10 @@ import type { SalvageDomain } from "@/types/salvage";
  *    and cannot be undone. SNS says as much in their own documentation, and every
  *    refusal below exists so that nothing is offered as routine that isn't.
  *
- * The measured unit, from `probes/tmp-sol-rent-probe.mjs` against a real mainnet name
- * account: **207 bytes, 1,801 CU, `err: null`**, refunding that account's own rent —
- * which is between 1,559,040 and 71,159,040 lamports depending on how long the
- * name is, so it is read per domain and never from a constant.
+ * The compute budget is sized from the unit count. The old registry delete
+ * measured 1,801 CU on mainnet; the current registrar burn also clears reverse
+ * and resale state, so `DELETE_COMPUTE_UNITS_PER_UNIT` is a deliberately
+ * conservative 30,000 rather than the old measured figure.
  *
  * Nothing here signs or sends.
  */

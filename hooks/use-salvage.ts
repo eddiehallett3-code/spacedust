@@ -133,7 +133,10 @@ export function useSalvage() {
             method: "POST",
             body: {
               owner: publicKey.toBase58(),
-              accounts: domains.map((domain) => domain.address),
+              domains: domains.map((domain) => ({
+                name: domain.name,
+                address: domain.address,
+              })),
             },
           },
         );
@@ -224,7 +227,10 @@ export function useSalvage() {
             method: "POST",
             body: {
               owner: publicKey.toBase58(),
-              accounts: domains.map((domain) => domain.address),
+              domains: domains.map((domain) => ({
+                name: domain.name,
+                address: domain.address,
+              })),
             },
           },
         );
