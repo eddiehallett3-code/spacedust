@@ -229,6 +229,10 @@ export function useNftBurn() {
   const queueIndexRef = useRef(0);
   const queueReportsRef = useRef<NftBurnRoundReport[]>([]);
   const queueModeRef = useRef(false);
+  /** Blocks a second user-initiated execute while the queue is between rounds. */
+  const queueActiveRef = useRef(false);
+  /** Allows the queue's own recursive execute calls through that guard. */
+  const queueInternalCallRef = useRef(false);
 
   const [state, setState] = useState<NftBurnState>(INITIAL);
   /**
@@ -343,6 +347,8 @@ export function useNftBurn() {
     queueIndexRef.current = 0;
     queueReportsRef.current = [];
     queueModeRef.current = false;
+    queueActiveRef.current = false;
+    queueInternalCallRef.current = false;
     preparedRef.current = null;
     assetsRef.current = [];
     lookupTablesRef.current = [];
@@ -388,6 +394,8 @@ export function useNftBurn() {
         queueIndexRef.current = 0;
         queueReportsRef.current = [];
         queueModeRef.current = false;
+        queueActiveRef.current = false;
+        queueInternalCallRef.current = false;
         lookupTablesRef.current = [];
         autoReclaimStartedRef.current = false;
       }
@@ -482,7 +490,8 @@ export function useNftBurn() {
       });
       return [];
     }
-    if (busyRef.current && !queueModeRef.current) return [];
+    if (busyRef.current) return [];
+    if (queueActiveRef.current && !queueInternalCallRef.current) return [];
     if (!publicKey || (!signTransaction && !signAllTransactions)) {
       patch({
         error: {
@@ -504,7 +513,7 @@ export function useNftBurn() {
     const runQueue = async (): Promise<string[]> => {
       const rounds = queueRoundsRef.current;
       queueModeRef.current = true;
-      busyRef.current = true;
+      queueActiveRef.current = true;
       queueReportsRef.current = [];
       patch({ queueActive: true });
       const burnedIds: string[] = [];
@@ -520,9 +529,13 @@ export function useNftBurn() {
           }
 
           const before = queueReportsRef.current.length;
-          burnedIds.push(...(await execute()));
+          queueInternalCallRef.current = true;
+          try {
+            burnedIds.push(...(await execute()));
+          } finally {
+            queueInternalCallRef.current = false;
+          }
           if (queueReportsRef.current.length === before) break;
-          busyRef.current = true;
           patch({
             queue: {
               round: Math.min(index + 2, rounds.length),
@@ -533,6 +546,8 @@ export function useNftBurn() {
         }
       } finally {
         queueModeRef.current = false;
+        queueActiveRef.current = false;
+        queueInternalCallRef.current = false;
         busyRef.current = false;
       }
 
