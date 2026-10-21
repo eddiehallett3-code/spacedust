@@ -34,6 +34,12 @@ export default function manifest(): MetadataRoute.Manifest {
     icons: [
       { src: "/logo-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
       { src: "/logo-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+      {
+        src: "/logo-512-maskable.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "maskable",
+      },
     ],
     shortcuts: TOOLS.map((tool) => ({
       name: tool.name,

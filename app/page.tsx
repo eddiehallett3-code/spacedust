@@ -72,6 +72,8 @@ function structuredData() {
     applicationCategory: "FinanceApplication",
     operatingSystem: "Web",
     url: getSiteUrl(),
+    logo: `${getSiteUrl()}/logo-512.png`,
+    image: `${getSiteUrl()}/logo-512.png`,
     description: `Non-custodial tools for a Solana wallet. No fee on a swap; ${reclaimRate} of the rent any flow returns, shown before you sign, and you sign every transaction.`,
     featureList: TOOLS.map((tool) => `${tool.name} — ${tool.tagline}`),
   };
