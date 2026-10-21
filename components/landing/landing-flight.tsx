@@ -57,17 +57,17 @@ export function LandingFlight({ children }: { children: ReactNode }) {
     damping: 24,
     mass: 0.5,
   });
-  const rotateX = useSpring(useTransform(scrollY, [0, 500], [58, 44]), {
+  const rotateX = useSpring(useTransform(scrollY, [0, 500], [22, 14]), {
     stiffness: 70,
     damping: 22,
     mass: 0.5,
   });
-  const rotateY = useSpring(useTransform(scrollY, [0, 300, 700], [-14, 0, 24]), {
+  const rotateY = useSpring(useTransform(scrollY, [0, 300, 700], [-6, 0, 10]), {
     stiffness: 70,
     damping: 22,
     mass: 0.5,
   });
-  const rotateZ = useSpring(useTransform(scrollY, [0, 400, 800], [-8, -12, 20]), {
+  const rotateZ = useSpring(useTransform(scrollY, [0, 400, 800], [-6, -9, 14]), {
     stiffness: 70,
     damping: 22,
     mass: 0.5,
