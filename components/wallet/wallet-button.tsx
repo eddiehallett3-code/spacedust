@@ -33,7 +33,7 @@ export function WalletButton({ className }: { className?: string }) {
         aria-label="Connect a Solana wallet"
       >
         <Wallet aria-hidden />
-        Connect Wallet
+        Connect
       </Button>
     );
   }
@@ -56,14 +56,14 @@ export function WalletButton({ className }: { className?: string }) {
   };
 
   return (
-    <div className={cn("flex items-center gap-1.5", className)}>
-      <div className="glass flex items-center gap-1 rounded-xl p-1 pr-2.5">
+    <div className={cn("flex items-center", className)}>
+      <div className="glass flex items-center gap-0.5 rounded-lg p-0.5 pr-1">
         <span
           aria-hidden
-          className="ml-1.5 size-2 shrink-0 rounded-full bg-success shadow-[0_0_8px] shadow-success/60"
+          className="ml-1 size-1.5 shrink-0 rounded-full bg-success shadow-[0_0_8px] shadow-success/60"
         />
         <span
-          className="font-mono text-[13px] font-medium tracking-tight"
+          className="px-0.5 font-mono text-[11px] font-medium tracking-tight sm:text-xs"
           title={address}
         >
           {truncateAddress(address, 4, 4)}
@@ -73,6 +73,7 @@ export function WalletButton({ className }: { className?: string }) {
           <Button
             variant="ghost"
             size="icon-sm"
+            className="size-7 sm:size-8"
             onClick={copyAddress}
             aria-label="Copy wallet address"
           >
@@ -88,6 +89,7 @@ export function WalletButton({ className }: { className?: string }) {
           <Button
             variant="ghost"
             size="icon-sm"
+            className="size-7 sm:size-8"
             onClick={() => void disconnect()}
             aria-label="Disconnect wallet"
           >

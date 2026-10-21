@@ -14,6 +14,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { LogoMark } from "@/components/layout/logo-mark";
+import { ProModeSwitch } from "@/components/layout/pro-mode-switch";
 import { ToolEmblem } from "@/components/layout/tool-emblem";
 import { WalletButton } from "@/components/wallet/wallet-button";
 import { Container } from "@/components/layout/container";
@@ -84,7 +85,7 @@ export function Navbar() {
               <LogoMark className="size-7" />
               <span className="pointer-events-none absolute inset-0 bg-violet-core/10 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
             </span>
-            <span className="text-[1.05rem] font-semibold tracking-tight">
+            <span className="hidden text-[1.05rem] font-semibold tracking-tight sm:block">
               Spacedust
             </span>
           </Link>
@@ -207,7 +208,7 @@ export function Navbar() {
           </nav>
 
 
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             <Link
               href="/security"
               className="hidden items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-muted transition-colors hover:text-foreground lg:flex"
@@ -215,6 +216,7 @@ export function Navbar() {
               <ShieldCheck className="size-3.5 text-success" aria-hidden />
               Non-custodial
             </Link>
+            <ProModeSwitch />
             <WalletButton />
 
             {/* Mobile nav trigger. Before this existed the links simply vanished

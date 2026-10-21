@@ -7,7 +7,6 @@ import {
   Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ModeToggle } from "@/components/layout/mode-toggle";
 import { LandingProductPreview } from "./landing-product-preview";
 import { UfoArtwork } from "./ufo-artwork";
 
@@ -26,14 +25,6 @@ export function LandingHero() {
       aria-labelledby="landing-heading"
       className="relative z-10 flex flex-col justify-center pb-10 pt-12 sm:pt-16 lg:min-h-[calc(100svh-4rem)] lg:pb-16 lg:pt-10"
     >
-      <div className="mb-6 flex flex-col items-end gap-1.5">
-        <ModeToggle />
-        <p className="max-w-[16rem] text-right text-[11px] text-subtle">
-          Basic keeps the common paths. Pro adds deep cNFTs and advanced
-          controls.
-        </p>
-      </div>
-
       <div className="grid items-center gap-14 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-8">
         <div className="mx-auto min-w-0 max-w-2xl text-center lg:mx-0 lg:text-left">
           <p className="inline-flex items-center gap-2 rounded-full border border-success/25 bg-success/8 px-3 py-1 text-xs text-emerald-300">
