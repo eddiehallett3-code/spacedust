@@ -746,6 +746,17 @@ export default function HowItWorksPage() {
           you want the account gone — and since it is empty and can be recreated
           the moment that token is received again, the answer is usually yes.
         </p>
+
+        <h3>4. Pro adds the jobs that are not routine</h3>
+        <p>
+          Pro mode adds wrapped-SOL unwrapping, SNS name deletion and a diagnostic
+          list of empty accounts this wallet cannot close. They stay out of the
+          default page because each needs a decision the empty-account close does
+          not: an unwrap moves a real SOL balance, deleting a name gives it back
+          to the open namespace, and a foreign close authority or withheld
+          Token-2022 fee means no instruction this wallet can sign will work. All
+          three are previewed and simulated before a wallet is asked to sign.
+        </p>
       </ToolSection>
 
       <ToolSection

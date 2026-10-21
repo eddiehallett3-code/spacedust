@@ -20,6 +20,7 @@ import {
   FLOW_PROGRAMS,
   JUPITER_PROGRAM_ID,
   NOOP_PROGRAM_ID,
+  SNS_NAME_PROGRAM_ID,
   programLabel,
   type AuditFlowName,
 } from "./program-ids";
@@ -81,6 +82,8 @@ export interface AuditExpectations {
   expectedFeeLamports: number;
   /** Accounts the plan intends to close. An extra close is a warning. */
   expectedCloses?: readonly string[];
+  /** Accounts the plan intends to act on — name accounts, token accounts. */
+  expectedSubjects?: readonly string[];
   /** The only token accounts a transfer may credit (a send's destination). */
   expectedTransferDestinations?: readonly string[];
   /**
@@ -214,6 +217,32 @@ function tokenInstructionIndex(
 
 function tokenInstructionName(index: number): string {
   return TOKEN_INSTRUCTION_NAMES[index] ?? `instruction #${index}`;
+}
+
+/**
+ * The SNS delete, decoded from the bytes the registry program's own builder
+ * produces: a single discriminator byte `3`, then `[name account, authority
+ * (signer), refund target]`.
+ *
+ * This is checked field by field rather than trusted, because the instruction
+ * arrives over the network from `/api/domains` — and the refund target is the
+ * one field where a wrong value is a theft rather than a failure.
+ */
+interface SnsDeleteDecoded {
+  nameAccount: string;
+  authority: string;
+  refund: string;
+}
+
+function decodeSnsDelete(
+  instruction: TransactionInstruction,
+): SnsDeleteDecoded | null {
+  if (instruction.data.length !== 1 || instruction.data[0] !== 3) return null;
+  const nameAccount = instruction.keys[0]?.pubkey.toBase58();
+  const authority = instruction.keys[1]?.pubkey.toBase58();
+  const refund = instruction.keys[2]?.pubkey.toBase58();
+  if (!nameAccount || !authority || !refund) return null;
+  return { nameAccount, authority, refund };
 }
 
 interface AtaCreateDecoded {
@@ -362,6 +391,7 @@ export function auditInstructions(
   const allowed = new Set(FLOW_PROGRAMS[expected.flow]);
   const owner = expected.owner;
   const plannedCloses = new Set(expected.expectedCloses ?? []);
+  const plannedSubjects = new Set(expected.expectedSubjects ?? []);
   const transferDestinations = new Set(
     expected.expectedTransferDestinations ?? [],
   );
@@ -860,7 +890,64 @@ export function auditInstructions(
         return;
       }
 
-      // ── 7. The Metaplex burn routes ─────────────────────────────────────
+      // ── 7. SNS: the delete, field by field ──────────────────────────────
+      // The instruction arrives over the network from `/api/domains`, so every
+      // field is checked rather than trusted — and the refund target is the one
+      // where a wrong value is a theft rather than a failure.
+      if (programId === SNS_NAME_PROGRAM_ID) {
+        const deletion = decodeSnsDelete(instruction);
+        if (!deletion) {
+          noteProgram(into, programId);
+          refuse(
+            into,
+            "unreadable-instruction",
+            "The batch contains an SNS registry instruction that is not a name delete.",
+            programId,
+            index,
+          );
+          return;
+        }
+        if (deletion.authority !== owner) {
+          noteProgram(into, programId);
+          refuse(
+            into,
+            "unexpected-subject",
+            `A name delete would be authorised by ${short(deletion.authority)}, not by your wallet.`,
+            programId,
+            index,
+          );
+          return;
+        }
+        if (deletion.refund !== owner) {
+          noteProgram(into, programId);
+          refuse(
+            into,
+            "refund-to-third-party",
+            `Deleting a name would refund its rent to ${short(deletion.refund)} instead of your wallet.`,
+            programId,
+            index,
+          );
+          return;
+        }
+        if (
+          plannedSubjects.size > 0 &&
+          !plannedSubjects.has(deletion.nameAccount)
+        ) {
+          noteProgram(into, programId);
+          refuse(
+            into,
+            "unexpected-subject",
+            `A delete acts on name account ${short(deletion.nameAccount)}, which is not one of the domains you selected.`,
+            programId,
+            index,
+          );
+          return;
+        }
+        noteProgram(into, programId, "delete a name you selected, rent to you");
+        return;
+      }
+
+      // ── 8. The Metaplex burn routes ─────────────────────────────────────
       // Only The Void uses these, and their instruction layouts are the one
       // thing here this audit does not decode: the wallets are on the flow's
       // allow-list, so the program is right, but what it does inside is the

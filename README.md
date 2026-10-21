@@ -268,6 +268,8 @@ reprice both.
 | `/api/plan` | 60 | 1 minute |
 | `/api/tokens` | 30 | 1 minute |
 | `/api/asset-proof` | 30 | 1 minute |
+| `/api/domains` | 30 | 1 minute |
+| `/api/wrapped-sol` | 30 | 1 minute |
 | `/api/health` | 12 | 1 minute |
 
 Two of these do real upstream work on every call and declare a **60-second**

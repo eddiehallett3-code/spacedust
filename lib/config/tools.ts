@@ -93,7 +93,8 @@ export const TOOLS: Tool[] = [
     key: "salvage",
     name: "Salvage",
     href: "/salvage",
-    tagline: "Reclaim the rent still locked in token accounts you have emptied.",
+    tagline:
+      "Reclaim rent from empty token accounts. Pro adds wSOL unwrapping and .sns name deletion.",
     cta: "Open Salvage",
   },
   {

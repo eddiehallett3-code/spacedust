@@ -32,6 +32,8 @@ export type LimitedRoute =
   | "plan"
   | "tokens"
   | "asset-proof"
+  | "domains"
+  | "wrapped-sol"
   | "health";
 
 /**
@@ -56,6 +58,8 @@ const BUDGETS: Record<LimitedRoute, number> = {
   plan: 60,
   tokens: 30,
   "asset-proof": 30,
+  domains: 30,
+  "wrapped-sol": 30,
   health: 12,
 };
 

@@ -161,6 +161,19 @@ export const CLOSE_COMPUTE_UNIT_LIMIT = 200_000;
 /** The worst-case cost of one `closeAccount`, for sizing the budget above. */
 export const CLOSE_COMPUTE_UNITS_PER_ACCOUNT = 2_000;
 
+/**
+ * Measured compute for one SNS domain delete.
+ *
+ * A mainnet name account measured 1,801 CU. The 5,000 CU per unit is a safety
+ * margin; the delete budget is sized from the unit count instead of the sweep's
+ * 800,000 because the priority fee is billed on the budget requested, and a
+ * delete has no business paying for swap headroom it cannot use.
+ */
+export const DELETE_COMPUTE_UNITS_PER_UNIT = 5_000;
+
+/** Floor for a delete transaction's compute budget. */
+export const DELETE_COMPUTE_UNIT_FLOOR = 50_000;
+
 /** Base fee per signature, in lamports. The priority fee is billed per CU. */
 export const BASE_FEE_LAMPORTS = 5000;
 

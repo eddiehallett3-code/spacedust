@@ -11,16 +11,18 @@ export const metadata: Metadata = {
   // page. It matters because the site answers on two hosts — the custom domain and
   // the *.vercel.app one — and a crawler finding both is free to choose either.
   alternates: { canonical: "/salvage" },
-  title: "Salvage — reclaim the rent locked in empty token accounts",
-  description: `Close token accounts that hold no balance and get the rent each one was holding back. ${RECLAIM_RATE} of what comes back.`,
+  title: "Salvage — reclaim rent, unwrap wSOL, release unused .sns names",
+  description: `Close token accounts that hold no balance and get their rent back, or turn on Pro to unwrap wrapped SOL and give unused .sns names back. ${RECLAIM_RATE} of reclaimed rent.`,
 };
 
 /**
  * Salvage.
  *
- * The smallest tool here: nothing is priced, nothing is routed, and the accounts
- * hold no assets — only the rent-exempt deposit the network keeps while an
- * account exists. One job, so the page says one thing.
+ * Basic mode is the smallest tool here: nothing is priced, nothing is routed, and
+ * the accounts hold no assets — only the rent-exempt deposit the network keeps
+ * while an account exists. Pro adds the three jobs that deserve a deliberate
+ * switch: unwrapping wSOL, deleting unused `.sns` names, and explaining which
+ * empty accounts the token program will not let this wallet close.
  */
 export default function SalvagePage() {
   return (
@@ -28,7 +30,7 @@ export default function SalvagePage() {
       <PageHeader
         emblem={<ToolEmblem tool="salvage" />}
         title="Salvage"
-        description="Every token account you have emptied still holds a rent deposit, and the network keeps it until the account is closed. Salvage finds those accounts and closes them, returning the deposit to your wallet."
+        description="Basic closes empty token accounts and returns their rent. Pro also unwraps wSOL, gives unused .sns names back for their rent, and shows which accounts cannot be closed."
       />
       <SalvageApp />
     </Container>
