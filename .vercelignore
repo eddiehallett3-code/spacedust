@@ -1,0 +1,12 @@
+# Vercel builds from source; local build output and dependencies must not be
+# uploaded. Without this, `vercel --prod` tries to send the entire `.next`
+# directory and fails Vercel's 100 MB per-file limit.
+.next
+.next-verify
+.next-csp
+node_modules
+.git
+coverage
+playwright-report
+test-results
+.env*.local
