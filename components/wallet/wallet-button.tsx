@@ -33,7 +33,7 @@ export function WalletButton({ className }: { className?: string }) {
         aria-label="Connect a Solana wallet"
       >
         <Wallet aria-hidden />
-        Connect
+        <span className="hidden sm:inline">Connect</span>
       </Button>
     );
   }

@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { LogoMark } from "@/components/layout/logo-mark";
+import { BrandLogo } from "@/components/layout/brand-logo";
 import { ProModeSwitch } from "@/components/layout/pro-mode-switch";
 import { ToolEmblem } from "@/components/layout/tool-emblem";
 import { WalletButton } from "@/components/wallet/wallet-button";
@@ -78,16 +78,10 @@ export function Navbar() {
           {/* Brand */}
           <Link
             href="/"
-            className="group flex shrink-0 items-center gap-2.5 rounded-lg"
+            className="group flex shrink-0 items-center rounded-lg"
             aria-label="Spacedust home"
           >
-            <span className="relative flex size-9 items-center justify-center rounded-xl ring-1 ring-inset ring-white/10 transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-105">
-              <LogoMark className="size-7" />
-              <span className="pointer-events-none absolute inset-0 bg-violet-core/10 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-            </span>
-            <span className="hidden text-[1.05rem] font-semibold tracking-tight sm:block">
-              Spacedust
-            </span>
+            <BrandLogo className="origin-left transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-[1.02]" />
           </Link>
 
           {/* Desktop nav. Tools collapse into one menu; the two explainer pages
