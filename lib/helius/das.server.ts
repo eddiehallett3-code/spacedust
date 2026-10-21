@@ -141,6 +141,36 @@ import type { NonFungibleAsset, CompressedLeaf } from "@/types/token";
 
 export type { ScanResult, ScannedHolding };
 
+/**
+ * A cheap DAS availability probe for `/api/health`.
+ *
+ * The health check used to run the whole wallet scanner against a 3,000-asset
+ * address just to prove the key worked. That made the check itself capable of
+ * exhausting a free-tier key or timing out on a transient page failure, and the
+ * resulting core-RPC fallback looked exactly like a broken setup. One indexed
+ * asset is enough to prove the endpoint, the key and the DAS method.
+ */
+export async function probeDas(): Promise<{ total: number; sampled: number }> {
+  const result = await dasRequest({
+    method: "getAssetsByOwner",
+    params: {
+      ownerAddress: "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+      page: 1,
+      limit: 1,
+      options: {
+        showFungible: true,
+        showNativeBalance: false,
+        showZeroBalance: false,
+      },
+    },
+  });
+
+  return {
+    total: typeof result.total === "number" ? result.total : 0,
+    sampled: result.items?.length ?? 0,
+  };
+}
+
 async function dasRequest(
   body: Record<string, unknown>,
 ): Promise<DasResult> {

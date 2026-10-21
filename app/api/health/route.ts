@@ -10,7 +10,7 @@ import {
 } from "@/lib/config/env";
 import { getPublicFeeWallet } from "@/lib/config/public-env";
 import { fetchRentMinimums } from "@/lib/solana/rent";
-import { scanWallet } from "@/lib/token-source/index.server";
+import { probeDas } from "@/lib/helius/das.server";
 
 /**
  * `GET /api/health` — setup diagnostics.
@@ -29,10 +29,11 @@ import { scanWallet } from "@/lib/token-source/index.server";
 
 export const runtime = "nodejs";
 /**
- * The health check scans a busy address on purpose (pagination, not an empty
- * wallet), which took 8.8 seconds against production. That is inside the default
- * ceiling today, but it is close enough to one that the budget is declared rather
- * than assumed — the same reason `/api/tokens` declares it.
+ * The health check asks for one asset rather than running a full wallet scan.
+ * A full scan of a busy address was expensive enough to hit its own quota or a
+ * transient page failure, which made a working key look broken. The actual
+ * scanner still falls back to core RPC on its own, but this probe only answers
+ * "does DAS respond for this key?".
  */
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -78,29 +79,23 @@ export async function GET(request: Request) {
     },
   };
 
-  // ── Helius: prove it by scanning a known-active address ──────────────────
+  // ── Helius: prove it with a small indexed read ───────────────────────────
   if (!checks.helius.configured) {
     checks.helius.detail =
       "Not set. Spacedust falls back to the free public RPC, which is slower and rate-limited.";
   } else {
     try {
-      // A widely-used burn address: guaranteed to hold many accounts, so the
-      // scan exercises pagination rather than returning instantly.
-      const result = await scanWallet("9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM");
-
-      if (result.source !== "helius-das") {
-        // The key is present but DAS did not serve the request — the provider
-        // selector fell back silently. Say so, because this is exactly the
-        // kind of failure that otherwise looks like it is working.
-        checks.helius.working = false;
-        checks.helius.detail =
-          `Key is set, but DAS did NOT serve the scan — it silently fell back to core-rpc ` +
-          `(${result.holdings.length} holdings). Check the Helius dashboard for quota ` +
-          `or an API change.`;
-      } else {
-        checks.helius.working = true;
-        checks.helius.detail = `DAS responded — ${result.holdings.length} holdings via helius-das.`;
-      }
+      // A busy address, but only one item requested. The old probe scanned all
+      // 3,000+ holdings, which could itself hit a quota or a transient page
+      // failure and make a working key look broken.
+      const probe = await probeDas();
+      checks.helius.working = true;
+      // Keep the detail about the thing that matters: the key and endpoint
+      // answered. A count from a one-item probe is not a wallet total.
+      checks.helius.detail =
+        probe.total > 0 || probe.sampled > 0
+          ? "DAS responded — key and endpoint are working."
+          : "DAS responded, but returned no assets for the probe address.";
     } catch (error) {
       // The public field is a diagnosis, not a transcript. The full message can
       // name the endpoint — and this endpoint carries the key in its query string
