@@ -1,0 +1,17 @@
+.mobile {
+  display: flex;
+}
+
+.desktop {
+  display: none;
+}
+
+@media (min-width: 40rem) {
+  .mobile {
+    display: none;
+  }
+
+  .desktop {
+    display: flex;
+  }
+}
