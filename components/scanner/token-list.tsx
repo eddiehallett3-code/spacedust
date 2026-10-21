@@ -31,6 +31,7 @@ export function TokenList({
   onAmountChange,
   showAmounts,
   onShowAmountsChange,
+  showAmountControl = true,
 }: {
   tokens: DustToken[];
   selectedMints: Set<string>;
@@ -54,6 +55,12 @@ export function TokenList({
    */
   showAmounts: boolean;
   onShowAmountsChange: (next: boolean) => void;
+  /**
+   * Whether the Custom switch is offered at all. Basic mode hides it because a
+   * partial sale is the less common, more error-prone path; the row still states
+   * that the default swaps 100%.
+   */
+  showAmountControl?: boolean;
 }) {
   const selectableTokens = tokens.filter((token) => !token.hasTransferHook);
   const selectedVisible = selectableTokens.filter((token) =>
@@ -111,14 +118,16 @@ export function TokenList({
                 : "Swapping 100% of each selected token"}
             </span>
           </span>
-          <label className="flex shrink-0 cursor-pointer items-center gap-2 text-[11px] text-muted">
-            Custom
-            <Switch
-              checked={showAmounts}
-              onCheckedChange={onShowAmountsChange}
-              aria-label="Choose a custom amount for each token instead of swapping everything"
-            />
-          </label>
+          {showAmountControl ? (
+            <label className="flex shrink-0 cursor-pointer items-center gap-2 text-[11px] text-muted">
+              Custom
+              <Switch
+                checked={showAmounts}
+                onCheckedChange={onShowAmountsChange}
+                aria-label="Choose a custom amount for each token instead of swapping everything"
+              />
+            </label>
+          ) : null}
         </div>
       ) : null}
 

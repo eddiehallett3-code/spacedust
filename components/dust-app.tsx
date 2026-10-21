@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ThresholdControl } from "@/components/scanner/threshold-control";
 import { TokenList } from "@/components/scanner/token-list";
+import { useMode } from "@/components/layout/mode-provider";
 import { ControlsColumn } from "@/components/sweep/controls-column";
 import { SweepOverlay } from "@/components/sweep/sweep-overlay";
 import { SuccessSummary } from "@/components/sweep/success-summary";
@@ -58,6 +59,7 @@ import type { DustToken } from "@/types/token";
  */
 export function DustApp() {
   const { connected } = useWallet();
+  const { isPro } = useMode();
   const { addEntry } = useSweepHistory();
   const { scan, tokens, isScanning, error: scanError, rescan, owner } = useWalletScan();
   const sweep = useSweep();
@@ -123,6 +125,15 @@ export function DustApp() {
     setCustomAmounts(next);
     if (!next) setAmountsByMint(new Map());
   }, []);
+
+  // Custom amounts are a Pro control. Switching back to Basic clears them rather
+  // than merely hiding them, so no fraction entered earlier can ride along in a
+  // later basic-mode preview.
+  useEffect(() => {
+    if (isPro) return;
+    setCustomAmounts(false);
+    setAmountsByMint(new Map());
+  }, [isPro]);
 
   /**
    * Holdings the sweeper will not list, and why.
@@ -477,7 +488,7 @@ export function DustApp() {
       //
       // Undefined when custom amounts are off, so "100%" is what the request
       // says rather than an empty map that happens to mean the same thing.
-      amounts: customAmounts ? amountsByMint : undefined,
+      amounts: isPro && customAmounts ? amountsByMint : undefined,
     });
     if (result) {
       // Read from the result, never from `sweep`. This closure holds the render
@@ -491,7 +502,7 @@ export function DustApp() {
           " built and simulated. Review before signing.",
       });
     }
-  }, [amountsByMint, customAmounts, outputAsset, selectedTokens, sweep]);
+  }, [amountsByMint, customAmounts, isPro, outputAsset, selectedTokens, sweep]);
 
   const handleSweep = useCallback(async (): Promise<void> => {
     await sweep.execute();
@@ -658,8 +669,9 @@ export function DustApp() {
                   className="-mx-5 rounded-b-2xl border-t border-border/60 sm:-mx-6"
                   amounts={amountsByMint}
                   onAmountChange={onAmountChange}
-                  showAmounts={customAmounts}
+                  showAmounts={isPro && customAmounts}
                   onShowAmountsChange={handleCustomAmountsChange}
+                  showAmountControl={isPro}
                 />
                 {/* A holding this list refuses is still a holding the wallet has,
                     so its absence is stated rather than left to be noticed. */}

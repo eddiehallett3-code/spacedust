@@ -272,10 +272,18 @@ export function NftBurnPanel({
         );
       }
       if (preview.lookupTables > 0) {
+        const roundOne = `${pluralize(preview.lookupTables, "cNFT")} ${
+          preview.lookupTables === 1 ? "needs" : "need"
+        } a lookup table in round 1`;
+        const total = selectedNeedingLookupTable.length;
         parts.push(
-          `${pluralize(preview.lookupTables, "cNFT")} ${
-            preview.lookupTables === 1 ? "needs" : "need"
-          } a lookup table when you burn`,
+          preview.rounds !== undefined &&
+            preview.rounds > 1 &&
+            total > preview.lookupTables
+            ? `${roundOne}; ${pluralize(total, "selected cNFT")} ${
+                total === 1 ? "is" : "are"
+              } marked as needing one across the queue`
+            : roundOne,
         );
       }
       if (preview.rounds !== undefined && preview.rounds > 1) {
@@ -719,7 +727,7 @@ export function NftBurnPanel({
               <p className="font-medium text-foreground">
                 {pluralize(lookupTableAssets.length, "cNFT")}{" "}
                 {lookupTableAssets.length === 1 ? "needs" : "need"} an address
-                lookup table.
+                lookup table in this round.
               </p>
               <p className="mt-1">
                 {lookupTableAssets.length === 1
@@ -733,6 +741,15 @@ export function NftBurnPanel({
                 four minutes), then asks you to approve closing it and returns
                 the rent.
               </p>
+              {selectedNeedingLookupTable.length > lookupTableAssets.length ? (
+                <p className="mt-1">
+                  Across the whole selection,{" "}
+                  {pluralize(selectedNeedingLookupTable.length, "cNFT")}{" "}
+                  {selectedNeedingLookupTable.length === 1 ? "is" : "are"}{" "}
+                  marked as needing one. Later rounds fetch fresh proofs and
+                  create their own table when needed.
+                </p>
+              ) : null}
             </div>
           ) : null}
           <WarningsList warnings={warnings} unitLabel="asset" />

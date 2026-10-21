@@ -5,6 +5,7 @@ import { AlertTriangle, Orbit, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, SectionTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useMode } from "@/components/layout/mode-provider";
 import { OutputToggle } from "@/components/sweep/output-toggle";
 import { SweepPanel } from "@/components/sweep/sweep-panel";
 import { SmartFilterToggle } from "@/components/sweep/smart-filter-toggle";
@@ -83,6 +84,7 @@ export function ControlsColumn({
   /** Called once accounts have been closed, so the app can rescan. */
   onRentReclaimed: () => void;
 }) {
+  const { isPro } = useMode();
   // A preview describes its own plan, and these two numbers have to describe the
   // bytes rather than the checkboxes. They differ in two real cases: a retry
   // plans a subset of the selection (the rest already went), and Jupiter can
@@ -192,12 +194,14 @@ export function ControlsColumn({
         onReclaimed={onRentReclaimed}
       />
 
-      <SweepHistoryPanel
-        onResweep={() => {
-          sweep.reset();
-          deselectAll();
-        }}
-      />
+      {isPro ? (
+        <SweepHistoryPanel
+          onResweep={() => {
+            sweep.reset();
+            deselectAll();
+          }}
+        />
+      ) : null}
     </div>
   );
 }

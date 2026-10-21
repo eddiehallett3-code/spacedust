@@ -12,6 +12,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { MobileWalletAdapter } from "@/components/wallet/mobile-wallet-adapter";
 import { WalletModalProvider } from "@/components/wallet/wallet-modal";
 import { CookieNotice } from "@/components/legal/cookie-notice";
+import { ModeProvider } from "@/components/layout/mode-provider";
 import { preloadSounds, primeSounds } from "@/lib/ui/sound";
 
 /**
@@ -156,21 +157,23 @@ export function Providers({ children }: { children: ReactNode }) {
         ) : null}
         <WalletModalProvider>
           <TooltipProvider delayDuration={200}>
-            {children}
-            {/* Toasts: top-centre on mobile. */}
-            <Toaster
-              position="top-center"
-              richColors
-              closeButton
-              theme="dark"
-              toastOptions={{
-                classNames: {
-                  toast: "!bg-space-850/95 !border-white/10 !text-foreground !backdrop-blur-xl",
-                  description: "!text-muted",
-                },
-              }}
-            />
-            <CookieNotice />
+            <ModeProvider>
+              {children}
+              {/* Toasts: top-centre on mobile. */}
+              <Toaster
+                position="top-center"
+                richColors
+                closeButton
+                theme="dark"
+                toastOptions={{
+                  classNames: {
+                    toast: "!bg-space-850/95 !border-white/10 !text-foreground !backdrop-blur-xl",
+                    description: "!text-muted",
+                  },
+                }}
+              />
+              <CookieNotice />
+            </ModeProvider>
           </TooltipProvider>
         </WalletModalProvider>
       </WalletProvider>

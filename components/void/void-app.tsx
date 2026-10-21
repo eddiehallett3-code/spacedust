@@ -30,6 +30,7 @@ import { ConnectWalletCta } from "@/components/wallet/wallet-button";
 import { useVoid } from "@/hooks/use-void";
 import { useWalletScan } from "@/hooks/use-wallet-scan";
 import { useLocalStorage } from "@/hooks/use-local-storage";
+import { useMode } from "@/components/layout/mode-provider";
 import { hideAssets, mergeIds, removeId } from "@/lib/sweep/hidden-assets";
 import { isValidSolanaAddress } from "@/lib/utils/sanitize";
 import { STORAGE_KEYS } from "@/lib/utils/constants";
@@ -61,6 +62,7 @@ export function VoidApp() {
   // A third, separate pipeline: burning a one-of-one asset shares no code with
   // sweeping dust or emptying tokens, so a mistake in one cannot reach another.
   const theBurn = useNftBurn();
+  const { isPro, setMode } = useMode();
 
   /**
    * Which list the user is looking at.
@@ -156,7 +158,7 @@ export function VoidApp() {
    * An unknown proof length stays here: a tree the scan could not read is not
    * evidence of a long proof, and the planner still measures the real proof
    * before it builds anything. Only a measured over-limit proof moves a card to
-   * the Table setup tab.
+   * the Deep cNFTs tab.
    */
   const directCnfts = useMemo(
     () => cnfts.filter((asset) => cnftFitsInline(asset) !== false),
@@ -166,6 +168,24 @@ export function VoidApp() {
     () => cnfts.filter((asset) => cnftFitsInline(asset) === false),
     [cnfts],
   );
+  // Basic mode has no deep-cNFT tab. Fall back to the ordinary cNFT list rather
+  // than leaving the page on a tab that is not in the tab bar.
+  const activeTab = !isPro && tab === "table-cnfts" ? "cnfts" : tab;
+
+  // Switching back to Basic must not leave a deep cNFT selected invisibly. The
+  // burn batch is assembled from the shared selection, so dropping these here is
+  // what actually keeps them out of the next burn.
+  useEffect(() => {
+    if (isPro) return;
+    setBurnSelection((previous) => {
+      const next = new Set(previous);
+      let changed = false;
+      for (const asset of tableCnfts) {
+        if (next.delete(asset.id)) changed = true;
+      }
+      return changed ? next : previous;
+    });
+  }, [isPro, tableCnfts]);
 
   /**
    * The ticked assets themselves, gathered from all three NFT tabs.
@@ -174,8 +194,11 @@ export function VoidApp() {
    * panel that pressed Burn only knows its own.
    */
   const burnSelectionAssets = useMemo(
-    () => [...nfts, ...cnfts].filter((asset) => burnSelection.has(asset.id)),
-    [nfts, cnfts, burnSelection],
+    () =>
+      [...nfts, ...(isPro ? cnfts : directCnfts)].filter((asset) =>
+        burnSelection.has(asset.id),
+      ),
+    [nfts, cnfts, directCnfts, isPro, burnSelection],
   );
 
   const [selectedMints, setSelectedMints] = useState<Set<string>>(new Set());
@@ -357,40 +380,41 @@ export function VoidApp() {
         </Card>
       ) : null}
 
-      {/* Four kinds of list, because they are not interchangeable: dust is
-          swept for rent, an NFT is a unique asset, a cNFT has no rent, and a
-          cNFT with an over-long proof needs a lookup table before it can burn. */}
+      {/* Basic keeps the common paths; Pro adds the deep-cNFT flow, whose
+          lookup tables and guided rounds are a lot more involved. */}
       <div
         role="tablist"
         aria-label="What to send into The Void"
         className="flex gap-1 rounded-xl border border-border/60 bg-white/2 p-1"
       >
-        {(
-          [
-            { key: "tokens", label: "Tokens", count: voidCandidates.length },
-            { key: "nfts", label: "NFTs", count: nfts.length },
-            { key: "cnfts", label: "cNFTs", count: directCnfts.length },
-            {
-              key: "table-cnfts",
-              label: "Table setup",
-              count: tableCnfts.length,
-            },
-          ] as const
-        ).map((entry) => (
+        {[
+          { key: "tokens" as const, label: "Tokens", count: voidCandidates.length },
+          { key: "nfts" as const, label: "NFTs", count: nfts.length },
+          { key: "cnfts" as const, label: "cNFTs", count: directCnfts.length },
+          ...(isPro
+            ? [
+                {
+                  key: "table-cnfts" as const,
+                  label: "Deep cNFTs",
+                  count: tableCnfts.length,
+                },
+              ]
+            : []),
+        ].map((entry) => (
           <button
             key={entry.key}
             type="button"
             role="tab"
-            aria-selected={tab === entry.key}
+            aria-selected={activeTab === entry.key}
             title={
               entry.key === "table-cnfts"
-                ? "cNFTs whose merkle proofs need an address lookup table before burning"
+                ? "Deep cNFTs: their proofs need an address lookup table and a guided multi-round burn"
                 : undefined
             }
             onClick={() => setTab(entry.key)}
             className={cn(
               "flex min-w-0 flex-1 items-center justify-center gap-1 rounded-lg px-2 py-2 text-[11px] font-medium transition-colors sm:gap-1.5 sm:px-3 sm:text-xs",
-              tab === entry.key
+              activeTab === entry.key
                 ? "bg-violet-core/15 text-foreground"
                 : "text-muted hover:text-foreground",
             )}
@@ -410,6 +434,21 @@ export function VoidApp() {
         ))}
       </div>
 
+      {!isPro && activeTab === "cnfts" && tableCnfts.length > 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-violet-core/25 bg-violet-core/5 px-3 py-2.5 text-[11px] leading-relaxed text-muted">
+          <p>
+            <strong className="font-medium text-foreground">
+              {pluralize(tableCnfts.length, "deep cNFT")}
+            </strong>{" "}
+            {tableCnfts.length === 1 ? "is" : "are"} hidden in Basic mode. They
+            need an address lookup table and a guided multi-round burn.
+          </p>
+          <Button variant="outline" size="sm" onClick={() => setMode("pro")}>
+            Switch to Pro
+          </Button>
+        </div>
+      ) : null}
+
       {scanError ? (
         <div
           className="flex flex-col items-center gap-3 rounded-2xl border border-danger/25 bg-danger/6 px-6 py-10 text-center"
@@ -428,7 +467,7 @@ export function VoidApp() {
             Try again
           </Button>
         </div>
-      ) : tab === "tokens" ? (
+      ) : activeTab === "tokens" ? (
         <VoidPanel
           tokens={voidCandidates}
           selectedMints={selectedMints}
@@ -438,7 +477,7 @@ export function VoidApp() {
           theVoid={theVoid}
           onBurnt={handleBurnt}
         />
-      ) : tab === "nfts" ? (
+      ) : activeTab === "nfts" ? (
         // NFTs are burnable, one at a time and never pre-selected.
         <NftBurnPanel
           assets={nfts}
@@ -451,7 +490,7 @@ export function VoidApp() {
           selectedAssets={burnSelectionAssets}
           onSelectionChange={setBurnSelection}
         />
-      ) : tab === "cnfts" ? (
+      ) : activeTab === "cnfts" ? (
         // cNFTs use the same panel and the same opt-in rule, but a third burn
         // route underneath: a Bubblegum burn over a merkle proof, which returns
         // no rent because a leaf is not an account. Only the ones whose proof
@@ -494,7 +533,7 @@ export function VoidApp() {
       {!scanError &&
       !isScanning &&
       scan &&
-      tab === "tokens" &&
+      activeTab === "tokens" &&
       voidCandidates.length === 0 ? (
         <motion.div
           initial={{ opacity: 0, y: 8 }}

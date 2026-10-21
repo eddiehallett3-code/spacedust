@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   // the *.vercel.app one — and a crawler finding both is free to choose either.
   alternates: { canonical: "/void" },
   title: "The Void — send unwanted tokens, NFTs and cNFTs into the void",
-  description: `Send unswappable Solana tokens into The Void — and unwanted NFTs and cNFTs with them. Burning a balance that has no route to SOL, USDC or JUP empties its account, and closing that account returns the rent it was holding. Non-custodial, with a ${(VOID_FEE_BPS / 100).toFixed(1)}% fee on reclaimed rent.`,
+  description: `Send unswappable Solana tokens into The Void — and unwanted NFTs and cNFTs with them. Burning a balance that has no route to SOL, USDC or JUP empties its account, and closing that account returns the rent it was holding. Pro mode adds a Deep cNFTs tab for proofs that need a lookup table. Non-custodial, with a ${(VOID_FEE_BPS / 100).toFixed(1)}% fee on reclaimed rent.`,
 };
 
 export default function VoidPage() {
@@ -28,7 +28,7 @@ export default function VoidPage() {
           className="w-full pb-10 pt-16 sm:pt-20"
           emblem={<ToolEmblem tool="void" />}
           title="The Void"
-          description="The Void is where the things a swap cannot help with go. Tokens with no route to SOL, USDC or JUP are sent into The Void for the rent locked in their accounts, and unwanted NFTs and cNFTs can go too — each with its own tab, its own rules, and nothing pre-selected. cNFTs whose proofs need a lookup table are separated, so that extra step is visible before you select one. Swaps and Void sends never share a transaction."
+          description="The Void is where the things a swap cannot help with go. Tokens with no route to SOL, USDC or JUP are sent into The Void for the rent locked in their accounts, and unwanted NFTs and cNFTs can go too — each with its own tab, its own rules, and nothing pre-selected. In Pro mode, cNFTs whose proofs need a lookup table get their own Deep cNFTs tab, so that extra step is visible before you select one. Swaps and Void sends never share a transaction."
         />
       </div>
       <VoidApp />

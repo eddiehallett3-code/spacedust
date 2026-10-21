@@ -385,6 +385,11 @@ export const STORAGE_KEYS = {
   sweptUsd: "spacedust:v1:sweepHistory:sweptUsd",
   /** Whether the essential-storage notice has been dismissed. */
   cookieNotice: "spacedust:v1:cookieNotice",
+  /**
+   * Interface depth: Basic hides the more involved flows and controls; Pro
+   * shows everything. Defaults to Basic so a first visit stays simple.
+   */
+  siteMode: "spacedust:v1:siteMode",
 } as const;
 
 export const HISTORY_MAX_ENTRIES = 25;

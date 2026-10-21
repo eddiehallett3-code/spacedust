@@ -122,7 +122,7 @@ type OpenLookupTableState = CnftLookupTableState & {
 export interface NftBurnPrepareResult {
   /** Transactions that are built and simulated now. */
   transactions: number;
-  /** cNFTs whose burns will need a lookup table at execution time. */
+  /** cNFTs in this preview (round 1) whose burns need a lookup table. */
   lookupTables: number;
   /** Rounds the guided burn will take; more than one when a tree repeats. */
   rounds?: number;
