@@ -357,16 +357,6 @@ export async function planNftBurn(input: {
 
   const cnftAssets = new Map<string, NonFungibleAsset>();
   const lookupTableAssets = new Map<string, NonFungibleAsset>();
-  /**
-   * The one cNFT this batch may burn from each merkle tree.
-   *
-   * A burn changes the tree's root, so every other proof fetched before it is
-   * stale. Even two transactions submitted together cannot both be valid: the
-   * first changes the root, and the second was built against the old one. Only
-   * one leaf per tree can therefore be in a batch. Different trees are
-   * independent and still pack together normally.
-   */
-  const cnftTreeOwner = new Map<string, { id: string; name: string }>();
 
   /**
    * The Bubblegum burn for one cNFT, from a proof.
@@ -428,18 +418,6 @@ export async function planNftBurn(input: {
           });
           continue;
         }
-
-        const tree = asset.merkle.tree;
-        const treeOwner = cnftTreeOwner.get(tree);
-        if (treeOwner) {
-          skipped.push({
-            id: asset.id,
-            name: asset.name,
-            reason: `Shares a merkle tree with ${treeOwner.name}. Burning one changes the tree's root, so only one cNFT from a tree can be sent in a batch. Burn this one separately.`,
-          });
-          continue;
-        }
-        cnftTreeOwner.set(tree, { id: asset.id, name: asset.name });
 
         // Remembered so a stale proof can be swapped for a fresh one without
         // re-deriving anything from the scan.

@@ -26,6 +26,7 @@ import {
   rememberPendingLookupTableCleanup,
 } from "@/lib/solana/cnft-lookup-table-store";
 import { fetchCnftProofs } from "@/lib/sweep/asset-proof";
+import { buildBurnRounds } from "@/lib/sweep/burn-rounds";
 import { BASE_FEE_LAMPORTS, STORAGE_KEYS } from "@/lib/utils/constants";
 import { useLocalStorage, isBoolean } from "@/hooks/use-local-storage";
 import { toFriendlyError, type FriendlyError } from "@/lib/utils/errors";
@@ -123,6 +124,8 @@ export interface NftBurnPrepareResult {
   transactions: number;
   /** cNFTs whose burns will need a lookup table at execution time. */
   lookupTables: number;
+  /** Rounds the guided burn will take; more than one when a tree repeats. */
+  rounds?: number;
 }
 
 interface NftBurnState {
@@ -139,6 +142,10 @@ interface NftBurnState {
   /** Rent-reclaim state for lookup tables created by this run. */
   lookupTableCleanup: LookupTableCleanupState | null;
   progress: { completed: number; total: number };
+  /** Present when a selection needs more than one burn round. */
+  queue: { round: number; rounds: number; total: number } | null;
+  /** True while the guided queue is executing, including between rounds. */
+  queueActive: boolean;
 }
 
 const INITIAL: NftBurnState = {
@@ -153,6 +160,8 @@ const INITIAL: NftBurnState = {
   lookupTableAssets: [],
   lookupTableCleanup: null,
   progress: { completed: 0, total: 0 },
+  queue: null,
+  queueActive: false,
 };
 
 /** Keep the burn's own error wording, but name the part that failed. */
@@ -167,6 +176,25 @@ function cleanupFailure(caught: unknown): FriendlyError {
   };
 }
 
+/** Add a round's tables to the cleanup state without losing earlier rounds. */
+function mergeLookupTableCleanup(
+  previous: LookupTableCleanupState | null,
+  next: LookupTableCleanupState,
+): LookupTableCleanupState {
+  if (previous === null || previous.status === "reclaimed") return next;
+  return {
+    ...next,
+    status: "available",
+    tables: [...new Set([...previous.tables, ...next.tables])],
+    rentLamports: previous.rentLamports + next.rentLamports,
+    reclaimedLamports: previous.reclaimedLamports + next.reclaimedLamports,
+    feeLamports: previous.feeLamports + next.feeLamports,
+    signatures: [...previous.signatures, ...next.signatures],
+    error: next.error ?? previous.error,
+    progress: null,
+  };
+}
+
 /**
  * The NFT burn orchestrator.
  *
@@ -178,6 +206,12 @@ function cleanupFailure(caught: unknown): FriendlyError {
  * Like the others it holds no keys — build and simulate locally, ask the wallet
  * to sign, then submit.
  */
+interface NftBurnRoundReport {
+  outcomes: NftBurnOutcome[];
+  summary: NftBurnSummary;
+  warnings: string[];
+}
+
 export function useNftBurn() {
   const { publicKey, signTransaction, signAllTransactions } = useWallet();
   const connection = useSolanaConnection();
@@ -190,6 +224,11 @@ export function useNftBurn() {
   const reclaimBusyRef = useRef(false);
   /** Ensures the auto-cleanup starts once per burn, never in a loop on failure. */
   const autoReclaimStartedRef = useRef(false);
+  /** The rounds for this selection, and where the queue has reached. */
+  const queueRoundsRef = useRef<NonFungibleAsset[][]>([]);
+  const queueIndexRef = useRef(0);
+  const queueReportsRef = useRef<NftBurnRoundReport[]>([]);
+  const queueModeRef = useRef(false);
 
   const [state, setState] = useState<NftBurnState>(INITIAL);
   /**
@@ -300,6 +339,10 @@ export function useNftBurn() {
     busyRef.current = false;
     reclaimBusyRef.current = false;
     autoReclaimStartedRef.current = false;
+    queueRoundsRef.current = [];
+    queueIndexRef.current = 0;
+    queueReportsRef.current = [];
+    queueModeRef.current = false;
     preparedRef.current = null;
     assetsRef.current = [];
     lookupTablesRef.current = [];
@@ -312,8 +355,11 @@ export function useNftBurn() {
    * case there are zero transactions but the preview is still valid.
    */
   const prepare = useCallback(
-    async (assets: NonFungibleAsset[]): Promise<NftBurnPrepareResult> => {
-      if (busyRef.current) {
+    async (
+      assets: NonFungibleAsset[],
+      options?: { queue?: boolean },
+    ): Promise<NftBurnPrepareResult> => {
+      if (busyRef.current && !options?.queue) {
         return { transactions: 0, lookupTables: 0 };
       }
 
@@ -336,26 +382,54 @@ export function useNftBurn() {
         return { transactions: 0, lookupTables: 0 };
       }
 
+      const queued = options?.queue === true;
+      if (!queued) {
+        queueRoundsRef.current = buildBurnRounds(assets);
+        queueIndexRef.current = 0;
+        queueReportsRef.current = [];
+        queueModeRef.current = false;
+        lookupTablesRef.current = [];
+        autoReclaimStartedRef.current = false;
+      }
+
+      // A queue round plans only itself. The next round's proofs do not exist
+      // until the previous burn has landed, so planning it here would produce
+      // exactly the stale proof the queue exists to avoid.
+      const targetAssets = queued
+        ? assets
+        : (queueRoundsRef.current[0] ?? assets);
+      const queue =
+        queueRoundsRef.current.length > 1
+          ? {
+              round: queued ? queueIndexRef.current + 1 : 1,
+              rounds: queueRoundsRef.current.length,
+              total: queueRoundsRef.current.reduce(
+                (sum, round) => sum + round.length,
+                0,
+              ),
+            }
+          : null;
+
       busyRef.current = true;
-      lookupTablesRef.current = [];
-      autoReclaimStartedRef.current = false;
+      preparedRef.current = null;
+      assetsRef.current = targetAssets;
       patch({
         phase: "planning",
         error: null,
         warnings: [],
         skipped: [],
-        lookupTableCleanup: null,
+        queue,
+        ...(queued ? {} : { lookupTableCleanup: null, queueActive: false }),
       });
 
       try {
         const result = await planNftBurn({
           connection,
           owner: publicKey,
-          assets,
+          assets: targetAssets,
         });
 
         preparedRef.current = result;
-        assetsRef.current = assets;
         patch({
           // `idle`, not a resting "simulating" — `isBusy` counts that as work in
           // progress, which would leave the burn button disabled for good.
@@ -369,6 +443,7 @@ export function useNftBurn() {
         return {
           transactions: result.packed.length,
           lookupTables: result.lookupTableAssets.length,
+          rounds: queueRoundsRef.current.length,
         };
       } catch (caught) {
         preparedRef.current = null;
@@ -407,7 +482,7 @@ export function useNftBurn() {
       });
       return [];
     }
-    if (busyRef.current) return [];
+    if (busyRef.current && !queueModeRef.current) return [];
     if (!publicKey || (!signTransaction && !signAllTransactions)) {
       patch({
         error: {
@@ -417,6 +492,119 @@ export function useNftBurn() {
         },
       });
       return [];
+    }
+
+    /**
+     * Run each queued round, re-planning after the previous one confirms.
+     *
+     * The first round is already prepared by `prepare`; later rounds fetch
+     * fresh proofs because the prior burn changed their tree's root. The queue
+     * keeps the table cleanup from every round and shows one final result.
+     */
+    const runQueue = async (): Promise<string[]> => {
+      const rounds = queueRoundsRef.current;
+      queueModeRef.current = true;
+      busyRef.current = true;
+      queueReportsRef.current = [];
+      patch({ queueActive: true });
+      const burnedIds: string[] = [];
+
+      try {
+        for (let index = 0; index < rounds.length; index += 1) {
+          queueIndexRef.current = index;
+          if (index > 0) {
+            const round = rounds[index];
+            if (!round || round.length === 0) continue;
+            await prepare(round, { queue: true });
+            if (!preparedRef.current) break;
+          }
+
+          const before = queueReportsRef.current.length;
+          burnedIds.push(...(await execute()));
+          if (queueReportsRef.current.length === before) break;
+          busyRef.current = true;
+          patch({
+            queue: {
+              round: Math.min(index + 2, rounds.length),
+              rounds: rounds.length,
+              total: rounds.reduce((sum, round) => sum + round.length, 0),
+            },
+          });
+        }
+      } finally {
+        queueModeRef.current = false;
+        busyRef.current = false;
+      }
+
+      const reports = queueReportsRef.current;
+      if (reports.length === 0) {
+        patch({ queue: null, queueActive: false });
+        return burnedIds;
+      }
+      // A later round failed to build or confirm. Keep the visible error rather
+      // than painting a success screen over unburned assets; the completed
+      // rounds are still returned so their rows can be hidden.
+      if (reports.length !== rounds.length) {
+        patch({ queue: null, queueActive: false });
+        return burnedIds;
+      }
+
+      const outcomes = reports.flatMap((report) => report.outcomes);
+      const summary: NftBurnSummary = {
+        requestedCount: reports.reduce(
+          (sum, report) => sum + report.summary.requestedCount,
+          0,
+        ),
+        burnedCount: reports.reduce(
+          (sum, report) => sum + report.summary.burnedCount,
+          0,
+        ),
+        failedCount: reports.reduce(
+          (sum, report) => sum + report.summary.failedCount,
+          0,
+        ),
+        closedCount: reports.reduce(
+          (sum, report) => sum + report.summary.closedCount,
+          0,
+        ),
+        rentReclaimedLamports: reports.reduce(
+          (sum, report) => sum + report.summary.rentReclaimedLamports,
+          0,
+        ),
+        feeLamports: reports.reduce(
+          (sum, report) => sum + report.summary.feeLamports,
+          0,
+        ),
+        signatures: reports.flatMap((report) => report.summary.signatures),
+        lookupTableRentLamports: reports.reduce(
+          (sum, report) => sum + report.summary.lookupTableRentLamports,
+          0,
+        ),
+        skipped: reports.flatMap((report) => report.summary.skipped),
+      };
+      const warnings = reports.flatMap((report) => report.warnings);
+
+      playFlowSound("success", summary.failedCount);
+      patch({
+        phase: "success",
+        outcomes,
+        summary,
+        warnings,
+        skipped: summary.skipped,
+        lookupTableAssets: [],
+        progress: {
+          completed: summary.requestedCount,
+          total: summary.requestedCount,
+        },
+        queue: null,
+        queueActive: false,
+      });
+      preparedRef.current = null;
+      return burnedIds;
+    };
+
+    if (!queueModeRef.current && queueRoundsRef.current.length > 1) {
+      return runQueue();
     }
 
     busyRef.current = true;
@@ -579,8 +767,9 @@ export function useNftBurn() {
 
         // Register the table the moment its setup transactions land. The
         // usability wait below can fail, and the table would still exist — so
-        // the rent must be reclaimable on that error path too.
-        lookupTablesRef.current = setup.tables;
+        // the rent must be reclaimable on that error path too. The create loop
+        // above has already appended each table; do not replace the list here,
+        // because a queued burn can have tables from earlier rounds.
         let balances = new Map<string, number>();
         try {
           balances = await readCnftLookupTableBalances(connection, setup.tables);
@@ -600,18 +789,27 @@ export function useNftBurn() {
             rentLamports: balances.get(table.address) ?? 0,
           })),
         );
-        patch({
-          lookupTableCleanup: {
-            status: "available",
-            tables: setup.tables.map((table) => table.address),
-            rentLamports: lookupTableRentLamports,
-            reclaimedLamports: 0,
-            feeLamports: 0,
-            signatures: [],
-            error: null,
-            progress: null,
-          },
-        });
+        const cleanup: LookupTableCleanupState = {
+          status: "available",
+          tables: setup.tables.map((table) => table.address),
+          rentLamports: lookupTableRentLamports,
+          reclaimedLamports: 0,
+          feeLamports: 0,
+          signatures: [],
+          error: null,
+          progress: null,
+        };
+        if (queueModeRef.current) {
+          setState((previous) => ({
+            ...previous,
+            lookupTableCleanup: mergeLookupTableCleanup(
+              previous.lookupTableCleanup,
+              cleanup,
+            ),
+          }));
+        } else {
+          patch({ lookupTableCleanup: cleanup });
+        }
 
         const lookupTables = await waitForLookupTables(
           connection,
@@ -728,6 +926,20 @@ export function useNftBurn() {
         skipped: result.skipped,
       };
 
+      const burnedIds = outcomes
+        .filter((outcome) => outcome.status === "burned")
+        .map((outcome) => outcome.id);
+
+      if (queueModeRef.current) {
+        queueReportsRef.current.push({
+          outcomes,
+          summary,
+          warnings: result.warnings,
+        });
+        preparedRef.current = null;
+        return burnedIds;
+      }
+
       playFlowSound(
         "success",
         outcomes.filter((outcome) => outcome.status !== "burned").length,
@@ -742,9 +954,7 @@ export function useNftBurn() {
       preparedRef.current = null;
       // Only the ones that landed. A failed burn leaves a live asset, and
       // hiding that would hide something the user still owns.
-      return outcomes
-        .filter((outcome) => outcome.status === "burned")
-        .map((outcome) => outcome.id);
+      return burnedIds;
     } catch (caught) {
       playFlowSound("error");
       const friendly = toFriendlyError(caught);
@@ -798,7 +1008,14 @@ export function useNftBurn() {
     } finally {
       busyRef.current = false;
     }
-  }, [connection, patch, publicKey, signAllTransactions, signTransaction]);
+  }, [
+    connection,
+    patch,
+    prepare,
+    publicKey,
+    signAllTransactions,
+    signTransaction,
+  ]);
 
   /**
    * Deactivate, wait out the 512-slot cooldown, and close every table this run
@@ -1088,7 +1305,7 @@ export function useNftBurn() {
     state.summary,
   ]);
 
-  const isBusy = isBusyPhase(state.phase);
+  const isBusy = isBusyPhase(state.phase) || state.queueActive;
 
   return {
     ...state,

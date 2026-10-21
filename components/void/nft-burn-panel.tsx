@@ -206,6 +206,7 @@ export function NftBurnPanel({
     lookupTableCleanup,
     progress,
     isBusy,
+    queue,
     autoReclaimLookupTableRent,
     setAutoReclaimLookupTableRent,
   } = theBurn;
@@ -228,24 +229,6 @@ export function NftBurnPanel({
       ),
     [selectedAssets],
   );
-  /**
-   * Extra cNFTs sharing a merkle tree with an earlier selection.
-   *
-   * A burn changes the root, so only the first leaf from a tree can be sent in a
-   * batch. The selection handlers stop this at the point of clicking, but a
-   * selection made before this rule existed can still arrive here; saying why
-   * is better than letting the planner silently skip it.
-   */
-  const sameTreeExtraSelection = useMemo(() => {
-    const seen = new Set<string>();
-    const extras: NonFungibleAsset[] = [];
-    for (const asset of selectedAssets) {
-      if (!asset.compressed || !asset.merkle) continue;
-      if (seen.has(asset.merkle.tree)) extras.push(asset);
-      else seen.add(asset.merkle.tree);
-    }
-    return extras;
-  }, [selectedAssets]);
   const okCount = simulations.filter((simulation) => simulation.ok).length;
 
   /**
@@ -274,26 +257,8 @@ export function NftBurnPanel({
 
   const toggle = (id: string): void => {
     const next = new Set(selected);
-    if (next.has(id)) {
-      next.delete(id);
-    } else {
-      const asset = rows.find((entry) => entry.id === id);
-      const tree = asset?.merkle?.tree ?? null;
-      const conflict =
-        tree === null
-          ? undefined
-          : selectedAssets.find(
-              (entry) => entry.id !== id && entry.merkle?.tree === tree,
-            );
-      if (conflict) {
-        toast.error("One cNFT per merkle tree", {
-          duration: TOAST_READ_MS,
-          description: `Burning ${conflict.name} changes the shared tree's root, so a second proof would be stale. Burn this one in a separate batch.`,
-        });
-        return;
-      }
-      next.add(id);
-    }
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
     onSelectionChange(next);
   };
 
@@ -313,9 +278,15 @@ export function NftBurnPanel({
           } a lookup table when you burn`,
         );
       }
+      if (preview.rounds !== undefined && preview.rounds > 1) {
+        parts.push(`${preview.rounds} guided burn rounds`);
+      }
       toast.success("Preview ready", {
         duration: TOAST_BRIEF_MS,
-        description: `${parts.join("; ")}. Review before signing.`,
+        description:
+          preview.rounds !== undefined && preview.rounds > 1
+            ? `${parts.join("; ")}. This preview covers round 1; later rounds are built after each confirmation.`
+            : `${parts.join("; ")}. Review before signing.`,
       });
     }
   };
@@ -425,6 +396,21 @@ export function NftBurnPanel({
 
   return (
     <div className="flex flex-col gap-4">
+      {queue ? (
+        <div className="rounded-xl border border-violet-core/25 bg-violet-core/5 px-3 py-2.5 text-[11px] leading-relaxed text-muted">
+          <p className="font-medium text-foreground">
+            Guided burn · round {queue.round} of {queue.rounds}
+          </p>
+          <p className="mt-1">
+            {pluralize(queue.total, "asset")} selected. Each same-tree cNFT is
+            proved and burned after the previous round confirms, because every
+            burn changes that tree&apos;s root. Deep rounds may create their own
+            lookup table; all tables are offered for reclaim together. Your
+            wallet still asks for each round&apos;s signature.
+          </p>
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap items-center justify-between gap-2 px-1">
         <p className="text-xs text-subtle">
           {pluralize(assets.length, noun)} ·{" "}
@@ -438,33 +424,9 @@ export function NftBurnPanel({
             size="sm"
             onClick={() => {
               // Merged, not replaced: "select all" on one tab must not silently
-              // drop what is ticked on the other. Only one cNFT per merkle tree
-              // can be in a batch — the first burn changes the tree's root.
-              const next = new Set(selected);
-              const trees = new Set(
-                selectedAssets.flatMap((asset) =>
-                  asset.merkle ? [asset.merkle.tree] : [],
-                ),
-              );
-              let deferred = 0;
-              for (const asset of burnable) {
-                const tree = asset.merkle?.tree ?? null;
-                if (tree !== null) {
-                  if (trees.has(tree)) {
-                    deferred += 1;
-                    continue;
-                  }
-                  trees.add(tree);
-                }
-                next.add(asset.id);
-              }
-              if (deferred > 0) {
-                toast.info("One cNFT per merkle tree", {
-                  duration: TOAST_READ_MS,
-                  description: `Skipped ${pluralize(deferred, "cNFT")} in trees already selected. Burning one changes the shared root, so the others need a separate batch.`,
-                });
-              }
-              onSelectionChange(next);
+              // drop what is ticked on the other. The executor turns multiple
+              // leaves from one tree into a guided sequence of rounds.
+              onSelectionChange(new Set([...selected, ...burnable.map((a) => a.id)]));
             }}
             disabled={burnable.length === 0 || isBusy}
           >
@@ -559,21 +521,6 @@ export function NftBurnPanel({
             onChange={setAutoReclaimLookupTableRent}
             disabled={isBusy}
           />
-        </div>
-      ) : null}
-
-      {isCnft && sameTreeExtraSelection.length > 0 ? (
-        <div className="rounded-xl border border-warning/30 bg-warning/8 px-3 py-2.5 text-[11px] leading-relaxed text-muted">
-          <p className="font-medium text-foreground">
-            One cNFT per merkle tree
-          </p>
-          <p className="mt-1">
-            {pluralize(sameTreeExtraSelection.length, "selected cNFT")} share a
-            tree with another selected cNFT. Burning one changes the tree&apos;s
-            root, so the others would have stale proofs and cannot be sent in the
-            same batch. Only the first from each tree will be sent — burn the rest
-            separately.
-          </p>
         </div>
       ) : null}
 
@@ -810,9 +757,10 @@ export function NftBurnPanel({
             <>
               Sending a cNFT into The Void destroys a leaf in its merkle tree.
               Nothing is returned for it: a leaf is not an account, so there is no
-              rent locked in it. Only one cNFT per merkle tree can be sent in a
-              batch — the first burn changes the tree&apos;s root, so every other
-              proof would be stale. Different trees can go together. The proof is
+              rent locked in it. When several selected cNFTs share a tree, they
+              are burned in a guided sequence — one per round — because the first
+              burn changes the tree&apos;s root and the later proofs must be
+              fetched again. Different trees are batched together. The proof is
               checked against the tree root as it stands when you sign, so in a
               busy tree the preview may need running again. No Spacedust fee is
               charged.
