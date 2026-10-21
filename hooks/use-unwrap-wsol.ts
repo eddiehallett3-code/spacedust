@@ -10,13 +10,12 @@ import {
 import {
   UnwrapError,
   planWrappedSolUnwrapsTx,
+  wrappedSolFeeLamports,
   type PlanUnwrapResult,
 } from "@/lib/salvage/plan-unwrap";
-import { feeFromRentLamports } from "@/lib/solana/rent";
 import { signTransactions, submitTransactions } from "@/lib/solana/submit";
 import { isBusyPhase } from "@/lib/sweep/phase";
 import { playFlowSound } from "@/lib/ui/sound";
-import { RECLAIM_FEE_BPS } from "@/lib/utils/constants";
 import { toFriendlyError, type FriendlyError } from "@/lib/utils/errors";
 import type {
   PackedTransaction,
@@ -252,12 +251,7 @@ export function useUnwrapWrappedSol() {
       const reclaimFeeLamports =
         result.reclaimFeeLamports > 0
           ? landedAccounts.reduce(
-              (sum, account) =>
-                sum +
-                feeFromRentLamports(
-                  Math.max(0, account.rentLamports),
-                  RECLAIM_FEE_BPS,
-                ),
+              (sum, account) => sum + wrappedSolFeeLamports(account),
               0,
             )
           : 0;

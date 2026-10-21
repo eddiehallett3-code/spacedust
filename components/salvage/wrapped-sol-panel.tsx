@@ -17,11 +17,12 @@ import { SimulationReport } from "@/components/sweep/simulation-report";
 import { WarningsList } from "@/components/sweep/warnings-list";
 import { useUnwrapWrappedSol } from "@/hooks/use-unwrap-wsol";
 import { RECLAIM_RATE } from "@/lib/config/tools";
-import { planWrappedSolUnwraps } from "@/lib/salvage/plan-unwrap";
-import { feeFromRentLamports } from "@/lib/solana/rent";
+import {
+  planWrappedSolUnwraps,
+  wrappedSolFeeLamports,
+} from "@/lib/salvage/plan-unwrap";
 import { solscanTxUrl } from "@/lib/solana/submit";
 import { apiFetch } from "@/lib/utils/api";
-import { RECLAIM_FEE_BPS } from "@/lib/utils/constants";
 import { toFriendlyError, type FriendlyError } from "@/lib/utils/errors";
 import { formatSol, pluralize, truncateAddress } from "@/lib/utils/format";
 import type { WrappedSolAccount } from "@/types/salvage";
@@ -84,6 +85,10 @@ export function WrappedSolPanel({ onUnwrapped }: { onUnwrapped: () => void }) {
 
   const hasPreview = unwrap.packed.length > 0;
   const chosen = plan.closeable;
+  const estimatedFee = chosen.reduce(
+    (sum, account) => sum + wrappedSolFeeLamports(account),
+    0,
+  );
 
   if (!owner) {
     return (
@@ -211,14 +216,7 @@ export function WrappedSolPanel({ onUnwrapped }: { onUnwrapped: () => void }) {
               <div className="rounded-xl border border-border bg-white/2 p-3">
                 <p className="text-[11px] text-subtle">Our fee</p>
                 <p className="mt-0.5 font-mono text-base tabular-nums">
-                  {formatSol(
-                    hasPreview
-                      ? unwrap.reclaimFeeLamports
-                      : feeFromRentLamports(
-                          plan.rentLamports,
-                          RECLAIM_FEE_BPS,
-                        ),
-                  )}
+                  {formatSol(hasPreview ? unwrap.reclaimFeeLamports : estimatedFee)}
                 </p>
               </div>
               <div className="rounded-xl border border-border bg-white/2 p-3">
@@ -227,12 +225,7 @@ export function WrappedSolPanel({ onUnwrapped }: { onUnwrapped: () => void }) {
                   {formatSol(
                     hasPreview
                       ? unwrap.netReturnedLamports
-                      : plan.wrappedLamports +
-                          plan.rentLamports -
-                          feeFromRentLamports(
-                            plan.rentLamports,
-                            RECLAIM_FEE_BPS,
-                          ),
+                      : plan.wrappedLamports + plan.rentLamports - estimatedFee,
                   )}
                 </p>
               </div>

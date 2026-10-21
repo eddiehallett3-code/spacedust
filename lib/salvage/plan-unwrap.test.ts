@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { planWrappedSolUnwraps } from "@/lib/salvage/plan-unwrap";
+import {
+  planWrappedSolUnwraps,
+  wrappedSolFeeLamports,
+} from "@/lib/salvage/plan-unwrap";
+import { feeFromRentLamports } from "@/lib/solana/rent";
+import { RECLAIM_FEE_BPS } from "@/lib/utils/constants";
 import type { WrappedSolAccount } from "@/types/salvage";
 
 /**
@@ -32,6 +37,17 @@ describe("planWrappedSolUnwraps", () => {
     expect(plan.closeable).toHaveLength(1);
     expect(plan.wrappedLamports).toBe(1_000_000_000);
     expect(plan.rentLamports).toBe(2_039_280);
+  });
+
+  it("never charges the fee on the wrapped principal", () => {
+    const wrapped = account();
+    const fee = wrappedSolFeeLamports(wrapped);
+
+    expect(fee).toBe(feeFromRentLamports(2_039_280, RECLAIM_FEE_BPS));
+    // The fee on a 1 SOL position is lamports, not the 0.015 SOL a fee on the
+    // whole balance would have taken. If this ever fails, the principal is being
+    // taxed and the panel's "rent only" promise is false.
+    expect(fee).toBeLessThan(1_000_000);
   });
 
   it("refuses a foreign close authority rather than offering an unwrap that fails", () => {

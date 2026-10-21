@@ -130,6 +130,17 @@ export function planWrappedSolUnwraps(
   return { closeable, skipped, wrappedLamports, rentLamports };
 }
 
+/**
+ * The Spacedust fee on one wrapped-SOL close.
+ *
+ * Exported so the fee base is testable in isolation: it is `rentLamports`, not
+ * the account's whole balance. A test that only checked a total could pass while
+ * the principal was being taxed.
+ */
+export function wrappedSolFeeLamports(account: WrappedSolAccount): number {
+  return feeFromRentLamports(Math.max(0, account.rentLamports), RECLAIM_FEE_BPS);
+}
+
 export async function planWrappedSolUnwrapsTx(
   input: PlanUnwrapInput,
 ): Promise<PlanUnwrapResult> {
@@ -176,10 +187,7 @@ export async function planWrappedSolUnwrapsTx(
         createCloseAccountInstruction(accountKey, owner, tokenProgram),
       ];
 
-      const accountFee = feeFromRentLamports(
-        account.rentLamports,
-        RECLAIM_FEE_BPS,
-      );
+      const accountFee = wrappedSolFeeLamports(account);
       if (feeEnabled && feeWallet && accountFee > 0) {
         instructions.push(
           SystemProgram.transfer({
@@ -271,9 +279,7 @@ export async function planWrappedSolUnwrapsTx(
   );
   const reclaimFeeLamports = feeEnabled
     ? packedList.reduce(
-        (sum, account) =>
-          sum +
-          feeFromRentLamports(Math.max(0, account.rentLamports), RECLAIM_FEE_BPS),
+        (sum, account) => sum + wrappedSolFeeLamports(account),
         0,
       )
     : 0;
