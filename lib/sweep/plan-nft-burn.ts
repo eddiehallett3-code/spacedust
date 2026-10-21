@@ -8,6 +8,7 @@ import { createBurnInstruction } from "@solana/spl-token";
 import {
   BASE_FEE_LAMPORTS,
   COMPUTE_UNIT_LIMIT,
+  MAX_LOCKED_ACCOUNTS_PER_TX,
   PRIORITY_FEE_MICRO_LAMPORTS,
 } from "@/lib/utils/constants";
 import {
@@ -15,7 +16,7 @@ import {
   createComputeBudgetInstructions,
   tokenProgramFor,
 } from "@/lib/solana/instructions";
-import { packTransactions, type PackUnit } from "@/lib/solana/pack";
+import { packTransactions, lockedAccountCount, type PackUnit } from "@/lib/solana/pack";
 import { simulateAll } from "@/lib/solana/simulate";
 import { fetchRentMinimums } from "@/lib/solana/rent";
 import { buildCoreBurnInstruction } from "@/lib/solana/core-burn";
@@ -641,8 +642,16 @@ export async function planNftBurn(input: {
   for (const dropped of packedResult.dropped) {
     const asset = cnftAssets.get(dropped.mint);
     const proof = proofs.get(dropped.mint);
+    const unit = units.find((entry) => entry.mint === dropped.mint);
+    const lockCount = unit
+      ? lockedAccountCount(unit.instructions, owner, lookupTables)
+      : 0;
+    const tooManyLocks = lockCount > MAX_LOCKED_ACCOUNTS_PER_TX;
     const canRescue =
-      asset !== undefined && proof !== undefined && lookupTables.length === 0;
+      asset !== undefined &&
+      proof !== undefined &&
+      lookupTables.length === 0 &&
+      !tooManyLocks;
 
     if (canRescue) {
       // Not a refusal: the proof is simply too long to send inline. The
@@ -656,8 +665,9 @@ export async function planNftBurn(input: {
     // so on its row rather than leaving it in a warning the user has to connect
     // back to an asset.
     if (asset) {
-      const reason =
-        proof && lookupTables.length > 0
+      const reason = tooManyLocks
+        ? `This burn locks ${lockCount} accounts, over the ${MAX_LOCKED_ACCOUNTS_PER_TX}-account transaction limit. A lookup table reduces bytes but not account locks, so this cNFT needs to be split into a smaller burn.`
+        : proof && lookupTables.length > 0
           ? `This tree's ${proof.proof.length}-account proof still did not fit with a lookup table. Rescan and try again.`
           : "This burn needs more accounts than a single transaction allows.";
       skipped.push({ id: asset.id, name: asset.name, reason });

@@ -91,6 +91,15 @@ export const MAX_TX_SIZE_BYTES = 1232;
 export const TX_SIZE_HEADROOM_BYTES = 40;
 
 /**
+ * Solana's per-transaction account-lock ceiling. A transaction can reference at
+ * most 64 distinct accounts (including the payer, program IDs and every proof
+ * account), even when an address lookup table makes the message smaller. The
+ * runtime rejects a transaction over this with "transaction locked too many
+ * accounts", so the packer has to treat it as a second budget alongside bytes.
+ */
+export const MAX_LOCKED_ACCOUNTS_PER_TX = 64;
+
+/**
  * Upper bound on instructions per transaction. A soft guard so a pathological
  * batch of tiny swaps cannot produce a transaction that is technically under
  * 1232 bytes but fails on compute limits.

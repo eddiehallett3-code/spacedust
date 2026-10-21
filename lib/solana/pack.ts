@@ -5,6 +5,7 @@ import type {
 } from "@solana/web3.js";
 import {
   MAX_INSTRUCTIONS_PER_TX,
+  MAX_LOCKED_ACCOUNTS_PER_TX,
   MAX_TX_SIZE_BYTES,
   TX_SIZE_HEADROOM_BYTES,
 } from "@/lib/utils/constants";
@@ -65,6 +66,34 @@ interface Group {
   units: PackUnit[];
 }
 
+/**
+ * How many distinct accounts a transaction would lock.
+ *
+ * Lookup tables reduce the *message size*, not the number of accounts the
+ * runtime must lock. Proof nodes are still accounts even when their keys are
+ * resolved from a table, so this counts the instruction keys themselves rather
+ * than only the static message keys.
+ */
+export function lockedAccountCount(
+  instructions: TransactionInstruction[],
+  payer: PublicKey,
+  lookupTables: AddressLookupTableAccount[],
+): number {
+  const keys = new Set<string>();
+  keys.add(payer.toBase58());
+
+  for (const instruction of instructions) {
+    keys.add(instruction.programId.toBase58());
+    for (const key of instruction.keys) keys.add(key.pubkey.toBase58());
+  }
+
+  // The table account itself is read to resolve the lookups. Counting it is
+  // conservative; being one account early is preferable to a failed simulation.
+  for (const table of lookupTables) keys.add(table.key.toBase58());
+
+  return keys.size;
+}
+
 export function packTransactions(options: PackOptions): PackResult {
   const {
     units,
@@ -94,8 +123,15 @@ export function packTransactions(options: PackOptions): PackResult {
     if (body.length + prologue.length > MAX_INSTRUCTIONS_PER_TX) {
       return null;
     }
+    const instructions = [...prologue, ...body];
+    if (
+      lockedAccountCount(instructions, payer, lookupTables) >
+      MAX_LOCKED_ACCOUNTS_PER_TX
+    ) {
+      return null;
+    }
     const message = compileToV0MessageOrNull(
-      [...prologue, ...body],
+      instructions,
       payer,
       blockhash,
       lookupTables,
@@ -150,6 +186,12 @@ export function packTransactions(options: PackOptions): PackResult {
     rentReclaimMints: string[],
   ): boolean => {
     const instructions = [...prologue, ...body];
+    if (
+      lockedAccountCount(instructions, payer, lookupTables) >
+      MAX_LOCKED_ACCOUNTS_PER_TX
+    ) {
+      return false;
+    }
     const message = compileToV0MessageOrNull(
       instructions,
       payer,
