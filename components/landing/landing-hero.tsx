@@ -7,6 +7,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DISPLAY_FONT_STYLE } from "@/lib/ui/fonts";
 import { LandingProductPreview } from "./landing-product-preview";
 import { UfoArtwork } from "./ufo-artwork";
 
@@ -27,17 +28,13 @@ export function LandingHero() {
     >
       <div className="grid items-center gap-14 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-8">
         <div className="mx-auto min-w-0 max-w-2xl text-center lg:mx-0 lg:text-left">
-          <p className="inline-flex items-center gap-2 rounded-full border border-success/25 bg-success/8 px-3 py-1 text-xs text-emerald-300">
-            <ShieldCheck className="size-3.5" aria-hidden />
-            Non-custodial · your keys stay in your wallet
-          </p>
-
           <h1
             id="landing-heading"
-            className="mt-5 text-4xl font-semibold leading-[1.04] tracking-tight text-balance sm:text-5xl lg:text-6xl"
+            style={DISPLAY_FONT_STYLE}
+            className="text-4xl font-semibold leading-[1.04] tracking-tight text-balance sm:text-5xl lg:text-6xl"
           >
             Clean up your{" "}
-            <span className="text-gradient">Solana wallet.</span>
+            <span className="text-violet-glow">Solana wallet.</span>
           </h1>
 
           <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-muted sm:text-lg lg:mx-0">
@@ -45,7 +42,7 @@ export function LandingHero() {
             rent, revoke approvals — and scan any wallet without connecting.
           </p>
 
-          <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center lg:justify-start">
+          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row lg:justify-start">
             <Button asChild size="lg" className="group">
               <Link href="/scan">
                 Scan a wallet free
@@ -55,31 +52,33 @@ export function LandingHero() {
                 />
               </Link>
             </Button>
-            <Button asChild variant="secondary" size="lg">
-              <Link href="#tools">
-                Explore the tools
-                <ArrowDown aria-hidden />
-              </Link>
-            </Button>
+            <Link
+              href="#tools"
+              className="group inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-sm text-muted transition-colors hover:text-foreground"
+            >
+              Explore the tools
+              <ArrowDown
+                className="size-4 transition-transform group-hover:translate-y-0.5"
+                aria-hidden
+              />
+            </Link>
           </div>
 
-          <ul className="mt-7 flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs text-muted lg:justify-start">
+          <ul className="mt-6 flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs text-muted lg:justify-start">
             {[
               { icon: ShieldCheck, text: "Non-custodial" },
               { icon: CheckCircle2, text: "Simulated before signing" },
               { icon: Wallet, text: "You sign everything" },
             ].map((item) => (
               <li key={item.text} className="flex items-center gap-1.5">
-                <item.icon className="size-3.5 shrink-0 text-success" aria-hidden />
+                <item.icon
+                  className="size-3.5 shrink-0 text-violet-glow"
+                  aria-hidden
+                />
                 {item.text}
               </li>
             ))}
           </ul>
-
-          <p className="mt-4 text-xs leading-relaxed text-subtle">
-            No wallet connection needed for the scan. Every flow shows the exact
-            transaction before you approve it.
-          </p>
         </div>
 
         {/* The orbit rings are the stage. On desktop the fixed saucer from

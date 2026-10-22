@@ -12,17 +12,16 @@ export const metadata: Metadata = {
   // the *.vercel.app one — and a crawler finding both is free to choose either.
   alternates: { canonical: "/salvage" },
   title: "Salvage — reclaim rent, unwrap wSOL, release unused .sns names",
-  description: `Close token accounts that hold no balance and get their rent back, or turn on Pro to unwrap wrapped SOL and give unused .sns names back. ${RECLAIM_RATE} of reclaimed rent.`,
+  description: `Close token accounts that hold no balance, unwrap wrapped SOL and get the rent back. Pro also gives unused .sns names back and explains which accounts cannot be closed. ${RECLAIM_RATE} of reclaimed rent.`,
 };
 
 /**
  * Salvage.
  *
- * Basic mode is the smallest tool here: nothing is priced, nothing is routed, and
- * the accounts hold no assets — only the rent-exempt deposit the network keeps
- * while an account exists. Pro adds the three jobs that deserve a deliberate
- * switch: unwrapping wSOL, deleting unused `.sns` names, and explaining which
- * empty accounts the token program will not let this wallet close.
+ * Basic mode is the routine recovery: empty token accounts and wrapped SOL,
+ * both returning something the wallet already owns. Pro adds the irreversible
+ * SNS name deletion and the diagnostic list of empty accounts the token program
+ * will not let this wallet close.
  */
 export default function SalvagePage() {
   return (
@@ -30,7 +29,7 @@ export default function SalvagePage() {
       <PageHeader
         emblem={<ToolEmblem tool="salvage" />}
         title="Salvage"
-        description="Basic closes empty token accounts and returns their rent. Pro also unwraps wSOL, gives unused .sns names back for their rent, and shows which accounts cannot be closed."
+        description="Basic closes empty token accounts, unwraps wrapped SOL and returns their rent. Pro gives unused .sns names back and shows which accounts cannot be closed."
       />
       <SalvageApp />
     </Container>

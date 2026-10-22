@@ -37,7 +37,8 @@
   --color-warning: #fbbf24;
   --color-danger: #fb7185;
 
-  /* Typography. Geist for UI, Geist Mono for addresses and numbers. */
+  /* Typography. Geist for UI, Bricolage for display headings, Geist Mono for
+     addresses and numbers. */
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 

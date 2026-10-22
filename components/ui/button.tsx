@@ -27,10 +27,10 @@ const buttonVariants = cva(
     variants: {
       variant: {
         primary: [
-          "text-white shadow-[0_8px_28px_-10px_rgba(139,92,246,0.85)]",
-          "bg-linear-to-r from-violet-deep via-violet-core to-indigo-core",
-          "hover:from-violet-core hover:via-violet-glow hover:to-cyan-core",
-          "hover:shadow-[0_10px_38px_-10px_rgba(139,92,246,1)]",
+          "border border-violet-glow/25 text-white",
+          "bg-violet-deep",
+          "shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_8px_24px_-16px_rgba(109,40,217,0.9)]",
+          "hover:brightness-110 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_10px_30px_-16px_rgba(109,40,217,1)]",
           "hover:-translate-y-px active:translate-y-0",
         ].join(" "),
         secondary: [
@@ -49,10 +49,10 @@ const buttonVariants = cva(
           "hover:bg-danger/20 hover:border-danger/50",
         ].join(" "),
         success: [
-          "text-emerald-950 font-semibold",
-          "bg-linear-to-r from-emerald-400 to-emerald-300",
-          "hover:from-emerald-300 hover:to-emerald-200",
-          "shadow-[0_8px_28px_-10px_rgba(52,211,153,0.8)]",
+          "border border-emerald-300/30 text-emerald-950 font-semibold",
+          "bg-emerald-400",
+          "hover:bg-emerald-300",
+          "shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_8px_24px_-16px_rgba(52,211,153,0.8)]",
         ].join(" "),
       },
       size: {
@@ -61,9 +61,9 @@ const buttonVariants = cva(
         // a precise pointer is doing the clicking.
         sm: "h-10 rounded-lg px-3 text-xs sm:h-8 [&_svg]:size-3.5",
         "icon-sm": "size-10 rounded-lg sm:size-8 [&_svg]:size-3.5",
-        md: "h-10 rounded-xl px-4 text-sm [&_svg]:size-4",
-        lg: "h-12 rounded-xl px-6 text-[0.95rem] [&_svg]:size-[1.15rem]",
-        icon: "size-10 rounded-xl [&_svg]:size-4",
+        md: "h-10 rounded-lg px-4 text-sm [&_svg]:size-4",
+        lg: "h-12 rounded-lg px-6 text-[0.95rem] [&_svg]:size-[1.15rem]",
+        icon: "size-10 rounded-lg [&_svg]:size-4",
       },
     },
     defaultVariants: { variant: "primary", size: "md" },

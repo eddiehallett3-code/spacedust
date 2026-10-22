@@ -165,8 +165,8 @@ export const FLOW_PROGRAMS: Record<AuditFlowName, readonly string[]> = {
  * Declared here rather than in the audit so this module has no import of it —
  * the audit imports the allow-list, never the other way round.
  *
- * `salvage` covers the two Pro cleanup routes: empty-account closes and SNS
- * name deletes. Their instructions are different, but both return rent to the
- * same owner and both are audited by the same flow-specific rules.
+ * `salvage` covers both cleanup routes: empty-account and wSOL closes in Basic,
+ * and SNS name deletes in Pro. Their instructions are different, but all return
+ * value to the same owner and all are audited by the same flow-specific rules.
  */
 export type AuditFlowName = "sweep" | "void" | "payload" | "salvage" | "approvals";

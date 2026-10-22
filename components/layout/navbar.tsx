@@ -207,7 +207,7 @@ export function Navbar() {
               href="/security"
               className="hidden items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-muted transition-colors hover:text-foreground lg:flex"
             >
-              <ShieldCheck className="size-3.5 text-success" aria-hidden />
+              <ShieldCheck className="size-3.5 text-violet-glow" aria-hidden />
               Non-custodial
             </Link>
             <ProModeSwitch />
@@ -302,7 +302,7 @@ export function Navbar() {
 
                 <p className="mt-3 flex items-center gap-1.5 border-t border-border/60 px-3 pt-3 text-[11px] text-subtle">
                   <ShieldCheck
-                    className="size-3.5 shrink-0 text-success"
+                    className="size-3.5 shrink-0 text-violet-glow"
                     aria-hidden
                   />
                   Non-custodial. You sign every transaction.

@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, ShieldCheck, Wallet } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Container } from "@/components/layout/container";
 import { ToolEmblem } from "@/components/layout/tool-emblem";
 import { LandingFlight } from "@/components/landing/landing-flight";
 import { LandingHero } from "@/components/landing/landing-hero";
 import { Card, CardContent } from "@/components/ui/card";
+import { DISPLAY_FONT_STYLE } from "@/lib/ui/fonts";
 import { getSiteUrl } from "@/lib/config/site";
 import { TOOLS } from "@/lib/config/tools";
 import { RECLAIM_FEE_BPS } from "@/lib/utils/constants";
@@ -35,13 +36,6 @@ export const metadata: Metadata = {
   description:
     "Six non-custodial tools for a Solana wallet: batch swap, send, and send unwanted tokens, NFTs and cNFTs into The Void; reclaim rent; revoke approvals; and scan any address read-only.",
 };
-
-/** True of every tool, which is why it is said once, here. */
-const GUARANTEES = [
-  { icon: ShieldCheck, text: "Non-custodial. No seed phrase, ever." },
-  { icon: CheckCircle2, text: "Simulated before you sign." },
-  { icon: Wallet, text: "You sign every transaction." },
-];
 
 /**
  * Structured data, so a search result can say what this is.
@@ -119,6 +113,7 @@ export default async function HomePage() {
               </p>
               <h2
                 id="tools-heading"
+                style={DISPLAY_FONT_STYLE}
                 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl"
               >
                 Six tools for a cleaner wallet.
@@ -167,17 +162,8 @@ export default async function HomePage() {
         </section>
       </LandingFlight>
 
-      <section className="relative z-10 mt-14">
-        <ul className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm text-muted">
-          {GUARANTEES.map((item) => (
-            <li key={item.text} className="flex items-center gap-2">
-              <item.icon className="size-4 shrink-0 text-success" aria-hidden />
-              {item.text}
-            </li>
-          ))}
-        </ul>
-
-        <p className="mt-6 text-center text-sm">
+      <section className="relative z-10 mt-14 text-center">
+        <p className="text-sm">
           <Link
             href="/how-it-works"
             className="text-violet-glow transition-colors hover:text-violet-core hover:underline"

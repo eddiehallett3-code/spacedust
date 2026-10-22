@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Bricolage_Grotesque, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { StarfieldBackground } from "@/components/layout/starfield-background";
@@ -18,6 +18,20 @@ const geistSans = Geist({
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+/**
+ * Display face for page titles only.
+ *
+ * Geist stays the UI and body face; this is the one type choice that gives the
+ * large headings a shape of their own without turning every card title into a
+ * brand statement. Bricolage is a grotesque with slightly irregular curves, so
+ * it reads as drawn rather than generated next to Geist.
+ */
+const bricolage = Bricolage_Grotesque({
+  variable: "--font-bricolage",
   subsets: ["latin"],
   display: "swap",
 });
@@ -130,7 +144,7 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable}`}
+      className={`${geistSans.variable} ${geistMono.variable} ${bricolage.variable}`}
       suppressHydrationWarning
     >
       <body className="min-h-dvh font-sans antialiased">

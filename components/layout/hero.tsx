@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, KeyRound, Layers, Unplug, Zap } from "lucide-react";
 import { ToolEmblem } from "@/components/layout/tool-emblem";
 import { ConnectWalletCta } from "@/components/wallet/wallet-button";
+import { DISPLAY_FONT_STYLE } from "@/lib/ui/fonts";
 import { TOKEN_ACCOUNT_RENT_LAMPORTS } from "@/lib/utils/constants";
 
 /**
@@ -43,6 +44,7 @@ export function Hero() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          style={DISPLAY_FONT_STYLE}
           className="mt-3 text-4xl font-semibold leading-tight tracking-tight sm:text-5xl lg:text-6xl"
         >
           Slingshot
@@ -67,7 +69,7 @@ export function Hero() {
         >
           <Link
             href="/security"
-            className="inline-flex items-center gap-1.5 rounded-full border border-success/25 bg-success/8 px-3 py-1 text-xs text-emerald-300 transition-colors hover:bg-success/14"
+            className="inline-flex items-center gap-1.5 rounded-full border border-violet-core/20 bg-violet-core/6 px-3 py-1 text-xs text-violet-glow transition-colors hover:bg-violet-core/10"
           >
             <KeyRound className="size-3" aria-hidden />
             Non-custodial · you sign everything

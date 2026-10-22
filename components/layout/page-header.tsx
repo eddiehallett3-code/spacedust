@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils/cn";
+import { DISPLAY_FONT_STYLE } from "@/lib/ui/fonts";
 
 /**
  * Consistent header for static content pages.
@@ -35,6 +36,7 @@ export function PageHeader({
     <header className={cn("pb-8 pt-12 text-center sm:pt-16", className)}>
       {emblem ? <div className="mt-4 flex justify-center">{emblem}</div> : null}
       <h1
+        style={DISPLAY_FONT_STYLE}
         className={cn(
           "mt-3 text-4xl font-semibold leading-tight tracking-tight sm:text-5xl lg:text-6xl",
           titleClassName,

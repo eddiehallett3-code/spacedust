@@ -55,7 +55,7 @@ export function Footer() {
             </p>
             <p className="flex items-start gap-1.5 text-xs text-muted">
               <ShieldCheck
-                className="mt-px size-3.5 shrink-0 text-success"
+                className="mt-px size-3.5 shrink-0 text-violet-glow"
                 aria-hidden
               />
               <span>

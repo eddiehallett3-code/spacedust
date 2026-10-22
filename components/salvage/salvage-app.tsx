@@ -13,16 +13,15 @@ import { useWalletScan } from "@/hooks/use-wallet-scan";
 /**
  * Salvage.
  *
- * Basic mode shows the one safe, common job: close token accounts that hold no
- * balance and return their rent. Pro adds the three jobs that need more care —
- * unwrapping wSOL, deleting unused `.sns` names, and seeing which empty accounts
- * cannot be closed at all — without making the default page carry their
- * warnings.
+ * Basic mode is the routine recovery: close token accounts that hold no balance
+ * and unwrap wrapped SOL. Both give back something the wallet already owns —
+ * rent from an empty account, and the SOL behind a wSOL balance — without
+ * destroying an asset.
  *
- * The split is not cosmetic. A close of an empty account is reversible only in
- * the sense that the account can be recreated for the same rent; deleting a
- * name gives it back to the open namespace, and unwrapping moves a real SOL
- * balance. Those deserve a deliberate switch.
+ * Pro adds the one irreversible action here, deleting an unused `.sns` name,
+ * plus the diagnostic list of empty accounts this wallet cannot close. The split
+ * is about consequence, not difficulty: giving a name back to the open namespace
+ * deserves a deliberate switch; an unwrap does not.
  */
 export function SalvageApp() {
   const { connected, publicKey } = useWallet();
@@ -56,18 +55,25 @@ export function SalvageApp() {
         whenEmpty="explain"
       />
 
+      {/* Part of Basic: unwrapping returns the wallet's own SOL and closes an
+          account that only exists to hold it. When there is none, the panel
+          removes itself rather than adding a second empty-state card. */}
+      <WrappedSolPanel
+        onUnwrapped={() => void scan.rescan()}
+        whenEmpty="hide"
+      />
+
       {isPro ? (
         <section className="space-y-5" aria-label="Pro cleanup">
           <div className="rounded-xl border border-violet-core/20 bg-violet-core/6 px-4 py-3">
             <p className="text-sm font-medium text-violet-glow">Pro cleanup</p>
             <p className="mt-1 text-[11px] leading-relaxed text-muted">
-              Unwrap wSOL, give unused names back, and see which accounts the
-              token program will not let this wallet close. Every action here is
-              previewed and simulated before anything is signed.
+              Give unused `.sns` names back to the open namespace, and see which
+              empty accounts the token program will not let this wallet close.
+              Name deletion is previewed and simulated before anything is signed;
+              the diagnostics list is read-only.
             </p>
           </div>
-
-          <WrappedSolPanel onUnwrapped={() => void scan.rescan()} />
 
           <DomainsPanel />
 
@@ -79,9 +85,8 @@ export function SalvageApp() {
         </section>
       ) : (
         <p className="rounded-xl border border-border bg-white/2 px-4 py-3 text-[11px] leading-relaxed text-subtle">
-          Pro mode adds wrapped-SOL unwrapping, `.sns` name deletion and a list of
-          accounts this wallet cannot close. Turn on Pro in the navbar when you
-          need them.
+          Pro mode adds `.sns` name deletion and a list of accounts this wallet
+          cannot close. Turn on Pro in the navbar when you need them.
         </p>
       )}
     </div>

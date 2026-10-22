@@ -40,7 +40,14 @@ import type { WrappedSolAccount } from "@/types/salvage";
  * whether we took a cut of their SOL. We do not: the fee is charged on the rent
  * only, the same rent-reclaim rate as an empty token account.
  */
-export function WrappedSolPanel({ onUnwrapped }: { onUnwrapped: () => void }) {
+export function WrappedSolPanel({
+  onUnwrapped,
+  whenEmpty = "explain",
+}: {
+  onUnwrapped: () => void;
+  /** `hide` keeps Basic free of a second “nothing here” card. */
+  whenEmpty?: "explain" | "hide";
+}) {
   const { publicKey } = useWallet();
   const unwrap = useUnwrapWrappedSol();
   const resetUnwrap = unwrap.reset;
@@ -107,6 +114,14 @@ export function WrappedSolPanel({ onUnwrapped }: { onUnwrapped: () => void }) {
         </CardContent>
       </Card>
     );
+  }
+
+  if (
+    whenEmpty === "hide" &&
+    !loadError &&
+    accounts.length === 0
+  ) {
+    return null;
   }
 
   return (

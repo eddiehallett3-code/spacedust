@@ -5,6 +5,7 @@ import { Container } from "@/components/layout/container";
 import { PageHeader } from "@/components/layout/page-header";
 import { ToolEmblem, type ToolKey } from "@/components/layout/tool-emblem";
 import { Prose } from "@/components/layout/prose";
+import { DISPLAY_FONT_STYLE } from "@/lib/ui/fonts";
 import {
   PAYLOAD_RATE,
   RECLAIM_RATE,
@@ -64,7 +65,10 @@ function ToolSection({
     <section id={tool} className="scroll-mt-24 pt-14">
       <div className="flex items-center gap-3">
         <ToolEmblem tool={tool} />
-        <h2 className="text-xl font-semibold tracking-tight text-foreground">
+        <h2
+          style={DISPLAY_FONT_STYLE}
+          className="text-xl font-semibold tracking-tight text-foreground"
+        >
           {name}
         </h2>
       </div>
@@ -91,24 +95,18 @@ export default function HowItWorksPage() {
         <p className="text-xs uppercase tracking-[0.14em] text-subtle">
           On this page
         </p>
-        <p className="mt-3 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm">
-          {TOOLS.filter((tool) => DOCUMENTED.includes(tool.key)).map(
-            (tool, index) => (
-            <span key={tool.key} className="flex items-center gap-x-2">
-              {index > 0 ? (
-                <span className="text-subtle" aria-hidden>
-                  ·
-                </span>
-              ) : null}
+        <ul className="mx-auto mt-3 grid max-w-sm grid-cols-3 gap-x-4 gap-y-1.5 text-xs sm:max-w-md sm:text-sm">
+          {TOOLS.filter((tool) => DOCUMENTED.includes(tool.key)).map((tool) => (
+            <li key={tool.key} className="min-w-0">
               <a
                 href={`#${tool.key}`}
-                className="text-violet-glow transition-colors hover:text-violet-core hover:underline"
+                className="inline-block whitespace-nowrap text-violet-glow transition-colors hover:text-violet-core hover:underline"
               >
                 {tool.name}
               </a>
-            </span>
+            </li>
           ))}
-        </p>
+        </ul>
       </nav>
 
       <ToolSection
@@ -747,15 +745,21 @@ export default function HowItWorksPage() {
           the moment that token is received again, the answer is usually yes.
         </p>
 
-        <h3>4. Pro adds the jobs that are not routine</h3>
+        <h3>4. Pro adds the irreversible job, and the diagnostics</h3>
         <p>
-          Pro mode adds wrapped-SOL unwrapping, SNS name deletion and a diagnostic
-          list of empty accounts this wallet cannot close. They stay out of the
-          default page because each needs a decision the empty-account close does
-          not: an unwrap moves a real SOL balance, deleting a name gives it back
-          to the open namespace, and a foreign close authority or withheld
-          Token-2022 fee means no instruction this wallet can sign will work. All
-          three are previewed and simulated before a wallet is asked to sign.
+          Deleting an unused <code>.sns</code> name and the diagnostic list of
+          empty accounts this wallet cannot close are the Pro additions. Giving a
+          name back to the open namespace is the one action here that cannot be
+          undone with another transaction, and a foreign close authority or
+          withheld Token-2022 fee means no instruction this wallet can sign will
+          work. The deletion is previewed and simulated before a wallet is asked
+          to sign; the diagnostics list is read-only.
+        </p>
+        <p>
+          Wrapped SOL is part of the basic flow. Closing a wSOL account is an
+          unwrap, not a burn: the token program returns the wrapped balance and
+          the rent to the owner, so there is no asset to give up and no reason to
+          hide it behind a mode.
         </p>
       </ToolSection>
 
