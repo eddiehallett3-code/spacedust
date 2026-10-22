@@ -77,9 +77,6 @@ import type { SalvageDomain, WrappedSolAccount } from "@/types/salvage";
  * nothing here can move a lamport.
  */
 
-/** How many rows to spell out before collapsing the tail. */
-const VISIBLE_ROWS = 25;
-
 export function ReadOnlyScan({ initialOwner }: { initialOwner: string | null }) {
   const validInitial =
     initialOwner && isValidSolanaAddress(initialOwner) ? initialOwner : null;
@@ -119,7 +116,10 @@ export function ReadOnlyScan({ initialOwner }: { initialOwner: string | null }) 
         `/api/tokens?owner=${encodeURIComponent(address)}&approvals=1&extras=1`,
         {
           signal: controller.signal,
-          timeoutMs: 45_000,
+          // The server is capped at 60s; the full scan adds wSOL, SNS and
+          // approvals, so let the server be the one that gives up. A 45s client
+          // timeout used to abort a large scan that was about to finish.
+          timeoutMs: 90_000,
           // A shared link gets opened more than once, and a scan is far and away
           // the most expensive call in the app.
           cacheMs: 30_000,
@@ -446,15 +446,22 @@ function ScanSummary({
           </dl>
 
           <p className="mt-2 px-0.5 text-[10px] leading-snug text-subtle">
-            Wallet total {formatUsd(recoverable.walletValueUsd)} · Native{" "}
-            {scan.native.sol.toFixed(4)} SOL
+            Native {scan.native.sol.toFixed(4)} SOL
             {scan.wrappedSol && scan.wrappedSol.length > 0
               ? ` · Wrapped ${formatSol(wrappedSolAmountLamports ?? 0)}`
               : ""}
           </p>
         </div>
         <div className="rounded-xl border border-border/60 bg-white/[0.02] p-3">
-          <div className="flex items-baseline justify-between gap-2">
+          <div className="flex items-baseline justify-between gap-2 border-b border-border/60 pb-2">
+            <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-subtle">
+              Wallet total
+            </p>
+            <p className="font-mono text-sm font-semibold">
+              {formatUsd(recoverable.walletValueUsd)}
+            </p>
+          </div>
+          <div className="mt-3 flex items-baseline justify-between gap-2">
             <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-subtle">
               Potential reclaim
             </p>
@@ -584,8 +591,6 @@ function ScanResult({
   }
 
   const limitations = totalLimitations(recoverable.limitations);
-  const visible = scan.tokens.slice(0, VISIBLE_ROWS);
-  const hidden = scan.tokens.length - visible.length;
   const nfts = scan.nonFungibles.length;
 
   return (
@@ -649,7 +654,7 @@ function ScanResult({
         <WalletInsights scan={scan} recoverable={recoverable} />
       ) : null}
 
-      <TokenRows tokens={visible} hiddenCount={hidden} />
+      <TokenRows tokens={scan.tokens} />
 
       {nfts > 0 ? <CollectiblesCard assets={scan.nonFungibles} /> : null}
 
@@ -1213,14 +1218,11 @@ function LimitationsCard({
  * control that does nothing is worse than no control. The badges are the same
  * ones the sweeper uses, so a token that will be skipped there reads the same
  * way here.
+ *
+ * Every token is rendered. The list gets its own scroll container rather than a
+ * row cap, because "and 180 more" is not a wallet scan.
  */
-function TokenRows({
-  tokens,
-  hiddenCount,
-}: {
-  tokens: DustToken[];
-  hiddenCount: number;
-}) {
+function TokenRows({ tokens }: { tokens: DustToken[] }) {
   if (tokens.length === 0) return null;
 
   return (
@@ -1229,9 +1231,12 @@ function TokenRows({
         <CardTitle className="text-sm font-medium text-muted">
           Dust held
         </CardTitle>
+        <p className="mt-1 text-xs text-subtle">
+          All {pluralize(tokens.length, "fungible token")}, largest first.
+        </p>
       </CardHeader>
       <CardContent className="p-0 pt-3 sm:p-0 sm:pt-3">
-        <ul className="divide-y divide-border/50 border-t border-border/60">
+        <ul className="max-h-[32rem] divide-y divide-border/50 overflow-y-auto border-t border-border/60">
           {tokens.map((token) => (
             <li
               key={token.mint}
@@ -1279,12 +1284,6 @@ function TokenRows({
             </li>
           ))}
         </ul>
-        {hiddenCount > 0 ? (
-          <p className="border-t border-border/60 px-5 py-2.5 text-xs text-subtle sm:px-6">
-            and {pluralize(hiddenCount, "more token")} — the link above still
-            counts every one of them.
-          </p>
-        ) : null}
       </CardContent>
     </Card>
   );

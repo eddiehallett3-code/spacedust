@@ -123,7 +123,7 @@ export function Navbar() {
                 {toolsOpen ? (
                   <div
                     id="tools-menu"
-                    className="glass absolute left-0 top-full z-50 mt-3 w-[34rem] max-w-[calc(100vw-2rem)] rounded-2xl border-border/80 p-2 shadow-2xl shadow-black/40 ring-1 ring-white/10"
+                    className="absolute left-0 top-full z-50 mt-3 w-[34rem] max-w-[calc(100vw-2rem)] rounded-2xl border border-border-strong/80 bg-space-900 p-2 shadow-2xl shadow-black/60 ring-1 ring-white/10 backdrop-blur-xl"
                   >
                     <div className="grid grid-cols-2 gap-1">
                       {TOOLS.map((tool) => (
