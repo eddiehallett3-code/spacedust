@@ -1,11 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import {
   AlertTriangle,
+  ArrowDownToLine,
+  ArrowRight,
+  AtSign,
   Check,
+  Coins,
   Copy,
   Eye,
+  KeyRound,
   Landmark,
   QrCode,
   ScanLine,
@@ -45,10 +51,13 @@ import {
 import { isValidSolanaAddress } from "@/lib/utils/sanitize";
 import type {
   DustToken,
+  EmptyTokenAccount,
   NonFungibleAsset,
   StakedAccount,
   WalletScan,
 } from "@/types/token";
+import type { TokenApproval } from "@/lib/solana/approvals";
+import type { SalvageDomain, WrappedSolAccount } from "@/types/salvage";
 
 /**
  * Read-only wallet scan.
@@ -107,7 +116,7 @@ export function ReadOnlyScan({ initialOwner }: { initialOwner: string | null }) 
 
     try {
       const result = await apiFetch<WalletScan>(
-        `/api/tokens?owner=${encodeURIComponent(address)}&approvals=1`,
+        `/api/tokens?owner=${encodeURIComponent(address)}&approvals=1&extras=1`,
         {
           signal: controller.signal,
           timeoutMs: 45_000,
@@ -338,6 +347,26 @@ function ScanSummary({
       : approvals == null
         ? "—"
         : String(approvals);
+  const wrappedSol = scan.wrappedSol;
+  const wrappedSolAmountLamports =
+    wrappedSol === undefined
+      ? null
+      : wrappedSol.reduce((sum, account) => sum + account.amountLamports, 0);
+  const wrappedSolRentLamports =
+    wrappedSol?.reduce((sum, account) => sum + account.rentLamports, 0) ?? 0;
+  const wrappedSolValue =
+    wrappedSolAmountLamports === null || scan.wrappedSolError
+      ? "—"
+      : formatSol(wrappedSolAmountLamports).replace(" SOL", "");
+  const wrappedSolHint =
+    wrappedSol === undefined
+      ? "Not checked."
+      : scan.wrappedSolError
+        ? `Could not check wrapped SOL: ${scan.wrappedSolError}`
+        : wrappedSol.length === 0
+          ? "No wrapped SOL."
+          : `${pluralize(wrappedSol.length, "account")} · ${formatSol(wrappedSolRentLamports)} rent`;
+  const snsCount = scan.snsError ? null : (scan.snsDomains?.length ?? null);
   const rent = formatSol(recoverable.rentLamports);
   const rentValue = rent.endsWith(" SOL") ? rent.slice(0, -4) : rent;
   const rentUsd = recoverable.rentUsd;
@@ -384,7 +413,7 @@ function ScanSummary({
             </div>
           </div>
 
-          <dl className="mt-3 grid grid-cols-3 gap-2">
+          <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Metric
               label="Token accounts"
               value={String(tokenAccounts)}
@@ -395,6 +424,11 @@ function ScanSummary({
               value={rentValue}
               accent
               hint="Rent sitting in accounts that are already empty."
+            />
+            <Metric
+              label="Wrapped SOL"
+              value={wrappedSolValue}
+              hint={wrappedSolHint}
             />
             <Metric
               label="Approvals"
@@ -414,6 +448,9 @@ function ScanSummary({
           <p className="mt-2 px-0.5 text-[10px] leading-snug text-subtle">
             Wallet total {formatUsd(recoverable.walletValueUsd)} · Native{" "}
             {scan.native.sol.toFixed(4)} SOL
+            {scan.wrappedSol && scan.wrappedSol.length > 0
+              ? ` · Wrapped ${formatSol(wrappedSolAmountLamports ?? 0)}`
+              : ""}
           </p>
         </div>
         <div className="rounded-xl border border-border/60 bg-white/[0.02] p-3">
@@ -449,6 +486,10 @@ function ScanSummary({
             <li className="flex justify-between gap-2">
               <span>Open approvals</span>
               <span className="text-foreground">{approvalsValue}</span>
+            </li>
+            <li className="flex justify-between gap-2">
+              <span>SNS names</span>
+              <span className="text-foreground">{snsCount ?? "—"}</span>
             </li>
           </ul>
           <p className="mt-3 text-[10px] leading-snug text-subtle">
@@ -557,6 +598,17 @@ function ScanResult({
         onCopyLink={onCopyLink}
       />
 
+      <WrappedSolCard
+        accounts={scan.wrappedSol}
+        error={scan.wrappedSolError ?? null}
+      />
+
+      <EmptyAccountsCard
+        accounts={scan.emptyAccounts}
+        error={scan.emptyAccountsError}
+        owner={scan.owner}
+      />
+
       {limitations > 0 ? (
         <LimitationsCard limitations={recoverable.limitations} />
       ) : null}
@@ -575,6 +627,18 @@ function ScanResult({
           (token) => token.poolLike && token.staked === null,
         )}
         error={scan.poolLikeError}
+      />
+
+      <ApprovalsCard
+        approvals={scan.approvals}
+        error={scan.approvalsError ?? null}
+        tokens={scan.tokens}
+      />
+
+      <SnsNamesCard
+        domains={scan.snsDomains}
+        error={scan.snsError ?? null}
+        truncated={scan.snsTruncated ?? false}
       />
 
       {/* Everything else the scan knows, in charts. It sits between the headline
@@ -601,6 +665,407 @@ function ScanResult({
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/**
+ * Empty token accounts, read-only.
+ *
+ * These are the ordinary Salvage rows: no balance, just the rent-exempt deposit.
+ * The headline counts them; this card names them, because a count is hard to
+ * check and an address is not. Accounts with a foreign close authority or
+ * withheld Token-2022 fees stay visible but are marked as the close the token
+ * program will refuse.
+ */
+function EmptyAccountsCard({
+  accounts,
+  error,
+  owner,
+}: {
+  accounts: EmptyTokenAccount[];
+  error: string | null;
+  owner: string;
+}) {
+  if (accounts.length === 0 && !error) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted">
+          <Coins className="size-4 text-violet-glow" aria-hidden />
+          Empty token accounts
+        </CardTitle>
+        <p className="mt-1 text-xs leading-relaxed text-subtle">
+          Already empty. Closing one returns the rent listed beside it; this is
+          the Basic action in Salvage.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {error ? (
+          <p className="text-xs leading-relaxed text-warning">
+            Empty accounts could not be read: {error}
+          </p>
+        ) : null}
+
+        {accounts.length > 0 ? (
+          <ul className="max-h-72 divide-y divide-border/50 overflow-y-auto rounded-xl border border-border/60">
+            {accounts.map((account) => {
+              const foreignAuthority =
+                account.closeAuthority !== null &&
+                account.closeAuthority !== owner;
+              const blocked = foreignAuthority || account.withheldFees > 0;
+
+              return (
+                <li
+                  key={account.address}
+                  className="flex items-center gap-3 px-3 py-2.5"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="truncate font-mono text-xs">
+                        {truncateAddress(account.mint, 5, 4)}
+                      </span>
+                      <Badge variant="muted" size="sm">
+                        {account.program === "token2022" ? "Token-2022" : "SPL"}
+                      </Badge>
+                      {foreignAuthority ? (
+                        <Badge variant="warning" size="sm">
+                          Foreign authority
+                        </Badge>
+                      ) : null}
+                      {account.withheldFees > 0 ? (
+                        <Badge variant="warning" size="sm">
+                          Withheld fees
+                        </Badge>
+                      ) : null}
+                    </div>
+                    <p className="truncate text-[11px] text-subtle">
+                      {truncateAddress(account.address, 4, 4)}
+                    </p>
+                  </div>
+                  <p
+                    className={
+                      blocked
+                        ? "shrink-0 text-right font-mono text-xs text-subtle line-through"
+                        : "shrink-0 text-right font-mono text-xs text-muted"
+                    }
+                  >
+                    {formatSol(account.lamports)}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
+
+        <Link
+          href="/salvage"
+          className="inline-flex items-center gap-1 text-xs font-medium text-violet-glow transition-colors hover:text-violet-core"
+        >
+          Reclaim in Salvage
+          <ArrowRight className="size-3.5" aria-hidden />
+        </Link>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Wrapped SOL, read-only.
+ *
+ * The token scanners drop the native mint, so this balance is invisible in the
+ * ordinary token list and in the empty-account list. It is not a reclaim: the
+ * principal is already the wallet's SOL. The rent inside the account is the only
+ * part that behaves like the other rent figures on this page.
+ */
+function WrappedSolCard({
+  accounts,
+  error,
+}: {
+  accounts?: WrappedSolAccount[];
+  error: string | null;
+}) {
+  if (accounts === undefined) return null;
+  if (accounts.length === 0 && !error) return null;
+
+  const amountLamports = accounts.reduce(
+    (sum, account) => sum + account.amountLamports,
+    0,
+  );
+  const rentLamports = accounts.reduce(
+    (sum, account) => sum + account.rentLamports,
+    0,
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted">
+          <ArrowDownToLine className="size-4 text-violet-glow" aria-hidden />
+          Wrapped SOL
+        </CardTitle>
+        <p className="mt-1 text-xs leading-relaxed text-subtle">
+          SOL held in wSOL accounts. Closing one unwraps the full balance and
+          returns its rent; the principal is already yours.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {error ? (
+          <p className="text-xs leading-relaxed text-warning">
+            Wrapped SOL could not be read: {error}
+          </p>
+        ) : null}
+
+        {accounts.length > 0 ? (
+          <>
+            <dl className="grid grid-cols-3 gap-2">
+              <div className="rounded-xl border border-border/60 bg-white/[0.02] p-2.5">
+                <dt className="text-[10px] leading-tight text-subtle">Wrapped</dt>
+                <dd className="mt-1 font-mono text-sm tabular-nums">
+                  {formatSol(amountLamports)}
+                </dd>
+              </div>
+              <div className="rounded-xl border border-border/60 bg-white/[0.02] p-2.5">
+                <dt className="text-[10px] leading-tight text-subtle">Rent</dt>
+                <dd className="mt-1 font-mono text-sm tabular-nums">
+                  {formatSol(rentLamports)}
+                </dd>
+              </div>
+              <div className="rounded-xl border border-border/60 bg-white/[0.02] p-2.5">
+                <dt className="text-[10px] leading-tight text-subtle">Accounts</dt>
+                <dd className="mt-1 font-mono text-sm tabular-nums">
+                  {accounts.length}
+                </dd>
+              </div>
+            </dl>
+
+            <ul className="max-h-64 divide-y divide-border/50 overflow-y-auto rounded-xl border border-border/60">
+              {accounts.map((account) => (
+                <li
+                  key={account.address}
+                  className="flex items-center gap-3 px-3 py-2.5"
+                >
+                  <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-border bg-white/4">
+                    <ArrowDownToLine
+                      className="size-3.5 text-violet-glow"
+                      aria-hidden
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="font-mono text-sm tabular-nums">
+                        {formatSol(account.amountLamports)}
+                      </span>
+                      {account.closeAuthority ? (
+                        <Badge variant="warning" size="sm">
+                          Uncloseable
+                        </Badge>
+                      ) : null}
+                    </div>
+                    <p className="truncate text-[11px] text-subtle">
+                      {truncateAddress(account.address, 4, 4)} ·{" "}
+                      {formatSol(account.rentLamports)} rent
+                    </p>
+                  </div>
+                  <p className="shrink-0 text-right font-mono text-xs text-muted">
+                    returns {formatSol(account.lamports)}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : null}
+
+        <Link
+          href="/salvage"
+          className="inline-flex items-center gap-1 text-xs font-medium text-violet-glow transition-colors hover:text-violet-core"
+        >
+          Unwrap in Salvage
+          <ArrowRight className="size-3.5" aria-hidden />
+        </Link>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Standing approvals, read-only.
+ *
+ * The exact list is useful on a scan because it answers who can move what, not
+ * just how many grants exist. It stays read-only: revoking is a signature, and
+ * this page never asks for one.
+ */
+function ApprovalsCard({
+  approvals,
+  error,
+  tokens,
+}: {
+  approvals?: TokenApproval[] | null;
+  error: string | null;
+  tokens: DustToken[];
+}) {
+  if (approvals === undefined) return null;
+  if (!error && (approvals === null || approvals.length === 0)) return null;
+
+  const symbolByMint = new Map(tokens.map((token) => [token.mint, token.symbol]));
+  const rows = approvals ?? [];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted">
+          <KeyRound className="size-4 text-violet-glow" aria-hidden />
+          Approvals
+        </CardTitle>
+        <p className="mt-1 text-xs leading-relaxed text-subtle">
+          Third parties still allowed to move a balance. Read-only here; revoke
+          them in Approvals.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {error ? (
+          <p className="text-xs leading-relaxed text-warning">
+            Approvals could not be read: {error}
+          </p>
+        ) : null}
+
+        {rows.length > 0 ? (
+          <ul className="max-h-72 divide-y divide-border/50 overflow-y-auto rounded-xl border border-border/60">
+            {rows.map((approval) => {
+              const symbol =
+                symbolByMint.get(approval.mint) ?? truncateAddress(approval.mint);
+              return (
+                <li
+                  key={`${approval.tokenAccount}:${approval.delegate}`}
+                  className="flex items-center gap-3 px-3 py-2.5"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="truncate text-sm font-medium">{symbol}</span>
+                      {approval.unlimited ? (
+                        <Badge variant="danger" size="sm">
+                          Unlimited
+                        </Badge>
+                      ) : null}
+                      {approval.frozen ? (
+                        <Badge variant="muted" size="sm">
+                          Frozen
+                        </Badge>
+                      ) : null}
+                    </div>
+                    <p className="truncate text-[11px] text-subtle">
+                      delegate {truncateAddress(approval.delegate, 4, 4)}
+                    </p>
+                  </div>
+                  <p className="shrink-0 text-right font-mono text-xs tabular-nums text-muted">
+                    {approval.unlimited
+                      ? "All of it"
+                      : `${formatAmount(approval.delegatedAmount, 4)} ${symbol}`}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
+
+        <Link
+          href="/approvals"
+          className="inline-flex items-center gap-1 text-xs font-medium text-violet-glow transition-colors hover:text-violet-core"
+        >
+          Review approvals
+          <ArrowRight className="size-3.5" aria-hidden />
+        </Link>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * `.sns` names, read-only.
+ *
+ * A name has no balance and no market. It is shown because the name itself is
+ * information — and because deleting it is the one way to release the rent its
+ * name account holds. The actual deletion stays in Salvage, behind Pro.
+ */
+function SnsNamesCard({
+  domains,
+  error,
+  truncated,
+}: {
+  domains?: SalvageDomain[];
+  error: string | null;
+  truncated: boolean;
+}) {
+  if (domains === undefined) return null;
+  if (domains.length === 0 && !error) return null;
+
+  const rentLamports = domains.reduce((sum, domain) => sum + domain.lamports, 0);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted">
+          <AtSign className="size-4 text-violet-glow" aria-hidden />
+          .sns names
+        </CardTitle>
+        <p className="mt-1 text-xs leading-relaxed text-subtle">
+          {domains.length > 0
+            ? `${pluralize(domains.length, "name")} · ${formatSol(rentLamports)} rent across their name accounts.`
+            : "Names owned by this wallet. Deleting one returns its name-account rent."}
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {error ? (
+          <p className="text-xs leading-relaxed text-warning">
+            SNS names could not be read: {error}
+          </p>
+        ) : null}
+
+        {domains.length > 0 ? (
+          <ul className="max-h-72 divide-y divide-border/50 overflow-y-auto rounded-xl border border-border/60">
+            {domains.map((domain) => (
+              <li
+                key={domain.address}
+                className="flex items-center gap-3 px-3 py-2.5"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="truncate text-sm font-medium">
+                      {domain.name}.sns
+                    </span>
+                    {domain.tokenized ? (
+                      <Badge variant="warning" size="sm">
+                        Tokenized
+                      </Badge>
+                    ) : null}
+                  </div>
+                  <p className="truncate text-[11px] text-subtle">
+                    {truncateAddress(domain.address, 4, 4)}
+                  </p>
+                </div>
+                <p className="shrink-0 text-right font-mono text-xs text-muted">
+                  {formatSol(domain.lamports)} rent
+                </p>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
+        {truncated ? (
+          <p className="text-[11px] leading-relaxed text-subtle">
+            Showing the first 250 names. Open Salvage to see the full list.
+          </p>
+        ) : null}
+
+        <Link
+          href="/salvage"
+          className="inline-flex items-center gap-1 text-xs font-medium text-violet-glow transition-colors hover:text-violet-core"
+        >
+          Manage names in Salvage
+          <ArrowRight className="size-3.5" aria-hidden />
+        </Link>
+      </CardContent>
+    </Card>
   );
 }
 

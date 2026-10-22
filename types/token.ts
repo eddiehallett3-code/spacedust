@@ -8,6 +8,9 @@
  * `lib/solana/instructions.ts`).
  */
 
+import type { TokenApproval } from "@/lib/solana/approvals";
+import type { SalvageDomain, WrappedSolAccount } from "@/types/salvage";
+
 /** Which token program owns a mint. Drives which program id we use to close ATAs. */
 export type TokenProgramKind = "legacy" | "token2022";
 
@@ -402,6 +405,37 @@ export interface WalletScan {
   approvalsCount?: number | null;
   /** Why the approvals read failed, when `approvalsCount` is null. */
   approvalsError?: string | null;
+  /**
+   * The approvals themselves, when the caller asked for the full scan.
+   *
+   * `undefined` means the extras were not requested; `null` means the read
+   * failed. The UI keeps the existing count fields for compact views and uses
+   * this list only for the expandable security detail.
+   */
+  approvals?: TokenApproval[] | null;
+  /**
+   * Non-empty wrapped-SOL accounts, when the caller asked for the full scan.
+   *
+   * wSOL is deliberately absent from `tokens`: both scanners drop the native
+   * mint, and an empty wSOL account belongs to `emptyAccounts`. `undefined`
+   * means the extra read was not requested; `[]` means it ran and found none.
+   */
+  wrappedSol?: WrappedSolAccount[];
+  /** Why the wrapped-SOL read failed, when `wrappedSol` is empty. */
+  wrappedSolError?: string | null;
+  /**
+   * `.sns` names the wallet owns, when the caller asked for the full scan.
+   *
+   * `undefined` means not requested; `[]` means the lookup ran and found none.
+   * A name is not a liquid asset: its only value on this page is the rent its
+   * account holds, which is why it is shown separately from the recoverable
+   * total.
+   */
+  snsDomains?: SalvageDomain[];
+  /** Why the SNS lookup failed, when `snsDomains` is empty. */
+  snsError?: string | null;
+  /** True when the SNS lookup found more names than the 250-entry cap. */
+  snsTruncated?: boolean;
 }
 
 /** Reasons a token is hidden when "Smart Filter" is on. */

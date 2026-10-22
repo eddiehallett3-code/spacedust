@@ -189,6 +189,28 @@ describe("summariseRecoverable", () => {
     expect(result.walletValueUsd).toBe(2); // 1 of tokens + 1 of native
   });
 
+  it("keeps wSOL principal in the wallet total, not the recoverable total", () => {
+    const result = summariseRecoverable({
+      ...scan([token()]),
+      wrappedSol: [
+        {
+          address: SECOND_ACCOUNT,
+          amountLamports: 1_000_000_000,
+          lamports: 1_002_039_280,
+          rentLamports: 2_039_280,
+          closeAuthority: null,
+        },
+      ],
+    });
+
+    // A wrapped balance is SOL the wallet already owns. It belongs in "what is
+    // in here", never in "what a sweep can bring back".
+    expect(result.wrappedSolLamports).toBe(1_002_039_280);
+    expect(result.wrappedSolUsd).toBeCloseTo(200.407856, 5);
+    expect(result.walletValueUsd).toBeCloseTo(202.407856, 5);
+    expect(result.totalUsd).toBeCloseTo(1, 10);
+  });
+
   it("has no wallet total when native SOL could not be priced", () => {
     const result = summariseRecoverable({
       ...scan([token()]),

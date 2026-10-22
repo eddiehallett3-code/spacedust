@@ -730,6 +730,13 @@ The address is a query parameter, so a result is a link. That is the whole desig
 the page has to work with no wallet present, and it must never look like it is
 about to ask for a signature.
 
+When it asks for the full scan (`approvals=1&extras=1`), it also shows the exact
+standing approvals, non-empty wSOL accounts and their rent, and the `.sns` names
+the wallet owns. Those reads are opt-in because the sweeper and the other tools
+do not display them; the scan route still works without `extras`. wSOL is shown
+in the wallet total but never in the recoverable total — unwrapping returns
+principal the wallet already owns, not new value.
+
 ### Positions that are not dust
 
 A wallet can hold something that looks exactly like a token and is not one: a

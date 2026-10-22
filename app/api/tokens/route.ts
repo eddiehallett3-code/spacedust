@@ -17,6 +17,8 @@ import { isPoolPosition } from "@/lib/sweep/pool-positions";
 import { stakedTokenFor } from "@/lib/staking/staked-tokens";
 import { readNativeStakeAccounts } from "@/lib/staking/native-stake.server";
 import { readTokenApprovals } from "@/lib/solana/approvals";
+import { readSnsDomains } from "@/lib/salvage/sns.server";
+import { listWrappedSolAccounts } from "@/lib/token-source/wrapped-sol.server";
 import { fetchRentMinimums } from "@/lib/solana/rent";
 import { OUTPUT_ASSETS } from "@/lib/utils/constants";
 import {
@@ -28,11 +30,16 @@ import {
   sanitizeText,
 } from "@/lib/utils/sanitize";
 import type { DustToken, WalletScan } from "@/types/token";
+import type { SalvageDomain, WrappedSolAccount } from "@/types/salvage";
 
 /**
  * `GET /api/tokens?owner=<pubkey>`
  *
  * Returns every dust-eligible SPL and Token-2022 holding, already valued in USD.
+ *
+ * `approvals=1` adds the approvals read; `extras=1` adds wSOL and SNS names for
+ * the full Wallet Scan. Both are opt-in so the sweeper's ordinary rescan does
+ * not pay for a read it never displays.
  *
  * Runs on the server so the Helius key and the Jupiter key both stay private.
  */
@@ -74,6 +81,10 @@ export async function GET(request: Request) {
   // rescan, so it stays opt-in rather than adding two owner-wide account reads
   // to every request.
   const wantsApprovals = url.searchParams.get("approvals") === "1";
+  // Wallet Scan asks for the full read: wSOL and SNS names are not needed by
+  // the sweeper, Salvage or Payload, so they stay opt-in rather than adding
+  // two extra owner-wide reads to every rescan.
+  const wantsExtras = url.searchParams.get("extras") === "1";
 
   if (!parsed.success) {
     return NextResponse.json(
@@ -122,17 +133,42 @@ export async function GET(request: Request) {
     let poolLikeError: string | null = null;
     const connection = new Connection(getServerRpcUrl(), "confirmed");
     const approvalsRead: Promise<{
-      count: number | null;
+      list: Awaited<ReturnType<typeof readTokenApprovals>> | null;
       error: string | null;
     }> | null = wantsApprovals
       ? readTokenApprovals(connection, new PublicKey(parsed.data.owner))
-          .then((approvals) => ({ count: approvals.length, error: null }))
+          .then((approvals) => ({ list: approvals, error: null }))
           .catch((error) => ({
-            count: null,
+            list: null,
             error:
               error instanceof Error
                 ? error.message
                 : "Could not read token approvals.",
+          }))
+      : null;
+
+    const wrappedSolRead = wantsExtras
+      ? listWrappedSolAccounts(parsed.data.owner)
+          .then((accounts) => ({ accounts, error: null as string | null }))
+          .catch((error) => ({
+            accounts: [] as WrappedSolAccount[],
+            error:
+              error instanceof Error
+                ? error.message
+                : "Could not read wrapped SOL accounts.",
+          }))
+      : null;
+
+    const snsRead = wantsExtras
+      ? readSnsDomains(parsed.data.owner)
+          .then((result) => ({ ...result, error: null as string | null }))
+          .catch((error) => ({
+            domains: [] as SalvageDomain[],
+            truncated: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : "Could not read SNS names.",
           }))
       : null;
     try {
@@ -329,7 +365,11 @@ export async function GET(request: Request) {
       prices[OUTPUT_ASSETS.SOL.mint]?.usdPrice ??
       null;
 
-    const approvals = approvalsRead === null ? null : await approvalsRead;
+    const [approvals, wrappedSol, sns] = await Promise.all([
+      approvalsRead ?? Promise.resolve(null),
+      wrappedSolRead ?? Promise.resolve(null),
+      snsRead ?? Promise.resolve(null),
+    ]);
 
     const payload: WalletScan = {
       owner: parsed.data.owner,
@@ -371,8 +411,22 @@ export async function GET(request: Request) {
       ...(approvals === null
         ? {}
         : {
-            approvalsCount: approvals.count,
+            approvalsCount: approvals.list?.length ?? null,
             approvalsError: approvals.error,
+            approvals: approvals.list,
+          }),
+      ...(wrappedSol === null
+        ? {}
+        : {
+            wrappedSol: wrappedSol.accounts,
+            wrappedSolError: wrappedSol.error,
+          }),
+      ...(sns === null
+        ? {}
+        : {
+            snsDomains: sns.domains,
+            snsError: sns.error,
+            snsTruncated: sns.truncated,
           }),
     };
 

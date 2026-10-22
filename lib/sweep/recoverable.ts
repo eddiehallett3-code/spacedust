@@ -122,13 +122,18 @@ export interface RecoverableBreakdown {
   /** USD value of every token in the scan, including the ones we refuse. */
   heldValueUsd: number;
   /**
-   * Everything the wallet holds in USD: every token, plus native SOL.
+   * Everything the wallet holds in USD: every token, native SOL, and any
+   * wrapped-SOL accounts the full scan read.
    *
    * The question this page is usually opened to answer is "what is in here?",
    * not "what can I get out?" — and those are different numbers. Null when the
    * wallet's native value could not be priced.
    */
   walletValueUsd: number | null;
+  /** Lamports in non-empty wSOL accounts, including their rent deposits. */
+  wrappedSolLamports: number;
+  /** The wSOL portion of `walletValueUsd`, or null when SOL could not be priced. */
+  wrappedSolUsd: number | null;
   /** `sweepableValueUsd` + `rentUsd`. Null when there is no SOL price. */
   totalUsd: number | null;
   /** The SOL price used for conversion, so the UI can state its basis. */
@@ -149,7 +154,7 @@ export interface RecoverableBreakdown {
 export function summariseRecoverable(
   scan: Pick<
     WalletScan,
-    "tokens" | "native" | "outputPrices" | "owner" | "emptyAccounts"
+    "tokens" | "native" | "outputPrices" | "owner" | "emptyAccounts" | "wrappedSol"
   >,
 ): RecoverableBreakdown {
   const limitations: RecoverableLimitations = {
@@ -217,7 +222,24 @@ export function summariseRecoverable(
   // Native value comes from the scan, which priced it with the same SOL price —
   // so the two halves of this total cannot disagree about what SOL is worth.
   const nativeUsd = scan.native.valueUsd;
-  const walletValueUsd = nativeUsd == null ? null : heldValueUsd + nativeUsd;
+  // wSOL is native SOL in a token account. It is part of the wallet's value, but
+  // never part of the recoverable total: unwrapping returns the same principal,
+  // it does not create value. The rent inside those accounts is a different
+  // question, and the Salvage planner handles it separately.
+  const wrappedSolLamports = (scan.wrappedSol ?? []).reduce(
+    (sum, account) => sum + account.lamports,
+    0,
+  );
+  const wrappedSolUsd =
+    scan.wrappedSol === undefined
+      ? 0
+      : solPriceUsd == null
+        ? null
+        : (wrappedSolLamports / 1e9) * solPriceUsd;
+  const walletValueUsd =
+    nativeUsd == null || wrappedSolUsd == null
+      ? null
+      : heldValueUsd + nativeUsd + wrappedSolUsd;
 
   return {
     closableAccounts,
@@ -228,6 +250,8 @@ export function summariseRecoverable(
     sweepableValueUsd,
     heldValueUsd,
     walletValueUsd,
+    wrappedSolLamports,
+    wrappedSolUsd,
     totalUsd,
     solPriceUsd,
     limitations,
