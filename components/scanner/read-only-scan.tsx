@@ -31,7 +31,6 @@ import { TokenLogo } from "@/components/scanner/token-logo";
 import { WalletInsights } from "@/components/scanner/wallet-insights";
 import { QrScanner } from "@/components/payload/qr-scanner";
 import { ConnectWalletCta } from "@/components/wallet/wallet-button";
-import { useMode } from "@/components/layout/mode-provider";
 import { summariseRecoverable, totalLimitations } from "@/lib/sweep/recoverable";
 import { POOL_POSITION_NOTE } from "@/lib/sweep/pool-positions";
 import { STAKED_POSITION_NOTE } from "@/lib/staking/staked-tokens";
@@ -539,8 +538,6 @@ function ScanResult({
   copied: boolean;
   onCopyLink: () => void;
 }) {
-  const { isPro } = useMode();
-
   if (error) {
     return (
       <Card>
@@ -603,6 +600,14 @@ function ScanResult({
         onCopyLink={onCopyLink}
       />
 
+      {/* Tokens and NFTs first, because "what is in here" is the question the
+          scan is opened to answer. The recoverable and security details follow. */}
+      <TokenRows tokens={scan.tokens} />
+
+      {nfts > 0 ? <CollectiblesCard assets={scan.nonFungibles} /> : null}
+
+      <WalletInsights scan={scan} recoverable={recoverable} />
+
       <WrappedSolCard
         accounts={scan.wrappedSol}
         error={scan.wrappedSolError ?? null}
@@ -645,18 +650,6 @@ function ScanResult({
         error={scan.snsError ?? null}
         truncated={scan.snsTruncated ?? false}
       />
-
-      {/* Everything else the scan knows, in charts. It sits between the headline
-          and the long token list on purpose: the list is the detail, and this is
-          the shape of the thing — which is what someone looking up a wallet they
-          do not recognise actually wants first. */}
-      {isPro ? (
-        <WalletInsights scan={scan} recoverable={recoverable} />
-      ) : null}
-
-      <TokenRows tokens={scan.tokens} />
-
-      {nfts > 0 ? <CollectiblesCard assets={scan.nonFungibles} /> : null}
 
       <Card>
         <CardContent className="flex flex-col items-start gap-3">
