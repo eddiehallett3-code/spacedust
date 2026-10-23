@@ -130,7 +130,16 @@ export function buildCsp(nonce: string): string {
       "img-src",
       ["'self'", "data:", "blob:", ...logoOrigins(), ...WALLET_ORIGINS],
     ],
-    ["font-src", ["'self'", "data:"]],
+    [
+      // `fonts.reown.com` serves the typeface AppKit's wallet modal draws with.
+      // Without it the modal still opens and works — it just falls back to system
+      // fonts — so this is the one host in the policy that is purely cosmetic. It
+      // is allowed because a wallet list that suddenly changes typeface reads as
+      // broken, and the font is a stylesheet-free binary from the same vendor as
+      // the modal itself.
+      "font-src",
+      ["'self'", "data:", "https://fonts.reown.com"],
+    ],
     [
       "connect-src",
       [

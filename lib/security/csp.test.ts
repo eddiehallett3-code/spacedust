@@ -93,6 +93,17 @@ describe("logoOrigins", () => {
   });
 });
 
+describe("font-src", () => {
+  it("allows the wallet modal's own typeface, and nothing else remote", () => {
+    // AppKit fetches its UI font from this host. The modal works without it —
+    // system fonts — so a missing entry shows up as a cosmetic change nobody
+    // attributes to a policy, which is why it is pinned here.
+    const font = directives(buildCsp(NONCE)).get("font-src") ?? [];
+
+    expect(font).toEqual(["'self'", "data:", "https://fonts.reown.com"]);
+  });
+});
+
 describe("cspHeaderName", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
