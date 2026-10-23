@@ -127,8 +127,24 @@ export function buildCsp(nonce: string): string {
     ["script-src-attr", ["'none'"]],
     ["style-src", ["'self'", "'unsafe-inline'"]],
     [
+      // `https:` rather than an enumerated host list. This is the policy's one
+      // deliberate widening, and it is not the layer that protects token logos.
+      //
+      // A logo is restricted to vetted hosts in `sanitizeLogoUri`, which drops any
+      // URL whose host is not on the list before it reaches the DOM — so losing the
+      // CSP copy of that allow-list costs no protection. NFT and cNFT artwork
+      // cannot be treated the same way: a collection's image lives on whatever
+      // gateway its creator picked (nftstorage, dweb, w3s, ar-io, a private CDN),
+      // and enumerating them blanks most of a wallet. Under an enforced policy that
+      // presents as "artwork is broken", which is precisely what happened: the
+      // images had always loaded while the policy was report-only, and vanished
+      // the moment it enforced.
+      //
+      // What keeps this safe: an `<img>` cannot execute, both renderers set
+      // `no-referrer`, and every script, frame, form and connection host below
+      // stays enumerated.
       "img-src",
-      ["'self'", "data:", "blob:", ...logoOrigins(), ...WALLET_ORIGINS],
+      ["'self'", "data:", "blob:", "https:"],
     ],
     [
       // `fonts.reown.com` serves the typeface AppKit's wallet modal draws with.

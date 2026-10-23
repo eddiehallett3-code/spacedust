@@ -84,12 +84,18 @@ describe("logoOrigins", () => {
     }
   });
 
-  it("reaches the policy's img-src", () => {
+  it("allows any https image, because NFT artwork cannot be enumerated", () => {
+    // Token logos are restricted to vetted hosts in `sanitizeLogoUri` instead —
+    // that check runs before a URL reaches the DOM, so the policy does not need to
+    // carry the allow-list. Artwork is the case that forced `https:`: a
+    // collection's image lives on whichever gateway its creator chose, and an
+    // enumerated img-src blanked every one of them the moment the policy began
+    // enforcing.
     const img = directives(buildCsp(NONCE)).get("img-src") ?? [];
 
-    expect(img).toContain(`https://${LOGO_EXACT_HOSTS[0]}`);
-    expect(img).toContain(`https://*.${LOGO_HOST_SUFFIXES[0]}`);
-    expect(img).toContain("data:");
+    expect(img).toEqual(["'self'", "data:", "blob:", "https:"]);
+    expect(img).not.toContain("*");
+    expect(img).not.toContain("http:");
   });
 });
 
