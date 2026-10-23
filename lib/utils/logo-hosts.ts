@@ -17,16 +17,21 @@ export const LOGO_EXACT_HOSTS = [
   "raw.githubusercontent.com",
 ] as const;
 
-/** Suffixes allowed with any subdomain, e.g. `foo.arweave.net`. */
+/**
+ * Suffixes allowed with any subdomain, e.g. `foo.arweave.net`.
+ *
+ * Deliberately not the big CDN parent domains. `cloudfront.net`, `amazonaws.com`
+ * and `googleusercontent.com` are open to anyone with an account, so allowing
+ * every subdomain of them allowed every bucket on the internet: as an image
+ * allow-list it stopped meaning anything, and a token's metadata could point at a
+ * host its author controlled under one of those names. The specific distribution
+ * this app actually uses is listed exactly, above.
+ */
 export const LOGO_HOST_SUFFIXES = [
   "arweave.net",
   "ipfs.io",
   "ipfs.infura.io",
   "pinata.cloud",
-  "cloudfront.net",
-  "amazonaws.com",
-  "googleusercontent.com",
-  "ghproxy.net",
   "jup.ag",
   "coingecko.com",
   "trustwallet.com",

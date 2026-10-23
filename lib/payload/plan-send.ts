@@ -19,6 +19,7 @@ import { fetchCnftProofs } from "@/lib/sweep/asset-proof";
 import { feeFromRentLamports, fetchRentMinimums } from "@/lib/solana/rent";
 import { packTransactions, type PackUnit } from "@/lib/solana/pack";
 import { simulateAll } from "@/lib/solana/simulate";
+import { withheldFeesOf } from "@/lib/solana/parsed-account";
 import {
   buildSend,
   recipientTokenAccount,
@@ -314,12 +315,26 @@ async function readAccounts(
   connection: Connection,
   addresses: PublicKey[],
 ): Promise<
-  Map<string, { lamports: number; frozen: boolean; amount: bigint } | null>
+  Map<
+    string,
+    {
+      lamports: number;
+      frozen: boolean;
+      amount: bigint;
+      /** Withheld transfer fees, or null when the account could not be parsed. */
+      withheld: number | null;
+    } | null
+  >
 > {
   const unique = [...new Set(addresses.map((address) => address.toBase58()))];
   const found = new Map<
     string,
-    { lamports: number; frozen: boolean; amount: bigint } | null
+    {
+      lamports: number;
+      frozen: boolean;
+      amount: bigint;
+      withheld: number | null;
+    } | null
   >();
 
   for (let start = 0; start < unique.length; start += 100) {
@@ -346,6 +361,7 @@ async function readAccounts(
           lamports: info.lamports,
           frozen: parsed?.info?.state === "frozen",
           amount: typeof amountRaw === "string" ? BigInt(amountRaw) : 0n,
+          withheld: withheldFeesOf(data),
         });
       });
     } catch {
@@ -434,11 +450,20 @@ export async function planSend(input: PlanSendInput): Promise<PlanSendResult> {
     /**
      * False when the account must not be closed after sending.
      *
-     * A Token-2022 transfer fee leaves a residue behind even after a full send,
-     * so the account is never empty and a close would be refused — the same rule
-     * the sweep already applies to rent reclaim.
+     * Only a cNFT and a native-SOL send are permanently unclosable — a leaf has
+     * no token account and SOL has no account at all. Whether a *token* account
+     * closes is decided from the chain: it must be emptied by the send, and its
+     * own withheld transfer-fee balance must be zero. See the decision below.
      */
     closeable: boolean;
+    /**
+     * The mint charges a transfer fee.
+     *
+     * Not a reason to skip the close on its own — a transfer-fee account with
+     * nothing withheld closes like any other. It only explains *why* one is left
+     * open when the account does hold withheld fees.
+     */
+    hasTransferFee: boolean;
   }
 
   const candidates: Candidate[] = [];
@@ -483,7 +508,7 @@ export async function planSend(input: PlanSendInput): Promise<PlanSendResult> {
 
     if (refused === null && token.hasTransferFee) {
       warnings.push(
-        `${token.symbol || token.mint.slice(0, 4)} charges a transfer fee, so the recipient receives less than the balance shown — and its account cannot be closed, because the fee leaves a residue behind.`,
+        `${token.symbol || token.mint.slice(0, 4)} charges a transfer fee, so the recipient receives less than the balance shown. Its account can still be closed afterwards if nothing is withheld on it.`,
       );
     }
 
@@ -496,7 +521,8 @@ export async function planSend(input: PlanSendInput): Promise<PlanSendResult> {
       source,
       tokenProgram,
       refused,
-      closeable: !token.hasTransferFee,
+      closeable: true,
+      hasTransferFee: token.hasTransferFee,
     });
   }
 
@@ -528,6 +554,7 @@ export async function planSend(input: PlanSendInput): Promise<PlanSendResult> {
       refused,
       // A leaf cannot be closed, because there is no account holding it.
       closeable: !compressed,
+      hasTransferFee: false,
     });
   }
 
@@ -553,6 +580,7 @@ export async function planSend(input: PlanSendInput): Promise<PlanSendResult> {
       tokenProgram: SystemProgram.programId,
       refused: "problem" in resolved ? resolved.problem : null,
       closeable: false,
+      hasTransferFee: false,
     });
   }
 
@@ -625,6 +653,14 @@ export async function planSend(input: PlanSendInput): Promise<PlanSendResult> {
   let grossRentLamports = 0;
   let feeLamports = 0;
   let recipientAccountLamports = 0;
+  /**
+   * Mint → the source account its send closes.
+   *
+   * Collected here rather than derived from `candidate.closeable`, because the
+   * decision now depends on the chain's answer for that account (is it emptied,
+   * does it hold withheld fees). The audit is told exactly what was built.
+   */
+  const closedSourceByMint = new Map<string, string>();
 
   for (const { candidate, destination } of planned) {
     const base: SendOutcome = {
@@ -813,11 +849,30 @@ export async function planSend(input: PlanSendInput): Promise<PlanSendResult> {
     // `Custom: 11`. The scan's figure is not used for this: it can be stale, and a
     // partial send means the rent stays locked.
     const empties = sendEmptiesAccount(candidate.amount, source.amount);
-    const closeSource = candidate.closeable && empties;
+
+    // …and a Token-2022 account may still refuse the close if it holds withheld
+    // transfer fees (`Custom: 35`), which only the mint can harvest. That is read
+    // from this account rather than assumed from the mint's config, and it is
+    // authoritative in both directions: a fee-bearing account with nothing withheld
+    // closes like any other, and an account with a withheld balance is refused
+    // however the scan labelled its mint.
+    const withheld = source.withheld;
+    const withheldBlocks = withheld !== 0;
+    const closeSource = candidate.closeable && empties && !withheldBlocks;
+
     if (!empties) {
       warnings.push(
         `${candidate.label} is no longer the full balance of its account, so the account stays open and its rent is not reclaimed.`,
       );
+    } else if (withheldBlocks) {
+      warnings.push(
+        withheld === null
+          ? `${candidate.label}: the account's withheld transfer fees could not be read, so it stays open and its rent is not reclaimed.`
+          : `${candidate.label}: the account holds withheld transfer fees, which the mint has to harvest before it can be closed, so its rent is not reclaimed.`,
+      );
+    }
+    if (closeSource && candidate.source) {
+      closedSourceByMint.set(candidate.mint, candidate.source.toBase58());
     }
 
     // `null` = the chain says there is no account; `undefined` = the read
@@ -1005,14 +1060,9 @@ export async function planSend(input: PlanSendInput): Promise<PlanSendResult> {
       // be expressed as a transfer destination. The audit checks that the
       // recipient is named by the Bubblegum instruction instead — see rule 7.
       expectedCompressedDestination: recipient.toBase58(),
-      expectedCloses: candidates
-        .filter(
-          (candidate) =>
-            packedForAudit.has(candidate.mint) && candidate.closeable,
-        )
-        .flatMap((candidate) =>
-          candidate.source ? [candidate.source.toBase58()] : [],
-        ),
+      expectedCloses: [...closedSourceByMint.entries()]
+        .filter(([mint]) => packedForAudit.has(mint))
+        .map(([, account]) => account),
     },
   });
 

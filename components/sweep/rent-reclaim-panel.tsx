@@ -13,6 +13,7 @@ import { solscanTxUrl } from "@/lib/solana/submit";
 import { planEmptyAccountCloses } from "@/lib/sweep/empty-accounts";
 import { feeFromRentLamports } from "@/lib/solana/rent";
 import { RECLAIM_RATE } from "@/lib/config/tools";
+import { getPublicFeeWallet } from "@/lib/config/public-env";
 import { RECLAIM_FEE_BPS } from "@/lib/utils/constants";
 import { formatSol, pluralize, truncateAddress } from "@/lib/utils/format";
 import type { EmptyTokenAccount } from "@/types/token";
@@ -64,6 +65,16 @@ export function RentReclaimPanel({
 }) {
   const { publicKey } = useWallet();
   const reclaim = useClose();
+
+  /**
+   * Whether a fee wallet is configured at all.
+   *
+   * Read here as well as in the planner, because this card quotes the fee before
+   * any plan exists: with no fee wallet the planner charges nothing, so the tiles
+   * must show nothing. Assuming the rate here would promise a fee that is never
+   * taken and understate what the user receives.
+   */
+  const rentFeeConfigured = getPublicFeeWallet() !== null;
 
   // The same rule the closer uses, so the number here and the number the plan
   // produces cannot disagree — which is the only way this card can overstate
@@ -159,7 +170,9 @@ export function RentReclaimPanel({
               {formatSol(
                 reclaim.summary
                   ? reclaim.summary.reclaimFeeLamports
-                  : feeFromRentLamports(plan.lamports, RECLAIM_FEE_BPS),
+                  : rentFeeConfigured
+                    ? feeFromRentLamports(plan.lamports, RECLAIM_FEE_BPS)
+                    : 0,
               )}
             </p>
           </div>
@@ -170,19 +183,56 @@ export function RentReclaimPanel({
                 reclaim.summary
                   ? reclaim.summary.netRentLamports
                   : plan.lamports -
-                      feeFromRentLamports(plan.lamports, RECLAIM_FEE_BPS),
+                      (rentFeeConfigured
+                        ? feeFromRentLamports(plan.lamports, RECLAIM_FEE_BPS)
+                        : 0),
               )}
             </p>
           </div>
         </div>
 
+        {plan.closeable.length > 0 ? (
+          <details className="rounded-xl border border-border bg-white/2 px-3 py-2">
+            <summary className="cursor-pointer list-none text-[11px] font-medium text-muted [&::-webkit-details-marker]:hidden">
+              {pluralize(plan.closeable.length, "vacant account")} found — review
+            </summary>
+            <ul className="mt-2 max-h-40 space-y-1 overflow-auto border-t border-border/50 pt-2 text-[11px]">
+              {plan.closeable.map((account) => (
+                <li
+                  key={account.address}
+                  className="flex items-center justify-between gap-2"
+                >
+                  <span
+                    className="min-w-0 truncate font-mono text-subtle"
+                    title={account.address}
+                  >
+                    {truncateAddress(account.address, 4, 4)}
+                  </span>
+                  <span className="shrink-0 tabular-nums text-muted">
+                    {formatSol(account.lamports)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        ) : null}
+
         <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-subtle">
           <ShieldCheck className="mt-px size-3.5 shrink-0 text-success" aria-hidden />
           <span>
-            Spacedust takes {RECLAIM_RATE} of the rent it returns, which is the same
-            rate The Void charges — closing an empty account is the same kind of job
-            in both places. Nothing is sold, burned or approved, and the only other
-            cost is the network fee.
+            {rentFeeConfigured ? (
+              <>
+                Spacedust takes {RECLAIM_RATE} of the rent it returns, which is the
+                same rate The Void charges — closing an empty account is the same
+                kind of job in both places. Nothing is sold, burned or approved, and
+                the only other cost is the network fee.
+              </>
+            ) : (
+              <>
+                Reclaimed rent comes back to you in full — no fee is taken. Nothing
+                is sold, burned or approved, and the only cost is the network fee.
+              </>
+            )}
           </span>
         </p>
         {hasPreview ? (
@@ -213,9 +263,11 @@ export function RentReclaimPanel({
               {reclaim.summary.failedCount > 0
                 ? `${pluralize(reclaim.summary.failedCount, "account")} could not be closed. `
                 : ""}
-              {formatSol(reclaim.summary.rentLamports)} freed, our{" "}
-              {RECLAIM_RATE} fee {formatSol(reclaim.summary.reclaimFeeLamports)},
-              network fee {formatSol(reclaim.summary.feeLamports)}.
+              {formatSol(reclaim.summary.rentLamports)} freed
+              {reclaim.summary.reclaimFeeLamports > 0
+                ? `, our ${RECLAIM_RATE} fee ${formatSol(reclaim.summary.reclaimFeeLamports)}`
+                : ""}
+              , network fee {formatSol(reclaim.summary.feeLamports)}.
             </p>
             {reclaim.summary.signatures.length > 0 ? (
               <div className="mt-2 flex flex-wrap gap-1.5">

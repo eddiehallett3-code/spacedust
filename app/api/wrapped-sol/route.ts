@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { allowRequest, rateLimitResponse } from "@/lib/api/rate-limit";
+import { describeFailure } from "@/lib/api/redact";
 import { z } from "zod";
 import { MissingEnvError } from "@/lib/config/env";
 import { listWrappedSolAccounts } from "@/lib/token-source/wrapped-sol.server";
@@ -48,9 +49,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     return NextResponse.json(
       {
         error:
-          error instanceof Error
-            ? error.message
-            : "Could not read wrapped SOL accounts.",
+          describeFailure(error) || "Could not read wrapped SOL accounts.",
       },
       { status: 502 },
     );

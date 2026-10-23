@@ -81,16 +81,24 @@ describe("clientKey", () => {
   const withHeaders = (headers: Record<string, string>) =>
     new Request("https://spacedust.cc/api/rpc", { headers });
 
-  it("takes the first forwarding entry as the client", () => {
-    // The remainder of the header is the hops the request travelled through;
-    // counting a client against its proxy would pool unrelated users.
+  it("prefers the header the platform sets, which a client cannot choose", () => {
     expect(
-      clientKey(withHeaders({ "x-forwarded-for": "203.0.113.9, 70.41.3.18" })),
-    ).toBe("203.0.113.9");
+      clientKey(
+        withHeaders({
+          "x-real-ip": "198.51.100.7",
+          "x-forwarded-for": "203.0.113.9",
+        }),
+      ),
+    ).toBe("198.51.100.7");
   });
 
-  it("falls back to x-real-ip", () => {
-    expect(clientKey(withHeaders({ "x-real-ip": "198.51.100.7" }))).toBe("198.51.100.7");
+  it("counts a client against the hop our proxy appended, not the one it claimed", () => {
+    // A caller can prepend anything to `x-forwarded-for`; only the last entry was
+    // written by the proxy in front of us. Reading the first gave every request a
+    // fresh bucket just by changing the prefix, which is no budget at all.
+    expect(
+      clientKey(withHeaders({ "x-forwarded-for": "203.0.113.9, 70.41.3.18" })),
+    ).toBe("70.41.3.18");
   });
 
   it("pools requests with no forwarding information rather than exempting them", () => {

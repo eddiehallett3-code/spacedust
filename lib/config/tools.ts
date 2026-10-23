@@ -94,7 +94,7 @@ export const TOOLS: Tool[] = [
     name: "Salvage",
     href: "/salvage",
     tagline:
-      "Reclaim rent from empty token accounts and unwrap wSOL. Pro adds .sns name deletion and uncloseable-account diagnostics.",
+      "Retrieve rent from empty accounts and excess rent, unwrap wSOL, and close unused .sns names in Pro.",
     cta: "Open Salvage",
   },
   {
@@ -109,7 +109,7 @@ export const TOOLS: Tool[] = [
     name: "Wallet Scan",
     href: "/scan",
     tagline:
-      "Look up any wallet without connecting — see what a sweep would recover.",
+      "Look up any wallet read-only — see what can be reclaimed.",
     cta: "Look up a wallet",
   },
 ];

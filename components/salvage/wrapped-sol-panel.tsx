@@ -17,6 +17,7 @@ import { SimulationReport } from "@/components/sweep/simulation-report";
 import { WarningsList } from "@/components/sweep/warnings-list";
 import { useUnwrapWrappedSol } from "@/hooks/use-unwrap-wsol";
 import { RECLAIM_RATE } from "@/lib/config/tools";
+import { getPublicFeeWallet } from "@/lib/config/public-env";
 import {
   planWrappedSolUnwraps,
   wrappedSolFeeLamports,
@@ -92,10 +93,13 @@ export function WrappedSolPanel({
 
   const hasPreview = unwrap.packed.length > 0;
   const chosen = plan.closeable;
-  const estimatedFee = chosen.reduce(
-    (sum, account) => sum + wrappedSolFeeLamports(account),
-    0,
-  );
+  const estimatedFee =
+    getPublicFeeWallet() === null
+      ? 0
+      : chosen.reduce(
+          (sum, account) => sum + wrappedSolFeeLamports(account),
+          0,
+        );
 
   if (!owner) {
     return (
@@ -249,8 +253,9 @@ export function WrappedSolPanel({
             <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-subtle">
               <ShieldCheck className="mt-px size-3.5 shrink-0 text-success" aria-hidden />
               <span>
-                Spacedust takes {RECLAIM_RATE} of the rent only. The wrapped SOL
-                itself is returned in full; the network fee is paid on top.
+                {getPublicFeeWallet() === null
+                  ? "No fee is taken. The wrapped SOL and its rent are returned to you in full; the network fee is paid on top."
+                  : `Spacedust takes ${RECLAIM_RATE} of the rent only. The wrapped SOL itself is returned in full; the network fee is paid on top.`}
               </span>
             </p>
 

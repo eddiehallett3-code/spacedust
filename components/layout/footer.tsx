@@ -50,8 +50,8 @@ export function Footer() {
             <p className="text-sm font-semibold tracking-tight">{APP_NAME}</p>
             <p className="text-sm leading-relaxed text-muted">
               Non-custodial tools for maintaining a Solana wallet — batch swap,
-              batch send, send the rest into The Void, and clear away what you are
-              done with.
+              batch send, send the rest into The Void, and reclaim the rent left
+              behind.
             </p>
             <p className="flex items-start gap-1.5 text-xs text-muted">
               <ShieldCheck
@@ -60,8 +60,9 @@ export function Footer() {
               />
               <span>
                 No fee on a swap. {(RECLAIM_FEE_BPS / 100).toFixed(1)}% of the
-                rent any flow returns — Void sends, account closes, Payload sends.
-                Shown before you sign, and you sign every transaction.
+                rent any flow returns — Void sends, account closes, excess rent,
+                Payload sends. Shown before you sign, and you sign every
+                transaction.
               </span>
             </p>
           </div>
@@ -97,7 +98,7 @@ export function Footer() {
               href="/approvals"
               className="text-muted transition-colors hover:text-foreground"
             >
-              Revoke approvals
+              Approvals
             </Link>
             <Link
               href="/scan"

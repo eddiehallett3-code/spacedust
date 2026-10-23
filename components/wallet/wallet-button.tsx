@@ -73,7 +73,7 @@ export function WalletButton({ className }: { className?: string }) {
           <Button
             variant="ghost"
             size="icon-sm"
-            className="size-7 sm:size-8"
+            className="hidden size-7 sm:inline-flex sm:size-8"
             onClick={copyAddress}
             aria-label="Copy wallet address"
           >
@@ -89,7 +89,7 @@ export function WalletButton({ className }: { className?: string }) {
           <Button
             variant="ghost"
             size="icon-sm"
-            className="size-7 sm:size-8"
+            className="hidden size-7 sm:inline-flex sm:size-8"
             onClick={() => void disconnect()}
             aria-label="Disconnect wallet"
           >

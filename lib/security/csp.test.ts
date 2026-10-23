@@ -94,9 +94,19 @@ describe("logoOrigins", () => {
 });
 
 describe("cspHeaderName", () => {
-  it("reports rather than enforces by default", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("reports rather than enforces outside production, where the console is the point", () => {
     vi.stubEnv("CSP_ENFORCE", "");
     expect(cspHeaderName()).toBe("Content-Security-Policy-Report-Only");
+  });
+
+  it("enforces by default in production, because a report-only policy protects nobody", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("CSP_ENFORCE", "");
+    expect(cspHeaderName()).toBe("Content-Security-Policy");
   });
 
   it("enforces only when asked", () => {
@@ -106,8 +116,17 @@ describe("cspHeaderName", () => {
     vi.stubEnv("CSP_ENFORCE", "true");
     expect(cspHeaderName()).toBe("Content-Security-Policy");
 
-    // Anything else is not a licence to enforce.
+    // Anything else that is not an explicit opt-out keeps the default, so a typo
+    // cannot silently loosen a production policy.
     vi.stubEnv("CSP_ENFORCE", "yes");
     expect(cspHeaderName()).toBe("Content-Security-Policy-Report-Only");
+  });
+
+  it("goes back to report-only when explicitly switched off", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    for (const value of ["0", "false", "off", " OFF "]) {
+      vi.stubEnv("CSP_ENFORCE", value);
+      expect(cspHeaderName()).toBe("Content-Security-Policy-Report-Only");
+    }
   });
 });

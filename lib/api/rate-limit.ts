@@ -157,12 +157,23 @@ function sweep(map: Map<string, Counter>, now: number): void {
  * is pooled, not exempted.
  */
 export function clientKey(request: Request): string {
-  const forwarded = request.headers.get("x-forwarded-for");
-  const first = forwarded?.split(",")[0]?.trim();
-  if (first) return first;
-
+  // `x-real-ip` first: the platform in front of us sets it and overwrites
+  // whatever the client sent, so it is the one header a visitor cannot choose.
   const realIp = request.headers.get("x-real-ip")?.trim();
   if (realIp) return realIp;
+
+  // `x-forwarded-for` is a chain, and every entry but the last was written by
+  // someone else — the left-hand entries are whatever the client claimed. Reading
+  // the first one let a caller pick its own bucket, and a fresh bucket per request
+  // is no budget at all. The right-most entry is the one our proxy appended.
+  const forwarded = request.headers.get("x-forwarded-for");
+  const hops =
+    forwarded
+      ?.split(",")
+      .map((hop) => hop.trim())
+      .filter((hop) => hop.length > 0) ?? [];
+  const nearest = hops[hops.length - 1];
+  if (nearest) return nearest;
 
   return "unknown";
 }

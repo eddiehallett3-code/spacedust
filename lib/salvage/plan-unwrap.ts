@@ -13,7 +13,8 @@ import {
 } from "@/lib/solana/instructions";
 import { feeFromRentLamports, fetchRentMinimums } from "@/lib/solana/rent";
 import { packTransactions, type PackUnit } from "@/lib/solana/pack";
-import { simulateAll } from "@/lib/solana/simulate";
+import { simulateAll, splitBySimulation } from "@/lib/solana/simulate";
+import { auditPlanBeforeSigning } from "@/lib/security/audit-plan";
 import { isValidSolanaAddress } from "@/lib/utils/sanitize";
 import type { PackedTransaction, SimulationOutcome } from "@/types/sweep";
 import type { WrappedSolAccount } from "@/types/salvage";
@@ -248,10 +249,10 @@ export async function planWrappedSolUnwrapsTx(
     );
   }
 
-  const simulations = await simulateAll(connection, packedResult.transactions);
+  const simulated = await simulateAll(connection, packedResult.transactions);
 
-  if (simulations.every((simulation) => !simulation.ok)) {
-    const firstError = simulations.find((simulation) => !simulation.ok);
+  if (simulated.every((simulation) => !simulation.ok)) {
+    const firstError = simulated.find((simulation) => !simulation.ok);
     throw new UnwrapError(
       firstError?.error ?? "Every transaction failed to simulate.",
       "Nothing was signed or sent. Rescan the wallet and try again.",
@@ -269,34 +270,78 @@ export async function planWrappedSolUnwrapsTx(
   const packedList = plan.closeable.filter((account) =>
     packedAccounts.has(account.address),
   );
-  const wrappedLamports = packedList.reduce(
+
+  // ── The audit: what is about to be signed ────────────────────────────────
+  // An unwrap is a close like any other, and it moves *more* than rent: the
+  // wrapped balance comes back with it. The audit proves the rent destination is
+  // the wallet, the account is one the plan listed, and the fee is the only SOL
+  // leaving.
+  auditPlanBeforeSigning({
+    prologue,
+    units,
+    packed: packedResult.transactions,
+    expected: {
+      flow: "salvage",
+      owner: ownerAddress,
+      feeWallet,
+      expectedFeeLamports: feeEnabled
+        ? packedList.reduce(
+            (sum, account) => sum + wrappedSolFeeLamports(account),
+            0,
+          )
+        : 0,
+      expectedSubjects: packedList.map((account) => account.address),
+      expectedCloses: packedList.map((account) => account.address),
+    },
+  });
+
+  // A transaction that failed simulation is not signed: it would be refused, or
+  // revert after the fee was paid.
+  const { packed, simulations, failed } = splitBySimulation(
+    packedResult.transactions,
+    simulated,
+  );
+  for (const failure of failed) {
+    warnings.push(
+      `Skipped one transaction: it failed its simulation (${failure.error ?? "no detail"}).`,
+    );
+  }
+  if (packed.length === 0) {
+    throw new UnwrapError(
+      "None of these unwrap transactions could be simulated.",
+      "Nothing was signed or sent. Rescan the wallet and try again.",
+      warnings,
+    );
+  }
+
+  const signedAccounts = new Set(packed.flatMap((tx) => tx.mints));
+  const signedList = packedList.filter((account) =>
+    signedAccounts.has(account.address),
+  );
+  const wrappedLamports = signedList.reduce(
     (sum, account) => sum + account.amountLamports,
     0,
   );
-  const rentLamports = packedList.reduce(
+  const rentLamports = signedList.reduce(
     (sum, account) => sum + Math.max(0, account.rentLamports),
     0,
   );
   const reclaimFeeLamports = feeEnabled
-    ? packedList.reduce(
-        (sum, account) => sum + wrappedSolFeeLamports(account),
-        0,
-      )
+    ? signedList.reduce((sum, account) => sum + wrappedSolFeeLamports(account), 0)
     : 0;
 
   return {
-    packed: packedResult.transactions,
+    packed,
     simulations,
     warnings,
     blockhash: blockhashInfo.blockhash,
     lastValidBlockHeight: blockhashInfo.lastValidBlockHeight,
-    estimatedFeeLamports:
-      packedResult.transactions.length * (BASE_FEE_LAMPORTS + priorityFee),
-    closeCount: packedAccounts.size,
+    estimatedFeeLamports: packed.length * (BASE_FEE_LAMPORTS + priorityFee),
+    closeCount: signedAccounts.size,
     wrappedLamports,
     rentLamports,
     reclaimFeeLamports,
     netReturnedLamports: wrappedLamports + rentLamports - reclaimFeeLamports,
-    hasFailures: simulations.some((simulation) => !simulation.ok),
+    hasFailures: failed.length > 0,
   };
 }

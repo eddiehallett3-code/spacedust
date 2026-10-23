@@ -63,17 +63,33 @@ export function logoOrigins(): string[] {
 }
 
 /**
- * Report-only unless enforcement is explicitly switched on.
+ * Enforced in production; report-only while developing, or when explicitly
+ * switched off.
+ *
+ * A report-only policy blocks nothing, so as a default in production it is a
+ * policy that protects nobody — and the failure it guards against (a wallet
+ * prompt rendered by injected script) only matters in production. The default is
+ * therefore the enforcing one there. `CSP_ENFORCE=0` (or `false`/`off`) is the
+ * deliberate escape hatch for a deployment that needs a report-only pass; `1`
+ * (or `true`) forces enforcement anywhere. Anything else keeps the default for
+ * the environment, so a typo cannot silently loosen a production policy.
  *
  * A wrong policy does not present as a policy problem: the wallet modal opens and
- * signing fails, or logos vanish, and nothing in the UI says "blocked by CSP". It
- * is the same shape as the `camera=()` bug in `next.config.ts`. So the default is a
- * policy that enforces nothing and reports what *would* have been blocked; set
- * `CSP_ENFORCE=1` once a report-only pass is quiet.
+ * signing fails, or logos vanish, and nothing in the UI says "blocked by CSP". So
+ * `npm run dev` stays report-only, where the console reports what would be
+ * blocked, and `CSP_ENFORCE=0` is the one-line way back in production.
  */
 export function cspHeaderName(): string {
   const flag = process.env.CSP_ENFORCE?.trim().toLowerCase();
-  return flag === "1" || flag === "true"
+
+  if (flag === "0" || flag === "false" || flag === "off") {
+    return "Content-Security-Policy-Report-Only";
+  }
+  if (flag === "1" || flag === "true") {
+    return "Content-Security-Policy";
+  }
+
+  return process.env.NODE_ENV === "production"
     ? "Content-Security-Policy"
     : "Content-Security-Policy-Report-Only";
 }

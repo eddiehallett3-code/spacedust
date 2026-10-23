@@ -4,6 +4,8 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { Card } from "@/components/ui/card";
 import { ConnectWalletCta } from "@/components/wallet/wallet-button";
 import { DomainsPanel } from "@/components/salvage/domains-panel";
+import { ExcessRentPanel } from "@/components/salvage/excess-rent-panel";
+import { PumpAccumulatorPanel } from "@/components/salvage/pump-accumulator-panel";
 import { UncloseableAccountsPanel } from "@/components/salvage/uncloseable-panel";
 import { WrappedSolPanel } from "@/components/salvage/wrapped-sol-panel";
 import { RentReclaimPanel } from "@/components/sweep/rent-reclaim-panel";
@@ -13,20 +15,17 @@ import { useWalletScan } from "@/hooks/use-wallet-scan";
 /**
  * Salvage.
  *
- * Basic mode is the routine recovery: close token accounts that hold no balance
- * and unwrap wrapped SOL. Both give back something the wallet already owns —
- * rent from an empty account, and the SOL behind a wSOL balance — without
- * destroying an asset.
- *
- * Pro adds the one irreversible action here, deleting an unused `.sns` name,
- * plus the diagnostic list of empty accounts this wallet cannot close. The split
- * is about consequence, not difficulty: giving a name back to the open namespace
- * deserves a deliberate switch; an unwrap does not.
+ * Basic mode is the routine recovery: empty token accounts, Token-2022 excess
+ * rent, wrapped SOL, and the diagnostic list of empty accounts the token
+ * program will not let this wallet close. Pro adds the one irreversible action
+ * here: deleting an unused `.sns` name. The split is about consequence, not
+ * difficulty: giving a name back to the open namespace deserves a deliberate
+ * switch; an unwrap or a close does not.
  */
 export function SalvageApp() {
   const { connected, publicKey } = useWallet();
   const { isPro } = useMode();
-  const scan = useWalletScan();
+  const scan = useWalletScan({ includeExcessRent: true });
 
   if (!connected) {
     return (
@@ -35,8 +34,8 @@ export function SalvageApp() {
           Connect the wallet to see what is recoverable
         </p>
         <p className="mx-auto mt-2 max-w-sm text-xs leading-relaxed text-muted">
-          Salvage closes token accounts that hold no balance, returning the rent
-          each one has been holding since it was emptied.
+          Salvage retrieves rent, reclaims excess rent, unwraps wSOL and closes
+          unused .sns names in Pro — returning rent the wallet already owns.
         </p>
         <div className="mt-4 flex justify-center">
           <ConnectWalletCta />
@@ -55,38 +54,52 @@ export function SalvageApp() {
         whenEmpty="explain"
       />
 
+      <PumpAccumulatorPanel
+        account={scan.scan?.pumpAccumulator ?? null}
+        scanError={scan.scan?.pumpAccumulatorError ?? null}
+        onClosed={() => void scan.rescan()}
+      />
+
+      {/* Part of Basic: a Token-2022 account can hold more lamports than its
+          data size requires. Withdrawing the excess leaves the token and the
+          account untouched, so this is a rent recovery, not a cleanup. It hides
+          itself when no account qualifies. */}
+      <ExcessRentPanel
+        accounts={scan.scan?.excessRentAccounts ?? []}
+        scanError={scan.scan?.excessRentError ?? null}
+        onWithdrawn={() => void scan.rescan()}
+      />
+
       {/* Part of Basic: unwrapping returns the wallet's own SOL and closes an
-          account that only exists to hold it. When there is none, the panel
-          removes itself rather than adding a second empty-state card. */}
+          account that only exists to hold it. It stays visible at zero so the
+          page always describes the whole tool. */}
       <WrappedSolPanel
         onUnwrapped={() => void scan.rescan()}
-        whenEmpty="hide"
+        whenEmpty="explain"
+      />
+
+      <UncloseableAccountsPanel
+        accounts={scan.scan?.emptyAccounts ?? []}
+        owner={publicKey?.toBase58() ?? ""}
+        scanError={scan.scan?.emptyAccountsError ?? null}
       />
 
       {isPro ? (
-        <section className="space-y-5" aria-label="Pro cleanup">
+        <section className="space-y-5" aria-label="SNS names">
           <div className="rounded-xl border border-violet-core/20 bg-violet-core/6 px-4 py-3">
             <p className="text-sm font-medium text-violet-glow">Pro cleanup</p>
             <p className="mt-1 text-[11px] leading-relaxed text-muted">
-              Give unused `.sns` names back to the open namespace, and see which
-              empty accounts the token program will not let this wallet close.
-              Name deletion is previewed and simulated before anything is signed;
-              the diagnostics list is read-only.
+              Give unused <code>.sns</code> names back to the open namespace. Name deletion
+              is previewed and simulated before anything is signed.
             </p>
           </div>
 
           <DomainsPanel />
-
-          <UncloseableAccountsPanel
-            accounts={scan.scan?.emptyAccounts ?? []}
-            owner={publicKey?.toBase58() ?? ""}
-            scanError={scan.scan?.emptyAccountsError ?? null}
-          />
         </section>
       ) : (
         <p className="rounded-xl border border-border bg-white/2 px-4 py-3 text-[11px] leading-relaxed text-subtle">
-          Pro mode adds `.sns` name deletion and a list of accounts this wallet
-          cannot close. Turn on Pro in the navbar when you need them.
+          Pro mode adds <code>.sns</code> name deletion. Turn it on in the navbar
+          when you need it.
         </p>
       )}
     </div>

@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { PublicKey, TransactionMessage, VersionedTransaction } from "@solana/web3.js";
+import {
+  PublicKey,
+  SystemProgram,
+  TransactionInstruction,
+  TransactionMessage,
+  VersionedTransaction,
+} from "@solana/web3.js";
 import { base64ToBytes, bytesToBase64 } from "@/lib/utils/base64";
 import type { PackedTransaction } from "@/types/sweep";
 import {
@@ -275,9 +281,12 @@ describe("signTransactions — a wallet that never answers", () => {
     expect(result?.signatures[0]?.some((byte) => byte !== 0)).toBe(true);
   });
 
-  it("hands Phantom one transaction at a time instead of a batch", async () => {
-    // Phantom's simulation guidance requires signTransaction; a batch call can
-    // make its approval sheet a simulation warning instead of a clear review.
+  it("signs Phantom one transaction at a time, because a batch is what it blocks", async () => {
+    // Observed against a production build: Phantom's scanner refuses a batched
+    // approval ("request blocked", flagged as malicious) even when the batch is
+    // nothing but routine Jupiter swaps — while the same transactions signed one
+    // at a time raise no warning, and a single-transaction sweep was never
+    // flagged. Extra prompts are the price of a sweep that works at all.
     let singles = 0;
     let batches = 0;
     const wallet = {
@@ -297,6 +306,28 @@ describe("signTransactions — a wallet that never answers", () => {
     expect(result).toHaveLength(2);
     expect(singles).toBe(2);
     expect(batches).toBe(0);
+  });
+
+  it("still gives every other wallet the single-prompt batch", async () => {
+    let singles = 0;
+    let batches = 0;
+    const wallet = {
+      walletName: "Solflare",
+      signTransaction: async (transaction: VersionedTransaction) => {
+        singles += 1;
+        return signed(transaction);
+      },
+      signAllTransactions: async (transactions: VersionedTransaction[]) => {
+        batches += 1;
+        return transactions.map(signed);
+      },
+    } as unknown as SigningCapableWallet;
+
+    const result = await signTransactions(wallet, [packed(0), packed(1)]);
+
+    expect(result).toHaveLength(2);
+    expect(singles).toBe(0);
+    expect(batches).toBe(1);
   });
 
   it("passes a wallet's own refusal through untouched, not the timeout", async () => {
@@ -339,8 +370,8 @@ describe("signTransactions — a wallet that never answers", () => {
 describe("settling a batch", () => {
   const lastValidBlockHeight = 1_000_000;
 
-  function signedPacked(): { meta: PackedTransaction; transaction: VersionedTransaction } {
-    const meta = packed(0);
+  function signedPacked(index = 0): { meta: PackedTransaction; transaction: VersionedTransaction } {
+    const meta = packed(index);
     const transaction = signed(
       VersionedTransaction.deserialize(base64ToBytes(meta.base64)),
     );
@@ -411,5 +442,215 @@ describe("settling a batch", () => {
 
     expect(results[0]?.ok).toBe(true);
     expect(transactionReads).toBe(0);
+  });
+
+  it("advances the progress bar as each transaction settles", async () => {
+    const first = signedPacked(0);
+    const second = signedPacked(1);
+    let send = 0;
+    const progress: Array<[number, number]> = [];
+
+    const connection = {
+      getBlockHeight: async () => 1,
+      sendRawTransaction: async () => `sig-${(send += 1)}`,
+      getSignatureStatuses: async (signatures: string[]) => ({
+        value: signatures.map(() => ({
+          err: null,
+          confirmationStatus: "confirmed",
+          confirmations: 1,
+        })),
+      }),
+    } as never;
+
+    const results = await submitTransactions(
+      connection,
+      [first.transaction, second.transaction],
+      [first.meta, second.meta],
+      {
+        blockhash: "11111111111111111111111111111111",
+        lastValidBlockHeight,
+      },
+      (completed, total) => progress.push([completed, total]),
+    );
+
+    expect(results).toHaveLength(2);
+    expect(progress).toEqual([
+      [0, 2],
+      [1, 2],
+      [2, 2],
+    ]);
+  });
+});
+
+describe("signTransactions — a wallet that returns different bytes", () => {
+  // The last thing between a plan and the chain is the wallet's answer. A signed
+  // transaction is not automatically the transaction that was requested, so the
+  // message is compared before it is sent.
+  const STRANGER = "9qDz4uC7M7oJdhCErKEtLzm4pkdjdc7uQAFggy5jYrmt";
+  const GUARD_PROGRAM = "noopb9bkMVfRPU8AsbpTUg8AQkHtKwMYZiFUjNRtMmV";
+
+  const walletReturning = (
+    mutate: (requested: VersionedTransaction) => VersionedTransaction,
+  ): SigningCapableWallet =>
+    ({
+      signTransaction: async (transaction: VersionedTransaction) =>
+        mutate(transaction),
+    }) as unknown as SigningCapableWallet;
+
+  function messageWith(instructions: TransactionInstruction[]): VersionedTransaction {
+    return new VersionedTransaction(
+      new TransactionMessage({
+        payerKey: PublicKey.default,
+        recentBlockhash: "11111111111111111111111111111111",
+        instructions,
+      }).compileToV0Message(),
+    );
+  }
+
+  function packedWith(
+    instructions: TransactionInstruction[],
+  ): PackedTransaction {
+    return {
+      index: 0,
+      base64: bytesToBase64(messageWith(instructions).serialize()),
+      mints: [],
+      sizeBytes: 0,
+      instructionCount: instructions.length,
+      includesRentReclaim: false,
+      rentReclaimMints: [],
+    };
+  }
+
+  const transferTo = (address: string): TransactionInstruction[] => [
+    SystemProgram.transfer({
+      fromPubkey: PublicKey.default,
+      toPubkey: new PublicKey(address),
+      lamports: 1,
+    }),
+  ];
+
+  it("refuses a transaction with an instruction the wallet added", async () => {
+    const call = signTransactions(
+      walletReturning(() => signed(messageWith(transferTo(STRANGER)))),
+      [packed(0)],
+    );
+
+    await expect(call).rejects.toThrow(/not the one this app built/);
+    await expect(call).rejects.toThrow(/System/);
+  });
+
+  it("refuses a transaction whose instruction was rewritten", async () => {
+    // The theft this check exists for: the same instruction, the same length,
+    // a different destination. Nothing else in the pipeline would notice.
+    const call = signTransactions(
+      walletReturning(() => signed(messageWith(transferTo(STRANGER)))),
+      [packedWith(transferTo(PublicKey.default.toBase58()))],
+    );
+
+    await expect(call).rejects.toThrow(/instruction 1 \(System\) was changed or removed/);
+  });
+
+  it("accepts a compute-budget instruction the wallet put in front", async () => {
+    // Phantom adds its priority-fee instruction ahead of the plan's own, which
+    // shifts every index by one. A positional comparison called that "instruction
+    // 1 was changed" and refused the signature; the instructions are unchanged.
+    const wallet = new PublicKey(GUARD_PROGRAM);
+    const added = new TransactionInstruction({
+      programId: new PublicKey("ComputeBudget111111111111111111111111111111"),
+      keys: [],
+      data: Buffer.from([3, 0, 0, 0, 0, 0, 0, 0, 0]),
+    });
+
+    const call = signTransactions(
+      walletReturning(() =>
+        signed(
+          messageWith([
+            added,
+            SystemProgram.transfer({
+              fromPubkey: PublicKey.default,
+              toPubkey: wallet,
+              lamports: 1,
+            }),
+          ]),
+        ),
+      ),
+      [
+        packedWith([
+          SystemProgram.transfer({
+            fromPubkey: PublicKey.default,
+            toPubkey: wallet,
+            lamports: 1,
+          }),
+        ]),
+      ],
+    );
+
+    await expect(call).resolves.toHaveLength(1);
+  });
+
+  it("still refuses a value program the wallet put in front", async () => {
+    const call = signTransactions(
+      walletReturning(() =>
+        signed(
+          messageWith([
+            ...transferTo(STRANGER),
+            ...transferTo(PublicKey.default.toBase58()),
+          ]),
+        ),
+      ),
+      [packedWith(transferTo(PublicKey.default.toBase58()))],
+    );
+
+    await expect(call).rejects.toThrow(/an added instruction calls System/);
+  });
+
+  it("accepts a read-only guard inserted between our instructions", async () => {
+    const guard = new TransactionInstruction({
+      programId: new PublicKey(GUARD_PROGRAM),
+      keys: [],
+      data: Buffer.from([9]),
+    });
+    const first = transferTo(PublicKey.default.toBase58())[0]!;
+    const second = {
+      ...transferTo(STRANGER)[0]!,
+    };
+
+    const call = signTransactions(
+      walletReturning(() =>
+        signed(messageWith([first, guard, second])),
+      ),
+      [packedWith([first, second])],
+    );
+
+    await expect(call).resolves.toHaveLength(1);
+  });
+
+  it("accepts a read-only guard instruction the wallet appended", async () => {
+    const call = signTransactions(
+      walletReturning(() =>
+        signed(
+          messageWith([
+            new TransactionInstruction({
+              programId: new PublicKey(GUARD_PROGRAM),
+              // No accounts at all: it cannot read, write or sign for anything.
+              keys: [],
+              data: Buffer.from([1]),
+            }),
+          ]),
+        ),
+      ),
+      [packed(0)],
+    );
+
+    await expect(call).resolves.toHaveLength(1);
+  });
+
+  it("accepts the transaction it was given, signed", async () => {
+    const call = signTransactions(
+      walletReturning((requested) => signed(requested)),
+      [packed(0)],
+    );
+
+    await expect(call).resolves.toHaveLength(1);
   });
 });

@@ -4,11 +4,10 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { Container } from "@/components/layout/container";
 import { ToolEmblem } from "@/components/layout/tool-emblem";
-import { LandingFlight } from "@/components/landing/landing-flight";
 import { LandingHero } from "@/components/landing/landing-hero";
 import { Card, CardContent } from "@/components/ui/card";
 import { DISPLAY_FONT_STYLE } from "@/lib/ui/fonts";
-import { getSiteUrl } from "@/lib/config/site";
+import { DAPP_ICON_PATH, getAppName, getSiteUrl } from "@/lib/config/site";
 import { TOOLS } from "@/lib/config/tools";
 import { RECLAIM_FEE_BPS } from "@/lib/utils/constants";
 
@@ -62,12 +61,12 @@ function structuredData() {
   return {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    name: process.env.NEXT_PUBLIC_APP_NAME || "Spacedust",
+    name: getAppName(),
     applicationCategory: "FinanceApplication",
     operatingSystem: "Web",
     url: getSiteUrl(),
-    logo: `${getSiteUrl()}/logo-512.png`,
-    image: `${getSiteUrl()}/logo-512.png`,
+    logo: `${getSiteUrl()}${DAPP_ICON_PATH}`,
+    image: `${getSiteUrl()}${DAPP_ICON_PATH}`,
     description: `Non-custodial tools for a Solana wallet. No fee on a swap; ${reclaimRate} of the rent any flow returns, shown before you sign, and you sign every transaction.`,
     featureList: TOOLS.map((tool) => `${tool.name} — ${tool.tagline}`),
   };
@@ -93,10 +92,9 @@ export default async function HomePage() {
         // break out of the tag and it has to be escaped properly.
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData()) }}
       />
-      <LandingFlight>
-        <LandingHero />
+      <LandingHero />
 
-        {/* Each tool in its own box: the mark large enough to recognise, one line
+      {/* Each tool in its own box: the mark large enough to recognise, one line
             of what it is for, and a way in. The line comes from the shared tool
             list, so it cannot drift away from the nav's own labels. Three across
             rather than four: with six tools that is two even rows, and the wider
@@ -160,7 +158,6 @@ export default async function HomePage() {
             ))}
           </div>
         </section>
-      </LandingFlight>
 
       <section className="relative z-10 mt-14 text-center">
         <p className="text-sm">

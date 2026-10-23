@@ -1,5 +1,12 @@
 import type { MetadataRoute } from "next";
 import { TOOLS } from "@/lib/config/tools";
+import {
+  DAPP_ICON_192_PATH,
+  DAPP_ICON_PATH,
+  DAPP_MASKABLE_ICON_PATH,
+  getAppName,
+  getSiteUrl,
+} from "@/lib/config/site";
 
 /**
  * The web app manifest.
@@ -17,9 +24,12 @@ import { TOOLS } from "@/lib/config/tools";
  * the app to a home screen.
  */
 export default function manifest(): MetadataRoute.Manifest {
-  const name = process.env.NEXT_PUBLIC_APP_NAME || "Spacedust";
+  const name = getAppName();
+  const site = getSiteUrl();
 
   return {
+    id: "/",
+    scope: "/",
     name: `${name} — batch tools for a Solana wallet`,
     short_name: name,
     description:
@@ -28,14 +38,31 @@ export default function manifest(): MetadataRoute.Manifest {
     display: "standalone",
     background_color: "#04050c",
     theme_color: "#04050c",
+    lang: "en",
+    dir: "ltr",
+    categories: ["finance", "utilities"],
     // PNG only: Android's install prompt and several in-wallet browsers ask for
     // raster icons; an SVG is valid "as any" but not rendered by every image
     // loader, so the manifest does not advertise one.
+    //
+    // Absolute URLs on purpose. A dApp browser may read the manifest outside the
+    // document; a relative `/dapp-icon-v2-512.png` would then resolve against the
+    // wallet's origin instead of ours.
     icons: [
-      { src: "/logo-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
-      { src: "/logo-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
       {
-        src: "/logo-512-maskable.png",
+        src: `${site}${DAPP_ICON_192_PATH}`,
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: `${site}${DAPP_ICON_PATH}`,
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: `${site}${DAPP_MASKABLE_ICON_PATH}`,
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",
@@ -45,7 +72,7 @@ export default function manifest(): MetadataRoute.Manifest {
       name: tool.name,
       short_name: tool.name,
       description: tool.tagline,
-      url: tool.href,
+      url: `${site}${tool.href}`,
     })),
   };
 }

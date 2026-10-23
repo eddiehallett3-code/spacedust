@@ -339,8 +339,9 @@ export function useSweep() {
 
       patch({ phase: "awaiting-signature", error: null });
 
-      // ── 1. Ask the wallet to sign. Phantom gets one transaction at a time;
-      // other wallets can still use their single-prompt batch method. ────────
+      // ── 1. Ask the wallet to sign. Phantom gets one transaction at a time,
+      // because its scanner blocks a batched approval; other wallets still get
+      // their single-prompt batch method. ────────────────────────────────────
       const signed = await signTransactions(
         { signTransaction, signAllTransactions, walletName: wallet?.adapter.name },
         result.packed,

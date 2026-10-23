@@ -13,7 +13,8 @@ import {
 } from "@/lib/solana/instructions";
 import { feeFromRentLamports, fetchRentMinimums } from "@/lib/solana/rent";
 import { packTransactions, type PackUnit } from "@/lib/solana/pack";
-import { simulateAll } from "@/lib/solana/simulate";
+import { simulateAll, splitBySimulation } from "@/lib/solana/simulate";
+import { auditPlanBeforeSigning } from "@/lib/security/audit-plan";
 import {
   EMPTY_ACCOUNT_SKIP_TEXT,
   planEmptyAccountCloses,
@@ -208,21 +209,6 @@ export async function planEmptyAccountClosesTx(
     );
   }
 
-  const simulations = await simulateAll(connection, packedResult.transactions);
-
-  if (simulations.every((simulation) => !simulation.ok)) {
-    const firstError = simulations.find((simulation) => !simulation.ok);
-    throw new CloseError(
-      firstError?.error ?? "Every transaction failed to simulate.",
-      "Nothing was signed or sent. Rescan the wallet and try again.",
-      warnings,
-    );
-  }
-
-  const priorityFee = Math.ceil(
-    (CLOSE_COMPUTE_UNIT_LIMIT * PRIORITY_FEE_MICRO_LAMPORTS) / 1_000_000,
-  );
-
   // Priced from the accounts that actually made it into a transaction, not from
   // the ones we set out to close: a dropped unit returns nothing, and quoting its
   // rent would overstate what the user is about to receive.
@@ -232,37 +218,95 @@ export async function planEmptyAccountClosesTx(
   const packedList = plan.closeable.filter((account) =>
     packedAccounts.has(account.address),
   );
-  const rentLamports = packedList.reduce(
-    (sum, account) => sum + account.lamports,
-    0,
-  );
 
   // Summed per account, exactly as the instructions were built, rather than
   // computed from the total: flooring a percentage of a sum is not the same as
   // summing floored percentages, and the difference would be a lamport the user
   // was charged and never told about. Zero when fees are off, so the subtraction
   // below stays unconditional.
-  const reclaimFeeLamports = feeEnabled
-    ? packedList.reduce(
-        (sum, account) =>
-          sum + feeFromRentLamports(account.lamports, RECLAIM_FEE_BPS),
-        0,
-      )
-    : 0;
+  const feeFor = (accounts: typeof packedList): number =>
+    feeEnabled
+      ? accounts.reduce(
+          (sum, account) =>
+            sum + feeFromRentLamports(account.lamports, RECLAIM_FEE_BPS),
+          0,
+        )
+      : 0;
+
+  // ── The audit: what is about to be signed ────────────────────────────────
+  // Same gate every other flow goes through: each close must name the wallet as
+  // the rent destination, act only on an account the plan listed, and carry no
+  // SOL beyond the fee this plan computed.
+  auditPlanBeforeSigning({
+    prologue,
+    units,
+    packed: packedResult.transactions,
+    expected: {
+      flow: "salvage",
+      owner: owner.toBase58(),
+      feeWallet,
+      expectedFeeLamports: feeFor(packedList),
+      expectedSubjects: packedList.map((account) => account.address),
+      expectedCloses: packedList.map((account) => account.address),
+    },
+  });
+
+  const simulated = await simulateAll(connection, packedResult.transactions);
+
+  if (simulated.every((simulation) => !simulation.ok)) {
+    const firstError = simulated.find((simulation) => !simulation.ok);
+    throw new CloseError(
+      firstError?.error ?? "Every transaction failed to simulate.",
+      "Nothing was signed or sent. Rescan the wallet and try again.",
+      warnings,
+    );
+  }
+
+  // A transaction that failed simulation is not signed: it would be refused, or
+  // revert after the fee was paid.
+  const { packed, simulations, failed } = splitBySimulation(
+    packedResult.transactions,
+    simulated,
+  );
+  for (const failure of failed) {
+    warnings.push(
+      `Skipped one transaction: it failed its simulation (${failure.error ?? "no detail"}).`,
+    );
+  }
+  if (packed.length === 0) {
+    throw new CloseError(
+      "None of these close transactions could be simulated.",
+      "Nothing was signed or sent. Rescan the wallet and try again.",
+      warnings,
+    );
+  }
+
+  const priorityFee = Math.ceil(
+    (CLOSE_COMPUTE_UNIT_LIMIT * PRIORITY_FEE_MICRO_LAMPORTS) / 1_000_000,
+  );
+
+  const signedAccounts = new Set(packed.flatMap((tx) => tx.mints));
+  const signedList = packedList.filter((account) =>
+    signedAccounts.has(account.address),
+  );
+  const rentLamports = signedList.reduce(
+    (sum, account) => sum + account.lamports,
+    0,
+  );
+  const reclaimFeeLamports = feeFor(signedList);
 
   return {
-    packed: packedResult.transactions,
+    packed,
     simulations,
     warnings,
     blockhash: blockhashInfo.blockhash,
     lastValidBlockHeight: blockhashInfo.lastValidBlockHeight,
-    estimatedFeeLamports:
-      packedResult.transactions.length * (BASE_FEE_LAMPORTS + priorityFee),
-    closeCount: packedAccounts.size,
+    estimatedFeeLamports: packed.length * (BASE_FEE_LAMPORTS + priorityFee),
+    closeCount: signedAccounts.size,
     rentLamports,
     reclaimFeeLamports,
     // What the user actually receives, which is the only number worth showing them.
     netRentLamports: rentLamports - reclaimFeeLamports,
-    hasFailures: simulations.some((simulation) => !simulation.ok),
+    hasFailures: failed.length > 0,
   };
 }

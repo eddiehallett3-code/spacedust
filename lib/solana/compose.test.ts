@@ -83,16 +83,38 @@ function build(overrides: Partial<SwapBuild> = {}): SwapBuild {
 function connectionWith(
   lamports: number,
   program: string = TOKEN_PROGRAM_ID,
+  withheld = 0,
 ): Connection {
   return {
-    getMultipleAccountsInfo: async (addresses: PublicKey[]) =>
-      addresses.map(() => ({
-        data: Buffer.alloc(0),
+    getMultipleParsedAccounts: async (addresses: PublicKey[]) => ({
+      context: { slot: 1 },
+      value: addresses.map(() => ({
+        data: {
+          program: "spl-token",
+          space: 165,
+          parsed: {
+            type: "account",
+            info: {
+              state: "initialized",
+              tokenAmount: { amount: "0", decimals: 6 },
+              extensions:
+                withheld > 0
+                  ? [
+                      {
+                        extension: "transferFeeAmount",
+                        state: { withheldAmount: String(withheld) },
+                      },
+                    ]
+                  : [],
+            },
+          },
+        },
         executable: false,
         lamports,
         owner: new PublicKey(program),
         rentEpoch: 0,
       })),
+    }),
   } as unknown as Connection;
 }
 
@@ -357,7 +379,7 @@ describe("composePackUnits rent-reclaim fee", () => {
     // not there fails the whole packed transaction, so an unverified target is
     // skipped and the swap still runs.
     const failing = {
-      getMultipleAccountsInfo: async () => {
+      getMultipleParsedAccounts: async () => {
         throw new Error("RPC down");
       },
     } as unknown as Connection;
@@ -382,6 +404,51 @@ describe("composePackUnits rent-reclaim fee", () => {
     expect(warnings.join(" ")).toMatch(/could not be checked right now/);
     // No close means no rent was read, so no fee can be charged on it.
     expect(systemTransfers(instructions)).toEqual([]);
+  });
+
+  it("closes a transfer-fee account that holds nothing withheld", async () => {
+    // The rule is per account, not per mint: a fee-bearing mint whose account has
+    // no withheld balance closes exactly like a legacy one. Refusing it would
+    // leave behind rent the user could have had back.
+    const { units } = await composePackUnits({
+      owner,
+      builds: [
+        swapBuild({ tokenAccount: derivedAta(OWNER, USDC, true) }),
+      ],
+      skipCloseMints: new Set<string>(),
+      tokenPrograms: new Map([[USDC, "token2022"]]),
+      connection: connectionWith(RENT, TOKEN_2022_PROGRAM_ID),
+      feeWallet: FEE_WALLET,
+      reclaimFeeBps: 150,
+    });
+
+    expect(units[0]?.rentReclaim).toBe(true);
+    expect(
+      (units[0]?.instructions ?? []).filter(
+        (ix) =>
+          ix.programId.toBase58() === TOKEN_2022_PROGRAM_ID && ix.data[0] === 9,
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("skips a close the chain would refuse for withheld transfer fees, and says why", async () => {
+    // `Custom: 35`: the mint has to harvest first. A close here would revert the
+    // whole packed transaction, swaps included.
+    const { units, warnings } = await composePackUnits({
+      owner,
+      builds: [
+        swapBuild({ tokenAccount: derivedAta(OWNER, USDC, true) }),
+      ],
+      skipCloseMints: new Set<string>(),
+      tokenPrograms: new Map([[USDC, "token2022"]]),
+      connection: connectionWith(RENT, TOKEN_2022_PROGRAM_ID, 5_000),
+      feeWallet: FEE_WALLET,
+      reclaimFeeBps: 150,
+    });
+
+    expect(units[0]?.rentReclaim).toBe(false);
+    expect(systemTransfers(units[0]?.instructions ?? [])).toEqual([]);
+    expect(warnings.join(" ")).toMatch(/withheld transfer fees/);
   });
 });
 

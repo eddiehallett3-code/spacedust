@@ -8,6 +8,39 @@
  * account", it is giving the name up.
  */
 
+/**
+ * A Pump.fun user volume accumulator.
+ *
+ * Pump.fun creates one small program-owned account per wallet to track volume
+ * for fee tiers. It holds only rent; closing it returns that rent and resets the
+ * volume tracking for the wallet. It is not a token account and cannot be found
+ * by `getTokenAccountsByOwner` — the address is the program's PDA.
+ */
+export interface PumpAccumulator {
+  /** The derived `user_volume_accumulator` PDA. */
+  address: string;
+  /** Lamports the account holds, all returned to the owner on close. */
+  lamports: number;
+}
+
+/** One Token-2022 account holding more lamports than its rent-exempt minimum. */
+export interface ExcessRentAccount {
+  /** The token account with the extra lamports. */
+  address: string;
+  /** The mint it holds, used to identify the asset in the UI. */
+  mint: string;
+  /** Current lamports in the account. */
+  lamports: number;
+  /** The rent-exempt minimum for this account's data size. */
+  rentLamports: number;
+  /** `lamports - rentLamports`; what the withdraw returns. */
+  excessLamports: number;
+  /** Account data size, the input to the rent-exempt minimum. */
+  space: number;
+  /** Name/symbol from the wallet scan when the mint is a known asset. */
+  label?: string | null;
+}
+
 /** One `.sns` domain a wallet owns, exactly as `/api/domains` reports it. */
 export interface SalvageDomain {
   /** The name, without the `.sns` suffix. */

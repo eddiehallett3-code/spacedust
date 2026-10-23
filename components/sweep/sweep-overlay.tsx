@@ -10,7 +10,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import type { SweepPhase } from "@/types/sweep";
-import { pluralize } from "@/lib/utils/format";
+import { formatTransactionProgress } from "@/lib/utils/format";
 
 /** Ordered phases, so the user can see where they are and what is next. */
 const STEPS: Array<{
@@ -116,8 +116,10 @@ export function SweepOverlay({
               <div className="mt-4 border-t border-border/60 pt-4">
                 <div className="flex items-center justify-between text-[11px] text-muted">
                   <span>
-                    {progress.completed} of {progress.total}{" "}
-                    {pluralize(progress.total, "transaction")}
+                    {formatTransactionProgress(
+                      progress.completed,
+                      progress.total,
+                    )}
                   </span>
                   <span className="font-mono tabular-nums">
                     {Math.round((progress.completed / progress.total) * 100)}%

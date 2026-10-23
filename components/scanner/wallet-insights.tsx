@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, SectionTitle } from "@/components/ui/card";
 import { NftArtwork } from "@/components/void/nft-artwork";
 import { TokenLogo } from "@/components/scanner/token-logo";
-import { formatUsd, pluralize } from "@/lib/utils/format";
+import { formatSol, formatUsd, pluralize } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
 import type { RecoverableBreakdown } from "@/lib/sweep/recoverable";
 import type { WalletScan } from "@/types/token";
@@ -139,10 +139,11 @@ export function WalletInsights({
                 swatch="bg-linear-to-r from-emerald-500/60 to-emerald-400/60"
                 label="Recoverable rent"
                 value={formatUsd(rentUsd)}
-                hint={pluralize(
-                  recoverable.closableAccounts + recoverable.emptyAccounts,
-                  "account",
-                )}
+                hint={
+                  recoverable.excessRentAccounts > 0
+                    ? `${pluralize(recoverable.emptyAccounts, "empty account")} + ${pluralize(recoverable.excessRentAccounts, "excess account")}`
+                    : pluralize(recoverable.emptyAccounts, "empty account")
+                }
               />
             </div>
 
@@ -318,6 +319,25 @@ export function WalletInsights({
               recoverable.
             </p>
           ) : null}
+
+          {recoverable.excessRentLamports > 0 ? (
+            <p className="rounded-xl border border-success/20 bg-success/6 px-3 py-2.5 text-[11px] leading-relaxed text-success">
+              <span className="font-mono">
+                {formatSol(recoverable.excessRentLamports)}
+              </span>{" "}
+              of excess rent sits in{" "}
+              {pluralize(recoverable.excessRentAccounts, "Token-2022 account")}.
+              It can be withdrawn without closing the account or moving the
+              token.{" "}
+              <Link
+                href="/salvage"
+                className="inline-flex items-center gap-0.5 font-medium underline decoration-success/40 underline-offset-2 transition-colors hover:text-emerald-200"
+              >
+                Open Salvage
+                <ArrowRight className="size-3" aria-hidden />
+              </Link>
+            </p>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -378,7 +398,8 @@ export function WalletInsights({
         {scan.source === "helius-das" ? "Helius's DAS index" : "the free core RPC"},
         across {pluralize(scan.pages, "page")}
         {scan.truncated ? ", truncated where the provider stopped" : ""}. Rent is
-        read from each empty account&apos;s own balance
+        read from each empty account&apos;s own balance and each Token-2022
+        account&apos;s excess
         {recoverable.solPriceUsd !== null
           ? `, converted at SOL = ${formatUsd(recoverable.solPriceUsd)}`
           : ""}

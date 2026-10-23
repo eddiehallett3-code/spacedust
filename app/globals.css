@@ -258,33 +258,14 @@
 }
 
 @layer utilities {
-  /* The animated saucer is desktop-only and is removed entirely when the
-     visitor asks for reduced motion. Keeping this in explicit CSS rather than
-     relying on stacked `hidden lg:block motion-reduce:hidden` variants makes
-     the two media conditions unambiguous. */
-  .landing-ufo-motion {
-    display: none;
-  }
-  @media (min-width: 1024px) {
-    .landing-ufo-motion {
-      display: block;
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .landing-ufo-motion {
-      display: none !important;
-    }
-  }
-
-  /* A static saucer for desktop visitors who ask for reduced motion. The
-     animated copy is hidden by the rule above; this is the fallback that keeps
-     the hero composition intact without movement. */
-  .reduced-ufo {
-    display: none;
-  }
-  @media (prefers-reduced-motion: reduce) and (min-width: 1024px) {
-    .reduced-ufo {
-      display: block;
+  /* Mobile hero saucer.
+     The fixed cap is the fallback for an older wallet WebView that does not
+     understand `svh`; the second declaration then makes the saucer shrink on
+     short in-app viewports so the whole craft stays above the fold. */
+  @media (max-width: 39.99rem) {
+    .landing-saucer-mobile {
+      max-width: 14.5rem;
+      max-width: min(14.5rem, 34svh);
     }
   }
 

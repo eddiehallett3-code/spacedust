@@ -261,12 +261,13 @@ About **2 weeks of focused work**; longer with NFTs/cNFTs and batch verification
 The file upload is easy; the mint→many-recipients close/attribution/audit model is
 the hard part.
 
-## Logo follow-up (separate)
+## Logo follow-up (resolved)
 
-The app currently has two logo sources that do not match. No changes made. When
-the matching master file is supplied, regenerate all derivatives from it:
-`public/logo-512.png`, `public/logo-192.png`, `public/icon.png`,
-`public/favicon.ico` (16/32/48), `public/apple-touch-icon.png`, and
-`apple-touch-icon-precomposed.png`. Keep one master, not two.
+The master is `Logo/logo-.png`. The dApp icon set in
+`public/dapp-icon-v2-512.png`, `public/dapp-icon-v2-192.png`,
+`public/dapp-icon-v2-180.png`, and `public/dapp-icon-v2-512-maskable.png`
+is generated from that file with the full planet and full trails. The older
+`/logo-512.png` and `/dapp-icon-512.png` filenames remain as legacy URLs; the
+metadata and manifest now point at the `v2` files.
 
 

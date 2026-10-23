@@ -263,8 +263,9 @@ function UnpricedPrompt({ count }: { count: number }) {
       <p className="mt-2 text-xs leading-relaxed text-muted">
         There is no price to value {one ? "it" : "them"}, so a swap would be a
         number nobody stands behind and {one ? "it is" : "they are"} left out.
-        The Void still takes {one ? "it" : "them"} — it burns the balance and
-        returns the rent {one ? "its account is" : "their accounts are"} holding.
+        The Void can still attempt {one ? "it" : "them"} — it re-checks the
+        account on chain and refuses a frozen or otherwise uncloseable balance,
+        rather than promising rent it cannot return.
       </p>
       <div className="mt-3">
         <Button asChild size="sm" variant="outline" className="w-full">

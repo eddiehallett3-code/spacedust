@@ -198,11 +198,12 @@ export async function planSweep(
   const tokenPrograms = new Map<string, "legacy" | "token2022">(
     tokens.map((token) => [token.mint, token.program]),
   );
-  // A Token-2022 transfer-fee mint leaves a residue in the source ATA, and a
-  // **partial** amount leaves a balance in any ATA — either way `closeAccount`
-  // would fail, and because the packer batches many swaps into one transaction
-  // that single bad close would take the whole sweep down. See
-  // `mintsWithoutRentReclaim`, which is the same rule the server counts against.
+  // A **partial** amount leaves a balance in the ATA, so `closeAccount` would
+  // fail — and because the packer batches many swaps into one transaction, that
+  // single bad close would take the whole sweep down. Transfer-fee mints are no
+  // longer decided here: whether such an account can be closed depends on its own
+  // withheld-fee balance, which the composer reads per account before building
+  // the close (see `verifyCloseTargets`).
   const skipCloseMints = mintsWithoutRentReclaim(tokens, amounts);
 
   // ── The rent-reclaim fee ──────────────────────────────────────────────────

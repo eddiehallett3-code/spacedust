@@ -77,14 +77,27 @@ function connectionWith(
  */
 function connectionWithRent(lamports: number): Connection {
   return {
-    getMultipleAccountsInfo: async (addresses: PublicKey[]) =>
-      addresses.map(() => ({
-        data: Buffer.alloc(0),
+    getMultipleParsedAccounts: async (addresses: PublicKey[]) => ({
+      context: { slot: 1 },
+      value: addresses.map(() => ({
+        data: {
+          program: "spl-token",
+          space: 165,
+          parsed: {
+            type: "account",
+            info: {
+              state: "initialized",
+              tokenAmount: { amount: "0", decimals: 6 },
+              extensions: [],
+            },
+          },
+        },
         executable: false,
         lamports,
         owner: new PublicKey(TOKEN_PROGRAM_ID),
         rentEpoch: 0,
       })),
+    }),
   } as unknown as Connection;
 }
 

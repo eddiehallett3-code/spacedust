@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -112,12 +112,13 @@ export function ReadOnlyScan({ initialOwner }: { initialOwner: string | null }) 
 
     try {
       const result = await apiFetch<WalletScan>(
-        `/api/tokens?owner=${encodeURIComponent(address)}&approvals=1&extras=1`,
+        `/api/tokens?owner=${encodeURIComponent(address)}&approvals=1&extras=1&excess=1`,
         {
           signal: controller.signal,
-          // The server is capped at 60s; the full scan adds wSOL, SNS and
-          // approvals, so let the server be the one that gives up. A 45s client
-          // timeout used to abort a large scan that was about to finish.
+          // The server is capped at 60s; the full scan adds wSOL, SNS, excess
+          // rent and approvals, so let the server be the one that gives up. A
+          // 45s client timeout used to abort a large scan that was about to
+          // finish.
           timeoutMs: 90_000,
           // A shared link gets opened more than once, and a scan is far and away
           // the most expensive call in the app.
@@ -321,6 +322,44 @@ function Metric({
 }
 
 /**
+ * A full-width scan window rather than a compact metric.
+ *
+ * Excess rent and wrapped SOL both have a meaningful zero state — "we checked,
+ * there is none" — so they need room for the value, the account count and the
+ * next action, not a disappearing callout.
+ */
+function ScanWindow({
+  icon,
+  title,
+  value,
+  hint,
+  action = null,
+}: {
+  icon: ReactNode;
+  title: string;
+  value: string;
+  hint: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border border-border/60 bg-white/[0.02] p-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="flex items-center gap-1.5 text-[11px] font-medium text-muted">
+          {icon}
+          {title}
+        </p>
+        {action}
+      </div>
+      <p className="mt-2 font-mono text-lg font-semibold tabular-nums">
+        {value}
+      </p>
+      <p className="mt-1 text-[11px] leading-relaxed text-subtle">{hint}</p>
+    </div>
+  );
+}
+
+
+/**
  * The headline, deliberately shaped like the example on the landing page: one
  * address card, three figures, and the rent breakdown beside them. The detailed
  * charts and rows stay below; this is the at-a-glance answer.
@@ -353,10 +392,10 @@ function ScanSummary({
       : wrappedSol.reduce((sum, account) => sum + account.amountLamports, 0);
   const wrappedSolRentLamports =
     wrappedSol?.reduce((sum, account) => sum + account.rentLamports, 0) ?? 0;
-  const wrappedSolValue =
-    wrappedSolAmountLamports === null || scan.wrappedSolError
+  const wrappedSolDisplay =
+    wrappedSol === undefined || scan.wrappedSolError
       ? "—"
-      : formatSol(wrappedSolAmountLamports).replace(" SOL", "");
+      : formatSol(wrappedSolAmountLamports ?? 0);
   const wrappedSolHint =
     wrappedSol === undefined
       ? "Not checked."
@@ -366,8 +405,23 @@ function ScanSummary({
           ? "No wrapped SOL."
           : `${pluralize(wrappedSol.length, "account")} · ${formatSol(wrappedSolRentLamports)} rent`;
   const snsCount = scan.snsError ? null : (scan.snsDomains?.length ?? null);
-  const rent = formatSol(recoverable.rentLamports);
-  const rentValue = rent.endsWith(" SOL") ? rent.slice(0, -4) : rent;
+  const emptyRent = formatSol(recoverable.emptyRentLamports);
+  const emptyRentValue = emptyRent.endsWith(" SOL")
+    ? emptyRent.slice(0, -4)
+    : emptyRent;
+  const totalRent = formatSol(recoverable.rentLamports);
+  const excessAccounts = scan.excessRentAccounts ?? [];
+  const excessDisplay =
+    scan.excessRentError || scan.excessRentAccounts === undefined
+      ? "—"
+      : formatSol(recoverable.excessRentLamports);
+  const excessHint = scan.excessRentError
+    ? `Could not check excess rent: ${scan.excessRentError}`
+    : scan.excessRentAccounts === undefined
+      ? "Excess rent was not checked."
+      : excessAccounts.length === 0
+        ? "No Token-2022 account is holding spare rent."
+        : `${pluralize(excessAccounts.length, "account")} · withdraw without closing anything.`;
   const rentUsd = recoverable.rentUsd;
   const totalUsd = recoverable.totalUsd;
   const rentShare =
@@ -412,22 +466,17 @@ function ScanSummary({
             </div>
           </div>
 
-          <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
             <Metric
               label="Token accounts"
               value={String(tokenAccounts)}
               hint={`${pluralize(scan.tokens.length, "dust position")} plus ${pluralize(scan.emptyAccounts.length, "empty account")}.`}
             />
             <Metric
-              label="Reclaimable"
-              value={rentValue}
+              label="Empty rent"
+              value={emptyRentValue}
               accent
               hint="Rent sitting in accounts that are already empty."
-            />
-            <Metric
-              label="Wrapped SOL"
-              value={wrappedSolValue}
-              hint={wrappedSolHint}
             />
             <Metric
               label="Approvals"
@@ -464,7 +513,7 @@ function ScanSummary({
             <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-subtle">
               Potential reclaim
             </p>
-            <p className="text-sm font-semibold text-success">+{rent}</p>
+            <p className="text-sm font-semibold text-success">+{totalRent}</p>
           </div>
           <div
             className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/6"
@@ -490,6 +539,14 @@ function ScanSummary({
               <span className="text-foreground">{scan.emptyAccounts.length}</span>
             </li>
             <li className="flex justify-between gap-2">
+              <span>Excess-rent accounts</span>
+              <span className="text-foreground">
+                {scan.excessRentError || scan.excessRentAccounts === undefined
+                  ? "—"
+                  : scan.excessRentAccounts.length}
+              </span>
+            </li>
+            <li className="flex justify-between gap-2">
               <span>Open approvals</span>
               <span className="text-foreground">{approvalsValue}</span>
             </li>
@@ -505,6 +562,48 @@ function ScanSummary({
           </p>
         </div>
       </div>
+
+      <div className="grid gap-3 border-t border-border/60 p-4 sm:grid-cols-2 sm:p-5">
+        <ScanWindow
+          icon={<Coins className="size-4 text-violet-glow" aria-hidden />}
+          title="Excess rent"
+          value={excessDisplay}
+          hint={excessHint}
+          action={
+            recoverable.excessRentLamports > 0 ? (
+              <Link
+                href="/salvage"
+                className="inline-flex items-center gap-0.5 text-[11px] font-medium text-violet-glow transition-colors hover:text-violet-core"
+              >
+                Withdraw
+                <ArrowRight className="size-3" aria-hidden />
+              </Link>
+            ) : null
+          }
+        />
+        <ScanWindow
+          icon={
+            <ArrowDownToLine className="size-4 text-cyan-glow" aria-hidden />
+          }
+          title="Wrapped SOL"
+          value={wrappedSolDisplay}
+          hint={wrappedSolHint}
+          action={
+            wrappedSolAmountLamports != null &&
+            wrappedSolAmountLamports > 0 &&
+            !scan.wrappedSolError ? (
+              <Link
+                href="/salvage"
+                className="inline-flex items-center gap-0.5 text-[11px] font-medium text-violet-glow transition-colors hover:text-violet-core"
+              >
+                Unwrap
+                <ArrowRight className="size-3" aria-hidden />
+              </Link>
+            ) : null
+          }
+        />
+      </div>
+
 
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 px-4 py-3 sm:px-5">
         <p className="text-[11px] text-subtle">

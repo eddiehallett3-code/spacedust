@@ -40,6 +40,37 @@ function rpcError(id: string | number | null, code: number, message: string) {
   );
 }
 
+/**
+ * Refuse a request that another site made, in a visitor's browser.
+ *
+ * The method allow-list stops this becoming an open relay for arbitrary calls,
+ * but on its own it does not stop another origin from making the *allowed* ones
+ * against this deployment: `sendTransaction` and `simulateTransaction` are both
+ * on it, so any page could spend this key's Helius credits and push transactions
+ * through this server. A browser stamps every cross-origin POST with `Origin` and
+ * every request with `Sec-Fetch-Site`, so both are checked when present. A
+ * request carrying neither did not come from a browser, and the per-client budget
+ * is what governs it.
+ */
+function crossOriginRefusal(request: Request): string | null {
+  const site = request.headers.get("sec-fetch-site")?.trim().toLowerCase();
+  if (site && site !== "same-origin" && site !== "none") {
+    return "Cross-site requests are not served by this proxy.";
+  }
+
+  const origin = request.headers.get("origin");
+  if (!origin) return null;
+
+  try {
+    if (new URL(origin).host !== new URL(request.url).host) {
+      return "Cross-origin requests are not served by this proxy.";
+    }
+  } catch {
+    return "The Origin header could not be read.";
+  }
+  return null;
+}
+
 export async function POST(request: Request) {
   // Before parsing, not after: a flood should cost a Map lookup, not JSON work.
   // Refusal is HTTP 429 with a JSON-RPC error body, because this endpoint's client
@@ -57,6 +88,14 @@ export async function POST(request: Request) {
   }
 
   let body: JsonRpcRequest;
+
+  const crossOrigin = crossOriginRefusal(request);
+  if (crossOrigin) {
+    return NextResponse.json(
+      { jsonrpc: "2.0", id: null, error: { code: -32600, message: crossOrigin } },
+      { status: 403 },
+    );
+  }
 
   try {
     const text = await request.text();

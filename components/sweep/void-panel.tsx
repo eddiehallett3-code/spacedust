@@ -1,11 +1,20 @@
 "use client";
 
-import { AlertTriangle, ArrowRight, CheckCircle2, ExternalLink, Info, Orbit } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  CheckCircle2,
+  ExternalLink,
+  Info,
+  Orbit,
+  ShieldCheck,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, SectionTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useMode } from "@/components/layout/mode-provider";
 import { TokenLogo } from "@/components/scanner/token-logo";
 import { SweepError } from "@/components/sweep/controls-column";
 import { SimulationReport } from "@/components/sweep/simulation-report";
@@ -82,9 +91,25 @@ export function VoidPanel({
     isBusy,
   } = theVoid;
 
+  const { isPro } = useMode();
+
   const selectedTokens = tokens.filter((token) => selectedMints.has(token.mint));
   const hasPreview = packed.length > 0;
   const showSuccess = summary !== null;
+
+  /**
+   * How much of the technical readout to show.
+   *
+   * Basic keeps the numbers somebody needs to decide — how many tokens, what
+   * comes back, what the fee is — plus a one-line simulation verdict, because
+   * "did the chain accept this?" is not a technical detail, it is the point of
+   * the preview. Pro adds the bytes, instruction counts, compute units, network
+   * fee estimate and transaction count: useful for auditing, noise for everyone
+   * else. Safety copy (liquidity, irreversibility, skipped tokens) stays in
+   * Basic; depth must never mean hiding a consequence.
+   */
+  const okCount = simulations.filter((simulation) => simulation.ok).length;
+  const failedSimulations = simulations.length - okCount;
 
   // Rent and the fee come from the plan, which read **each account's own**
   // deposit — deposits differ between accounts, so a single figure multiplied by
@@ -112,7 +137,6 @@ export function VoidPanel({
     (sum, simulation) => sum + (simulation.feeLamports ?? 0),
     0,
   );
-  const okCount = simulations.filter((simulation) => simulation.ok).length;
 
   const allSelected =
     tokens.length > 0 && selectedTokens.length === tokens.length;
@@ -224,7 +248,7 @@ export function VoidPanel({
                           toggle();
                         }}
                         className={cn(
-                          "flex cursor-pointer items-center gap-3 px-3 py-2.5 transition-colors",
+                          "flex cursor-pointer items-center gap-2.5 px-3 py-2.5 transition-colors",
                           "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-violet-glow",
                           isSelected ? "bg-violet-core/8" : "hover:bg-white/3",
                         )}
@@ -242,28 +266,32 @@ export function VoidPanel({
                           size={28}
                         />
                         <div className="min-w-0 flex-1">
-                          <p className="flex items-center gap-1.5 truncate text-sm font-medium">
-                            <span className="truncate">{token.symbol}</span>
-                            {looksSwappable(token) ? (
-                              <Badge variant="warning" size="sm">
-                                has liquidity
-                              </Badge>
-                            ) : (
-                              <Badge variant="muted" size="sm">
-                                no route
-                              </Badge>
-                            )}
+                          <p
+                            className="truncate text-sm font-medium"
+                            title={token.symbol || token.name}
+                          >
+                            {token.symbol || token.name}
                           </p>
                           <p className="truncate text-xs text-subtle">
                             {formatAmount(token.balance, 4)}
                             {looksSwappable(token)
-                              ? ` · worth ${formatUsd(token.valueUsd)} — swap it instead`
+                              ? ` · ${formatUsd(token.valueUsd)}`
                               : " · unswappable"}
                           </p>
                         </div>
-                        <p className="shrink-0 font-mono text-[11px] text-subtle">
-                          +{formatSol(theVoid.rentByMint.get(token.mint) ?? rentPerAccount)} rent
-                        </p>
+                        {looksSwappable(token) ? (
+                          <Badge
+                            variant="warning"
+                            size="sm"
+                            className="shrink-0"
+                          >
+                            has liquidity
+                          </Badge>
+                        ) : (
+                          <Badge variant="muted" size="sm" className="shrink-0">
+                            no route
+                          </Badge>
+                        )}
                       </div>
                     </li>
                   );
@@ -272,7 +300,16 @@ export function VoidPanel({
             </div>
 
             {/* ── Facts before any signature ───────────────────────────── */}
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div
+              className={cn(
+                "grid grid-cols-2 gap-2",
+                isPro
+                  ? "sm:grid-cols-4"
+                  : voidFeeEnabled
+                    ? "sm:grid-cols-3"
+                    : "sm:grid-cols-2",
+              )}
+            >
               <Stat
                 label="Selected"
                 value={String(selectedTokens.length)}
@@ -295,18 +332,20 @@ export function VoidPanel({
                   value={formatSol(voidFeeLamports)}
                   hint="of reclaimed rent"
                 />
-              ) : (
+              ) : isPro ? (
                 <Stat
                   label="Transactions"
                   value={hasPreview ? String(packed.length) : "—"}
                   hint={hasPreview ? "own batch, no swaps" : "run preview"}
                 />
-              )}
-              <Stat
-                label="Network fee"
-                value={hasPreview ? formatSol(feeLamports) : "—"}
-                hint={hasPreview ? "estimated" : undefined}
-              />
+              ) : null}
+              {isPro ? (
+                <Stat
+                  label="Network fee"
+                  value={hasPreview ? formatSol(feeLamports) : "—"}
+                  hint={hasPreview ? "estimated" : undefined}
+                />
+              ) : null}
             </div>
 
             <SweepError error={error} />
@@ -329,12 +368,61 @@ export function VoidPanel({
 
             {hasPreview ? (
               <div className="flex flex-col gap-3">
-                <SimulationReport
-                  packed={packed}
-                  simulations={simulations}
-                  okCount={okCount}
-                  unitLabel="Void send"
-                />
+                {isPro ? (
+                  <SimulationReport
+                    packed={packed}
+                    simulations={simulations}
+                    okCount={okCount}
+                    unitLabel="Void send"
+                  />
+                ) : (
+                  /* Basic gets the verdict, not the byte counts. A failure is
+                     still stated plainly and in full colour — the detail is
+                     one switch away, never the outcome. */
+                  <p
+                    className={cn(
+                      "flex items-start gap-1.5 rounded-lg border px-2.5 py-2 text-[11px] leading-relaxed",
+                      failedSimulations > 0
+                        ? "border-warning/25 bg-warning/8 text-warning"
+                        : "border-success/20 bg-success/6 text-muted",
+                    )}
+                  >
+                    {failedSimulations > 0 ? (
+                      <AlertTriangle
+                        className="mt-px size-3.5 shrink-0"
+                        aria-hidden
+                      />
+                    ) : (
+                      <ShieldCheck
+                        className="mt-px size-3.5 shrink-0 text-success"
+                        aria-hidden
+                      />
+                    )}
+                    <span>
+                      {failedSimulations > 0 ? (
+                        <>
+                          <strong className="font-medium">
+                            {pluralize(failedSimulations, "transaction")} failed
+                            simulation
+                          </strong>{" "}
+                          — switch to Pro to see the exact error before signing.
+                        </>
+                      ) : simulations.length > 0 ? (
+                        <>
+                          Simulation passed —{" "}
+                          {pluralize(packed.length, "transaction")} ready to
+                          sign. Switch to Pro for transaction details.
+                        </>
+                      ) : (
+                        <>
+                          Preview ready —{" "}
+                          {pluralize(packed.length, "transaction")} built.
+                          Nothing is sent until you sign.
+                        </>
+                      )}
+                    </span>
+                  </p>
+                )}
                 <WarningsList warnings={warnings} />
               </div>
             ) : null}

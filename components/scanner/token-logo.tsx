@@ -14,9 +14,10 @@ import { cn } from "@/lib/utils/cn";
  * `referrerPolicy="no-referrer"` so no wallet context leaks, and any load
  * failure falls back to a letter avatar.
  *
- * Server-side, `sanitizeLogoUri` already restricts logos to `http(s)` URLs;
- * the optimizer allow-list in `next.config.ts` independently blocks its own
- * server-side fetch (the SSRF surface) against internal services.
+ * Server-side, `sanitizeLogoUri` already refuses anything but `https` on a host
+ * the app renders images from; the optimizer allow-list in `next.config.ts`
+ * independently blocks its own server-side fetch (the SSRF surface) against
+ * internal services.
  *
  * A malicious logo must never be able to break the list layout.
  */

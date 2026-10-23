@@ -18,8 +18,8 @@ import { Input } from "@/components/ui/input";
  */
 const OUTPUTS = [
   "Token accounts, balances and Token-2022 extensions",
-  "Rent locked inside empty accounts",
-  "Standing approvals, and what a sweep would refuse",
+  "Rent from empty accounts and excess Token-2022 rent",
+  "Wrapped SOL, standing approvals, and what a sweep would refuse",
 ] as const;
 
 export function LandingProductPreview() {
@@ -27,7 +27,7 @@ export function LandingProductPreview() {
     <figure
       id="scan"
       aria-labelledby="scan-preview-title"
-      className="relative mx-auto mt-12 w-full max-w-4xl scroll-mt-24"
+      className="relative mx-auto mt-14 w-full max-w-4xl scroll-mt-24 sm:mt-16"
     >
       <div
         aria-hidden

@@ -14,6 +14,7 @@ import { useSalvage } from "@/hooks/use-salvage";
 import { solscanTxUrl } from "@/lib/solana/submit";
 import { feeFromRentLamports } from "@/lib/solana/rent";
 import { RECLAIM_RATE } from "@/lib/config/tools";
+import { getPublicFeeWallet } from "@/lib/config/public-env";
 import { RECLAIM_FEE_BPS } from "@/lib/utils/constants";
 import { apiFetch } from "@/lib/utils/api";
 import { toFriendlyError, type FriendlyError } from "@/lib/utils/errors";
@@ -109,11 +110,15 @@ export function DomainsPanel() {
     (sum, domain) => sum + Math.max(0, domain.lamports),
     0,
   );
-  const selectedFee = chosen.reduce(
-    (sum, domain) =>
-      sum + feeFromRentLamports(Math.max(0, domain.lamports), RECLAIM_FEE_BPS),
-    0,
-  );
+  const selectedFee =
+    getPublicFeeWallet() === null
+      ? 0
+      : chosen.reduce(
+          (sum, domain) =>
+            sum +
+            feeFromRentLamports(Math.max(0, domain.lamports), RECLAIM_FEE_BPS),
+          0,
+        );
 
   const toggle = (address: string): void => {
     // A preview belongs to the selection it was built from. Changing the ticks
@@ -285,10 +290,20 @@ export function DomainsPanel() {
             </div>
 
             <p className="text-[11px] leading-relaxed text-subtle">
-              Spacedust takes {RECLAIM_RATE} of the rent these deletes return, the
-              same rate as closing an empty account. Network fees are paid on top,
-              and the registration price of a name is never recoverable — only the
-              rent its account holds.
+              {getPublicFeeWallet() === null ? (
+                <>
+                  No fee is taken — the rent these deletes return comes back to you
+                  in full. Network fees are paid on top, and the registration price
+                  of a name is never recoverable — only the rent its account holds.
+                </>
+              ) : (
+                <>
+                  Spacedust takes {RECLAIM_RATE} of the rent these deletes return,
+                  the same rate as closing an empty account. Network fees are paid
+                  on top, and the registration price of a name is never recoverable
+                  — only the rent its account holds.
+                </>
+              )}
             </p>
 
             {prepared ? (
@@ -337,9 +352,11 @@ export function DomainsPanel() {
               {salvage.summary.failedCount > 0
                 ? `${pluralize(salvage.summary.failedCount, "domain")} could not be deleted. `
                 : ""}
-              {formatSol(salvage.summary.rentLamports)} freed, our {RECLAIM_RATE}{" "}
-              fee {formatSol(salvage.summary.reclaimFeeLamports)}, network fee{" "}
-              {formatSol(salvage.summary.feeLamports)}.
+              {formatSol(salvage.summary.rentLamports)} freed
+              {salvage.summary.reclaimFeeLamports > 0
+                ? `, our ${RECLAIM_RATE} fee ${formatSol(salvage.summary.reclaimFeeLamports)}`
+                : ""}
+              , network fee {formatSol(salvage.summary.feeLamports)}.
             </p>
             {salvage.summary.signatures.length > 0 ? (
               <div className="mt-2 flex flex-wrap gap-1.5">

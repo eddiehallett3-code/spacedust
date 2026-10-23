@@ -18,6 +18,7 @@ import {
   tokenProgramFor,
 } from "./instructions";
 import { feeFromRentLamports } from "./rent";
+import { withheldFeesOf } from "./parsed-account";
 import type { PackUnit } from "./pack";
 import type { SwapBuild } from "@/types/sweep";
 
@@ -164,20 +165,42 @@ export async function composePackUnits({
 
   const plansByMint = new Map<string, ClosePlan>();
   closePlans.forEach((plan, index) => {
-    if (plan.account && verification && !verification[index]?.exists) {
-      const problem = verification[index]?.problem;
-      plansByMint.set(plan.mint, {
-        ...plan,
-        account: null,
-        reason:
-          problem === "unreadable"
-            ? "its token account could not be checked right now — rescan and try again"
-            : problem === "wrong-owner"
-              ? "its token account is not owned by the mint's token program"
-              : "its token account no longer exists — rescan and try again",
-      });
+    const target = verification?.[index];
+    const skip = (reason: string): void => {
+      plansByMint.set(plan.mint, { ...plan, account: null, program: null, reason });
+    };
+
+    if (plan.account && target && !target.exists) {
+      skip(
+        target.problem === "unreadable"
+          ? "its token account could not be checked right now — rescan and try again"
+          : target.problem === "wrong-owner"
+            ? "its token account is not owned by the mint's token program"
+            : "its token account no longer exists — rescan and try again",
+      );
       return;
     }
+
+    // Withheld transfer fees are the one thing that makes a Token-2022 close fail
+    // on chain (`Custom: 35`), and a failed close reverts the whole packed
+    // transaction — every swap sharing it. So it is checked per account, from
+    // that account's own balance, and the close is built only when it is *known*
+    // to be zero. An unreadable answer is skipped, never assumed.
+    if (plan.account && target) {
+      if (target.withheld === null) {
+        skip(
+          "its withheld transfer-fee balance could not be read — rescan and try again",
+        );
+        return;
+      }
+      if (target.withheld > 0) {
+        skip(
+          "it holds withheld transfer fees, which the mint has to harvest before it can be closed",
+        );
+        return;
+      }
+    }
+
     plansByMint.set(plan.mint, plan);
   });
 
@@ -282,14 +305,18 @@ function planClose(
   tokenPrograms: Map<string, "legacy" | "token2022">,
   skipCloseMints: Set<string>,
 ): ClosePlan {
-  const skip: ClosePlan = {
-    mint: build.mint,
-    account: null,
-    program: null,
-    reason: null,
-  };
-
-  if (skipCloseMints.has(build.mint)) return skip;
+  if (skipCloseMints.has(build.mint)) {
+    // A partial amount leaves a balance behind, and `closeAccount` refuses a
+    // non-empty account. Say so: the rent is money the preview is not returning,
+    // and a silent skip is a number the user cannot account for.
+    return {
+      mint: build.mint,
+      account: null,
+      program: null,
+      reason:
+        "only part of its balance is being swapped, so the account keeps a balance and cannot be closed this time",
+    };
+  }
 
   try {
     const mint = new PublicKey(build.mint);
@@ -316,7 +343,12 @@ function planClose(
     };
   } catch {
     // Nothing usable could be derived — skip the reclaim, keep the swap.
-    return skip;
+    return {
+      mint: build.mint,
+      account: null,
+      program: null,
+      reason: "its token account could not be derived — rescan and try again",
+    };
   }
 }
 
@@ -431,6 +463,16 @@ interface CloseTarget {
    * guess is how the panel came to disagree with the chain.
    */
   lamports: number;
+  /**
+   * Token-2022 withheld transfer fees on this account, or null when unread.
+   *
+   * This is the only thing that makes a fee-bearing account unclosable: the token
+   * program refuses a close while `withheld_amount` is non-zero (`Custom: 35`),
+   * and the mint has to harvest it first. It is a property of *this account*, not
+   * of the mint — a transfer-fee mint whose account has nothing withheld closes
+   * like any other. See `withheldFeesOf`.
+   */
+  withheld: number | null;
   /** Why the target cannot be closed, or null when it can. */
   problem: "missing" | "unreadable" | "wrong-owner" | null;
 }
@@ -442,41 +484,56 @@ async function verifyCloseTargets(
   const wanted = plans
     .map((plan, index) => ({ plan, index }))
     .filter(({ plan }) => plan.account !== null);
-  if (wanted.length === 0) {
-    return plans.map(() => ({ exists: true, lamports: 0, problem: null }));
-  }
 
   const results: CloseTarget[] = plans.map(() => ({
     exists: true,
     lamports: 0,
+    withheld: 0,
     problem: null,
   }));
+
+  if (wanted.length === 0) return results;
+
   try {
-    const infos = await connection.getMultipleAccountsInfo(
-      wanted.map(({ plan }) => plan.account as PublicKey),
-    );
-    wanted.forEach(({ plan, index }, infoIndex) => {
-      const account = infos[infoIndex];
-      if (!account) {
-        results[index] = { exists: false, lamports: 0, problem: "missing" };
-        return;
-      }
-      // An account owned by anything other than its mint's token program is
-      // not something `closeAccount` can act on.
-      if (plan.program && !account.owner.equals(plan.program)) {
+    // Parsed rather than raw: the account's own withheld transfer-fee balance is
+    // the one field that decides whether a Token-2022 close can run at all, and
+    // here it arrives as a number instead of an extension blob to index by hand.
+    // Batched to the RPC's 100-key ceiling, which one call per token can exceed.
+    for (let start = 0; start < wanted.length; start += 100) {
+      const batch = wanted.slice(start, start + 100);
+      const response = await connection.getMultipleParsedAccounts(
+        batch.map(({ plan }) => plan.account as PublicKey),
+      );
+      batch.forEach(({ plan, index }, position) => {
+        const account = response.value[position];
+        if (!account) {
+          results[index] = {
+            exists: false,
+            lamports: 0,
+            withheld: null,
+            problem: "missing",
+          };
+          return;
+        }
+        // An account owned by anything other than its mint's token program is
+        // not something `closeAccount` can act on.
+        if (plan.program && !account.owner.equals(plan.program)) {
+          results[index] = {
+            exists: false,
+            lamports: 0,
+            withheld: null,
+            problem: "wrong-owner",
+          };
+          return;
+        }
         results[index] = {
-          exists: false,
-          lamports: 0,
-          problem: "wrong-owner",
+          exists: true,
+          lamports: account.lamports,
+          withheld: withheldFeesOf(account.data),
+          problem: null,
         };
-        return;
-      }
-      results[index] = {
-        exists: true,
-        lamports: account.lamports,
-        problem: null,
-      };
-    });
+      });
+    }
   } catch {
     // A failed lookup cannot prove a close is safe. Closing an account that is
     // not there fails the *whole* packed transaction, so an unverified target
@@ -487,6 +544,7 @@ async function verifyCloseTargets(
       results[index] = {
         exists: false,
         lamports: 0,
+        withheld: null,
         problem: "unreadable",
       };
     }

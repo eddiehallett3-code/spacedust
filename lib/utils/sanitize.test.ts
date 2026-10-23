@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { baseAmountToNumber, toBaseAmount } from "./sanitize";
+import {
+  baseAmountToNumber,
+  sanitizeImageUri,
+  sanitizeLogoUri,
+  toBaseAmount,
+} from "./sanitize";
 
 /**
  * Whole units to base units — the conversion every typed amount goes through.
@@ -96,5 +101,48 @@ describe("baseAmountToNumber", () => {
     expect(baseAmountToNumber(1n, -1)).toBeNull();
     expect(baseAmountToNumber(1n, 31)).toBeNull();
     expect(baseAmountToNumber(1n, 1.5)).toBeNull();
+  });
+});
+
+describe("sanitizeLogoUri", () => {
+  it("accepts https on a host the app already renders images from", () => {
+    expect(sanitizeLogoUri("https://cdn.jup.ag/tokens/x.png")).toBe(
+      "https://cdn.jup.ag/tokens/x.png",
+    );
+    expect(sanitizeLogoUri("https://abc.arweave.net/x.png")).toBe(
+      "https://abc.arweave.net/x.png",
+    );
+  });
+
+  it("refuses plain http, which an enforced img-src would block anyway", () => {
+    expect(sanitizeLogoUri("http://cdn.jup.ag/tokens/x.png")).toBeNull();
+  });
+
+  it("refuses a host nobody vetted, which would turn every view into a beacon", () => {
+    // Anyone can publish token metadata. An arbitrary logo host means every
+    // wallet that renders the list reports its IP to whoever wrote it.
+    expect(sanitizeLogoUri("https://tracker.example/logo.png")).toBeNull();
+  });
+
+  it("refuses a lookalike suffix", () => {
+    expect(sanitizeLogoUri("https://notjup.ag/x.png")).toBeNull();
+    expect(sanitizeLogoUri("https://jup.ag.evil.example/x.png")).toBeNull();
+  });
+});
+
+describe("sanitizeImageUri", () => {
+  it("rewrites ipfs:// to a gateway and keeps https artwork", () => {
+    expect(sanitizeImageUri("ipfs://QmHash/1.png")).toBe(
+      "https://ipfs.io/ipfs/QmHash/1.png",
+    );
+    expect(sanitizeImageUri("https://example.example/a.png")).toBe(
+      "https://example.example/a.png",
+    );
+  });
+
+  it("refuses plain http and non-http schemes", () => {
+    expect(sanitizeImageUri("http://example.example/a.png")).toBeNull();
+    expect(sanitizeImageUri("javascript:alert(1)")).toBeNull();
+    expect(sanitizeImageUri("data:image/png;base64,AAAA")).toBeNull();
   });
 });

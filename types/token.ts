@@ -9,7 +9,12 @@
  */
 
 import type { TokenApproval } from "@/lib/solana/approvals";
-import type { SalvageDomain, WrappedSolAccount } from "@/types/salvage";
+import type {
+  ExcessRentAccount,
+  PumpAccumulator,
+  SalvageDomain,
+  WrappedSolAccount,
+} from "@/types/salvage";
 
 /** Which token program owns a mint. Drives which program id we use to close ATAs. */
 export type TokenProgramKind = "legacy" | "token2022";
@@ -342,6 +347,28 @@ export interface WalletScan {
    * this degrades to a visible warning rather than failing the scan.
    */
   emptyAccountsError: string | null;
+  /**
+   * The wallet's Pump.fun user volume accumulator, when it still exists.
+   *
+   * Pump.fun creates one program-owned account per wallet to track volume for
+   * fee tiers. It is not a token account and is invisible to the token scanner;
+   * the address is a PDA, so the read is a single account lookup. Closing it
+   * returns its rent and resets the volume tracking.
+   */
+  pumpAccumulator?: PumpAccumulator | null;
+  /** Set when the Pump.fun accumulator read failed. */
+  pumpAccumulatorError?: string | null;
+  /**
+   * Token-2022 accounts holding more lamports than their rent-exempt minimum.
+   *
+   * These are *not* empty accounts: they still hold a token or NFT, so they
+   * cannot be closed. Token-2022's `WithdrawExcessLamports` returns only the
+   * spare lamports and leaves the balance and account untouched. Read
+   * separately from `emptyAccounts` because the action and the rule differ.
+   */
+  excessRentAccounts?: ExcessRentAccount[];
+  /** Set when the excess-rent read failed. */
+  excessRentError?: string | null;
   /**
    * Native SOL stake accounts the wallet controls.
    *

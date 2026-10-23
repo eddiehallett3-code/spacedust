@@ -17,6 +17,7 @@ import { BrandLogo } from "@/components/layout/brand-logo";
 import { ProModeSwitch } from "@/components/layout/pro-mode-switch";
 import { ToolEmblem } from "@/components/layout/tool-emblem";
 import { WalletButton } from "@/components/wallet/wallet-button";
+import { WalletMenuActions } from "@/components/wallet/wallet-menu-actions";
 import { Container } from "@/components/layout/container";
 import { TOOLS } from "@/lib/config/tools";
 import { cn } from "@/lib/utils/cn";
@@ -143,7 +144,7 @@ export function Navbar() {
                             <span className="block text-sm font-medium text-foreground">
                               {tool.name}
                             </span>
-                            <span className="mt-0.5 block line-clamp-2 text-[11px] leading-snug text-muted">
+                            <span className="mt-0.5 block line-clamp-3 text-[11px] leading-snug text-muted">
                               {tool.tagline}
                             </span>
                           </span>
@@ -210,7 +211,7 @@ export function Navbar() {
               <ShieldCheck className="size-3.5 text-violet-glow" aria-hidden />
               Non-custodial
             </Link>
-            <ProModeSwitch />
+            <ProModeSwitch className="hidden sm:flex" />
             <WalletButton />
 
             {/* Mobile nav trigger. Before this existed the links simply vanished
@@ -236,7 +237,7 @@ export function Navbar() {
                 //
                 // `cn` runs through tailwind-merge, so these replace the
                 // dialog's default centring: a sheet pinned below the header.
-                className="top-[4.5rem] w-[calc(100vw-1.5rem)] max-w-sm translate-y-0 rounded-2xl p-4"
+                className="top-[4.5rem] max-h-[calc(100svh-5.5rem)] w-[calc(100vw-1.5rem)] max-w-sm translate-y-0 overflow-y-auto rounded-2xl p-4"
               >
                 <DialogHeader className="mb-2">
                   <DialogTitle className="text-sm font-medium text-muted">
@@ -299,6 +300,12 @@ export function Navbar() {
                     ))}
                   </ul>
                 </nav>
+
+                <div className="mt-3 flex items-center justify-between gap-3 border-t border-border/60 px-3 pt-3">
+                  <span className="text-sm text-muted">Pro mode</span>
+                  <ProModeSwitch />
+                </div>
+                <WalletMenuActions />
 
                 <p className="mt-3 flex items-center gap-1.5 border-t border-border/60 px-3 pt-3 text-[11px] text-subtle">
                   <ShieldCheck

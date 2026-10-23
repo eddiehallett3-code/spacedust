@@ -7,6 +7,7 @@ import {
   registerMwa,
 } from "@solana-mobile/wallet-standard-mobile";
 import { isAndroidUserAgent } from "@/lib/solana/wallet-diagnostics";
+import { DAPP_ICON_PATH, getAppName } from "@/lib/config/site";
 
 /**
  * Mobile Wallet Adapter, registered as a Wallet Standard wallet.
@@ -40,11 +41,11 @@ export function MobileWalletAdapter() {
 
     registerMwa({
       appIdentity: {
-        name: process.env.NEXT_PUBLIC_APP_NAME || "Spacedust",
+        name: getAppName(),
         uri: window.location.origin,
         // Relative, as the protocol requires: the wallet resolves it against
         // `uri`. An absolute URL is rejected outright.
-        icon: "/logo-512.png",
+        icon: DAPP_ICON_PATH,
       },
       authorizationCache: createDefaultAuthorizationCache(),
       chains: ["solana:mainnet"],

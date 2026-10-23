@@ -49,7 +49,56 @@ const nextConfig: NextConfig = {
     return config;
   },
   async headers() {
+    /**
+     * Wallet-facing brand files.
+     *
+     * They are public, so `Access-Control-Allow-Origin: *` is correct here: a
+     * wallet extension or dApp browser fetches them from its own origin. The
+     * cache is one week; a replacement is published under a new filename
+     * (`dapp-icon-*`), so a stale cached blank never survives an update.
+     */
+    const iconHeaders = [
+      "/dapp-icon-512.png",
+      "/dapp-icon-192.png",
+      "/dapp-icon-180.png",
+      "/dapp-icon-512-maskable.png",
+      "/favicon.ico",
+      "/logo-512.png",
+      "/logo-192.png",
+      "/logo-512-maskable.png",
+      "/icon.png",
+      "/apple-touch-icon.png",
+    ].map((source) => ({
+      source,
+      headers: [
+        { key: "Access-Control-Allow-Origin", value: "*" },
+        {
+          key: "Cache-Control",
+          value: "public, max-age=604800, stale-while-revalidate=86400",
+        },
+      ],
+    }));
+
     return [
+      ...iconHeaders,
+      {
+        /**
+         * The landing saucer is a 3.2 MB GLB, and it is fetched on every
+         * landing-page visit by the copy that is on screen. Serving it with the
+         * same one-week cache as the sounds avoids re-downloading it on a soft
+         * navigation or a refresh. The `-v1` in the filename is deliberate: an
+         * updated model is published under a new name, exactly like the audio
+         * files above, so an in-place overwrite can never leave a stale copy in
+         * a browser cache.
+         */
+        source: "/3d/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=604800, stale-while-revalidate=86400",
+          },
+        ],
+      },
       {
         /**
          * The success cue must be ready the instant a transaction lands.
@@ -104,6 +153,21 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+    ];
+  },
+  /**
+   * Conventional manifest aliases.
+   *
+   * Next publishes the app manifest at `/manifest.webmanifest`, and the document
+   * links that absolute URL. Some dApp-browser crawlers still probe
+   * `/manifest.json` or `/site.webmanifest` directly; serving the same document
+   * from those paths costs nothing and removes one more reason for a wallet to
+   * see a dApp with no icon or name.
+   */
+  async rewrites() {
+    return [
+      { source: "/manifest.json", destination: "/manifest.webmanifest" },
+      { source: "/site.webmanifest", destination: "/manifest.webmanifest" },
     ];
   },
 };

@@ -10,3 +10,14 @@ coverage
 playwright-report
 test-results
 .env*.local
+
+# The original 3D downloads live at the repository root for asset processing.
+# The site serves only the optimized copy in `public/3d`, so the source files
+# (100 MB) have no business being uploaded to Vercel. `/3d` is anchored to the
+# root on purpose: an unanchored pattern would also exclude `public/3d` and
+# break the model in production.
+/3d
+
+# Source brand artwork. The header uses the trimmed copy in
+# `public/logo-text-transp.png`; the editable originals do not need to ship.
+/Logo

@@ -20,11 +20,13 @@ import {
   FLOW_PROGRAMS,
   JUPITER_PROGRAM_ID,
   NOOP_PROGRAM_ID,
+  PUMP_AMM_PROGRAM_ID,
   SNS_NAME_PROGRAM_ID,
   SNS_REGISTER_PROGRAM_ID,
   programLabel,
   type AuditFlowName,
 } from "./program-ids";
+import { CLOSE_USER_VOLUME_ACCUMULATOR_DISCRIMINATOR } from "@/lib/salvage/pump-accumulator";
 
 /**
  * The instruction audit — what is actually about to be signed, checked against
@@ -846,6 +848,62 @@ export function auditInstructions(
           return;
         }
 
+        if (code === 38) {
+          // Token-2022 WithdrawExcessLamports. The account keeps its rent-exempt
+          // deposit and the lamports above it go to whoever the authority names
+          // — so the authority is the wallet, the destination is the wallet, and
+          // the account is one the plan listed. Anything else is rent leaving.
+          if (expected.flow !== "excess-rent") {
+            noteProgram(into, programId);
+            refuse(
+              into,
+              "token-instruction-unexpected",
+              `A ${label} WithdrawExcessLamports would move an account's spare lamports, and this is not the excess-rent plan.`,
+              programId,
+              index,
+            );
+            return;
+          }
+          const account = instruction.keys[0]?.pubkey.toBase58() ?? "";
+          const destination = instruction.keys[1]?.pubkey.toBase58();
+          const authority = instruction.keys[2]?.pubkey.toBase58();
+          if (authority !== owner || !instruction.keys[2]?.isSigner) {
+            noteProgram(into, programId);
+            refuse(
+              into,
+              "unexpected-subject",
+              `A ${label} WithdrawExcessLamports would be authorised by ${short(authority)}, not by your wallet.`,
+              programId,
+              index,
+            );
+            return;
+          }
+          if (destination !== owner) {
+            noteProgram(into, programId);
+            refuse(
+              into,
+              "rent-to-third-party",
+              `A ${label} WithdrawExcessLamports would send an account's spare lamports to ${short(destination)} instead of your wallet.`,
+              programId,
+              index,
+            );
+            return;
+          }
+          if (plannedSubjects.size > 0 && !plannedSubjects.has(account)) {
+            noteProgram(into, programId);
+            refuse(
+              into,
+              "unexpected-subject",
+              `A withdraw acts on ${short(account)}, which is not one of the accounts the plan named.`,
+              programId,
+              index,
+            );
+            return;
+          }
+          noteProgram(into, programId, "withdraw spare rent → you");
+          return;
+        }
+
         noteProgram(into, programId);
         refuse(
           into,
@@ -924,6 +982,92 @@ export function auditInstructions(
           programId,
           "swap (aggregator call: SOL, authority and rent stay locked down)",
         );
+        return;
+      }
+
+      // ── 6b. Pump.fun: closing the wallet's own volume account ────────────
+      // One instruction, and it is decoded rather than trusted: the account it
+      // closes must be one the plan named, the wallet must be the signer the
+      // program derives the PDA from, and the event authority must be the one
+      // Pump derives for itself. A different discriminator is not a close.
+      if (programId === PUMP_AMM_PROGRAM_ID) {
+        if (expected.flow !== "pump-accumulator") {
+          noteProgram(into, programId);
+          refuse(
+            into,
+            "token-instruction-unexpected",
+            `A ${programLabel(programId)} instruction, which this flow never uses.`,
+            programId,
+            index,
+          );
+          return;
+        }
+        const data = instruction.data;
+        const isClose =
+          data.length === CLOSE_USER_VOLUME_ACCUMULATOR_DISCRIMINATOR.length &&
+          CLOSE_USER_VOLUME_ACCUMULATOR_DISCRIMINATOR.every(
+            (byte, offset) => data[offset] === byte,
+          );
+        if (!isClose) {
+          noteProgram(into, programId);
+          refuse(
+            into,
+            "unreadable-instruction",
+            `The batch contains a ${programLabel(programId)} instruction that is not a volume-account close, so it cannot be interpreted.`,
+            programId,
+            index,
+          );
+          return;
+        }
+        const wallet = instruction.keys[0]?.pubkey.toBase58();
+        const accumulator = instruction.keys[1]?.pubkey.toBase58() ?? "";
+        const eventAuthority = instruction.keys[2]?.pubkey.toBase58();
+        const namedProgram = instruction.keys[3]?.pubkey.toBase58();
+        if (wallet !== owner || !instruction.keys[0]?.isSigner) {
+          noteProgram(into, programId);
+          refuse(
+            into,
+            "unexpected-subject",
+            `A volume-account close would be signed by ${short(wallet)}, not by your wallet.`,
+            programId,
+            index,
+          );
+          return;
+        }
+        if (namedProgram !== PUMP_AMM_PROGRAM_ID) {
+          noteProgram(into, programId);
+          refuse(
+            into,
+            "unexpected-subject",
+            `A volume-account close names ${short(namedProgram)} as its program instead of Pump's AMM.`,
+            programId,
+            index,
+          );
+          return;
+        }
+        if (!eventAuthority) {
+          noteProgram(into, programId);
+          refuse(
+            into,
+            "unreadable-instruction",
+            "A volume-account close does not name Pump's event authority.",
+            programId,
+            index,
+          );
+          return;
+        }
+        if (plannedSubjects.size > 0 && !plannedSubjects.has(accumulator)) {
+          noteProgram(into, programId);
+          refuse(
+            into,
+            "unexpected-subject",
+            `A close acts on ${short(accumulator)}, which is not the account the plan named.`,
+            programId,
+            index,
+          );
+          return;
+        }
+        noteProgram(into, programId, "close your volume account → rent to you");
         return;
       }
 

@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { DISPLAY_FONT_STYLE } from "@/lib/ui/fonts";
 import { LandingProductPreview } from "./landing-product-preview";
-import { UfoArtwork } from "./ufo-artwork";
+import { UfoModel } from "./ufo-model";
 
 /**
  * The landing hero.
@@ -17,16 +17,17 @@ import { UfoArtwork } from "./ufo-artwork";
  * The root used to open with a 256px logo and an `sr-only` heading, which told a
  * first-time visitor almost nothing. This version leads with the job, a
  * read-only way in, and the three safety facts that matter before anyone
- * connects a wallet. The saucer itself is supplied by `LandingFlight` on
- * desktop; on phones it sits in the normal flow below the copy.
+ * connects a wallet. The saucer sits in the right-hand column on desktop and in
+ * the normal flow below the copy on phones; it scrolls with the hero rather than
+ * following the viewport, so it can never trail the reader over the tool cards.
  */
 export function LandingHero() {
   return (
     <section
       aria-labelledby="landing-heading"
-      className="relative z-10 flex flex-col justify-center pb-10 pt-12 sm:pt-16 lg:min-h-[calc(100svh-4rem)] lg:pb-16 lg:pt-10"
+      className="relative z-10 flex flex-col justify-center pb-8 pt-16 sm:pb-10 sm:pt-16 lg:min-h-[calc(100svh-4rem)] lg:pb-16 lg:pt-10"
     >
-      <div className="grid items-center gap-14 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-8">
+      <div className="grid min-h-[calc(100svh-3.5rem)] content-start items-center gap-2 sm:gap-8 lg:min-h-0 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
         <div className="mx-auto min-w-0 max-w-2xl text-center lg:mx-0 lg:text-left">
           <h1
             id="landing-heading"
@@ -64,7 +65,7 @@ export function LandingHero() {
             </Link>
           </div>
 
-          <ul className="mt-6 flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs text-muted lg:justify-start">
+          <ul className="mt-5 flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs text-muted lg:justify-start">
             {[
               { icon: ShieldCheck, text: "Non-custodial" },
               { icon: CheckCircle2, text: "Simulated before signing" },
@@ -81,9 +82,18 @@ export function LandingHero() {
           </ul>
         </div>
 
-        {/* The orbit rings are the stage. On desktop the fixed saucer from
-            LandingFlight sits over them; on phones this is the real artwork. */}
-        <div className="relative min-w-0 max-w-full flex min-h-[17rem] items-center justify-center lg:min-h-[38rem] lg:justify-end">
+        {/* The orbit rings are the stage. Both breakpoints render the same
+            WebGL model here; the copy hidden by a breakpoint reports a zero size
+            and never builds a scene. The saucer is in the document rather than
+            fixed, so scrolling moves it away with the hero instead of dragging
+            it over the sections below.
+
+            On phones there is no minimum stage height: the stage is exactly the
+            saucer's box, so it sits directly under the safety list. The model
+            also shrinks with the viewport height (see `.landing-saucer-mobile`),
+            which keeps it fully above the fold in short in-app wallets such as
+            Jupiter's. */}
+        <div className="relative flex min-w-0 max-w-full items-center justify-center lg:min-h-[38rem] lg:justify-end">
           <div
             aria-hidden
             className="pointer-events-none absolute inset-0 flex items-center justify-center"
@@ -93,12 +103,12 @@ export function LandingHero() {
             <div className="absolute size-40 rounded-full bg-violet-core/10 blur-3xl" />
           </div>
 
-          <div className="relative w-full max-w-[20rem] lg:hidden">
-            <UfoArtwork idPrefix="mobile" className="animate-ufo-float" />
+          <div className="landing-saucer-mobile relative w-full sm:max-w-[20rem] lg:hidden">
+            <UfoModel className="animate-ufo-float" />
           </div>
 
-          <div className="reduced-ufo relative w-full max-w-[min(38vw,520px)]">
-            <UfoArtwork idPrefix="reduced" className="animate-ufo-float" />
+          <div className="relative hidden w-full max-w-[min(38vw,520px)] lg:block">
+            <UfoModel className="animate-ufo-float" />
           </div>
         </div>
       </div>

@@ -142,9 +142,21 @@ describe("mintsWithoutRentReclaim", () => {
     ).toBe(true);
   });
 
-  it("still skips a transfer-fee mint, which predates partial amounts", () => {
+  it("no longer decides a transfer-fee mint here, because the chain decides per account", () => {
+    // The old rule skipped every transfer-fee token, including the ones whose
+    // account holds nothing withheld and closes cleanly. `compose.ts` now reads
+    // that account's own withheld balance.
     expect(
-      mintsWithoutRentReclaim([token({ hasTransferFee: true })], new Map()).has(
+      mintsWithoutRentReclaim([token({ hasTransferFee: true })], new Map()).size,
+    ).toBe(0);
+  });
+
+  it("still skips a transfer-fee mint for a partial amount", () => {
+    const amounts = new Map([
+      ["So11111111111111111111111111111111111111112", "500000"],
+    ]);
+    expect(
+      mintsWithoutRentReclaim([token({ hasTransferFee: true })], amounts).has(
         "So11111111111111111111111111111111111111112",
       ),
     ).toBe(true);

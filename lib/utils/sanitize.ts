@@ -9,6 +9,8 @@
  * attacks that survive plain HTML escaping.
  */
 
+import { isAllowedLogoHostname } from "./logo-hosts";
+
 /** Codepoints that must never appear in displayed text. */
 const UNSAFE_CODEPOINTS = /[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u206F\uFEFF]/g;
 
@@ -54,9 +56,15 @@ const MAX_LOGO_URL_LENGTH = 512;
 const MAX_IMAGE_URL_LENGTH = 1024;
 
 /**
- * Only allow http(s) logo URLs. Rejects `javascript:`, `data:`, `file:`,
- * protocol-relative `//host` and anything over-long. Returning `null` makes the
- * caller render a letter avatar instead.
+ * A token logo must be `https` on a host this app already renders images from.
+ *
+ * The scheme matters twice: a plain-http image is mixed content, and an enforced
+ * `img-src` refuses it anyway. The host matters because the URI comes from token
+ * metadata, which anyone can write: an arbitrary host turns every view of the
+ * wallet into a request to whoever wrote the metadata, carrying the viewer's IP.
+ * `isAllowedLogoHostname` is the same list the image optimizer and the CSP use, so
+ * there is one answer to "where may a logo come from". A host that is not on it
+ * gets the letter avatar instead of a request.
  */
 export function sanitizeLogoUri(input: unknown): string | null {
   if (typeof input !== "string") return null;
@@ -66,8 +74,9 @@ export function sanitizeLogoUri(input: unknown): string | null {
   if (trimmed.startsWith("//")) return null;
   try {
     const url = new URL(trimmed);
-    if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+    if (url.protocol !== "https:") return null;
     if (!url.hostname || url.hostname.length > 253) return null;
+    if (!isAllowedLogoHostname(url.hostname)) return null;
     return url.toString();
   } catch {
     return null;
@@ -88,7 +97,12 @@ export function sanitizeLogoUri(input: unknown): string | null {
  *    component sets `no-referrer`, so the request carries nothing about the
  *    wallet.
  *
- * Everything else is the same allow-list, so this still cannot smuggle in
+ * Unlike a logo, artwork is not restricted to a host allow-list: a collection's
+ * image can legitimately live anywhere, and refusing it would mean a blank card
+ * for most NFTs. The enforceable control there is the CSP's `img-src`, which is
+ * why that policy is enforced in production rather than reported.
+ *
+ * The scheme list is shared with logos, so this still cannot smuggle in
  * `javascript:`, `data:` or a protocol-relative URL.
  */
 export function sanitizeImageUri(input: unknown): string | null {
@@ -109,7 +123,9 @@ export function sanitizeImageUri(input: unknown): string | null {
   if (trimmed.startsWith("//")) return null;
   try {
     const url = new URL(trimmed);
-    if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+    // `https` only: plain http is mixed content on this origin, and an enforced
+    // `img-src` would refuse it anyway.
+    if (url.protocol !== "https:") return null;
     if (!url.hostname || url.hostname.length > 253) return null;
     return url.toString();
   } catch {

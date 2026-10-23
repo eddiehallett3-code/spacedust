@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { allowRequest, rateLimitResponse } from "@/lib/api/rate-limit";
+import { describeFailure } from "@/lib/api/redact";
 import { MintLayout } from "@solana/spl-token";
 import { z } from "zod";
 import { scanWallet } from "@/lib/token-source/index.server";
@@ -18,6 +19,9 @@ import { stakedTokenFor } from "@/lib/staking/staked-tokens";
 import { readNativeStakeAccounts } from "@/lib/staking/native-stake.server";
 import { readTokenApprovals } from "@/lib/solana/approvals";
 import { readSnsDomains } from "@/lib/salvage/sns.server";
+import { readPumpAccumulator } from "@/lib/salvage/pump-accumulator.server";
+import { readExcessRentAccounts } from "@/lib/salvage/excess-rent.server";
+import { reconcileDustTokenAccounts } from "@/lib/token-source/live-accounts.server";
 import { listWrappedSolAccounts } from "@/lib/token-source/wrapped-sol.server";
 import { fetchRentMinimums } from "@/lib/solana/rent";
 import { OUTPUT_ASSETS } from "@/lib/utils/constants";
@@ -85,6 +89,9 @@ export async function GET(request: Request) {
   // the sweeper, Salvage or Payload, so they stay opt-in rather than adding
   // two extra owner-wide reads to every rescan.
   const wantsExtras = url.searchParams.get("extras") === "1";
+  // Salvage asks for the excess-rent read on its own flag. It is an owner-wide
+  // Token-2022 call, so the sweeper's ordinary rescan should not pay for it.
+  const wantsExcessRent = url.searchParams.get("excess") === "1";
 
   if (!parsed.success) {
     return NextResponse.json(
@@ -140,10 +147,7 @@ export async function GET(request: Request) {
           .then((approvals) => ({ list: approvals, error: null }))
           .catch((error) => ({
             list: null,
-            error:
-              error instanceof Error
-                ? error.message
-                : "Could not read token approvals.",
+            error: describeFailure(error) || "Could not read token approvals.",
           }))
       : null;
 
@@ -152,10 +156,7 @@ export async function GET(request: Request) {
           .then((accounts) => ({ accounts, error: null as string | null }))
           .catch((error) => ({
             accounts: [] as WrappedSolAccount[],
-            error:
-              error instanceof Error
-                ? error.message
-                : "Could not read wrapped SOL accounts.",
+            error: describeFailure(error) || "Could not read wrapped SOL accounts.",
           }))
       : null;
 
@@ -165,10 +166,7 @@ export async function GET(request: Request) {
           .catch((error) => ({
             domains: [] as SalvageDomain[],
             truncated: false,
-            error:
-              error instanceof Error
-                ? error.message
-                : "Could not read SNS names.",
+            error: describeFailure(error) || "Could not read SNS names.",
           }))
       : null;
     try {
@@ -245,10 +243,10 @@ export async function GET(request: Request) {
       }
     } catch (error) {
       poolLikeError =
-        error instanceof Error ? error.message : "Could not read mint authorities.";
+        describeFailure(error) || "Could not read mint authorities.";
     }
 
-    const tokens: DustToken[] = holdings.map((holding) => {
+    let tokens: DustToken[] = holdings.map((holding) => {
       const raw = parseBaseAmount(holding.rawAmount) ?? 0n;
       const price = prices[holding.mint]?.usdPrice ?? holding.dasPriceUsd;
       const priceChange24h = prices[holding.mint]?.priceChange24h ?? null;
@@ -305,6 +303,18 @@ export async function GET(request: Request) {
     // Largest dust first. Users care about the biggest wins, and this keeps the
     // highest-value tokens inside the first transaction's byte budget.
     tokens.sort((a, b) => b.valueUsd - a.valueUsd);
+
+    /**
+     * A DAS index can outlive the account it describes. After a swap closes an
+     * emptied source account, the old holding can linger in the scan with a
+     * balance no quote can fill — and after a Token-2022 airdrop, the index does
+     * not always report that the account is frozen. Reconcile the claims against
+     * the accounts in one batched read.
+     *
+     * A failed check leaves the list untouched; a failed scan is worse than a
+     * token that may be stale.
+     */
+    tokens = await reconcileDustTokenAccounts(connection, tokens);
 
     // ── Collectible-shaped assets leave the token list ────────────────────────
     // A 0-decimal asset with no market is a collectible the index could not tell
@@ -365,11 +375,56 @@ export async function GET(request: Request) {
       prices[OUTPUT_ASSETS.SOL.mint]?.usdPrice ??
       null;
 
-    const [approvals, wrappedSol, sns] = await Promise.all([
+    const pumpRead = readPumpAccumulator(parsed.data.owner)
+      .then((account) => ({ account, error: null as string | null }))
+      .catch(() => ({
+        account: null,
+        error: "Could not check the Pump.fun volume account.",
+      }));
+
+    /**
+     * Excess rent lives in Token-2022 accounts that still hold a balance, so it
+     * is invisible to the empty-account read above. It is a separate feature:
+     * the withdraw instruction returns only the lamports above the account's
+     * rent-exempt minimum and leaves the token untouched.
+     *
+     * Only Salvage asks for this owner-wide read (`excess=1`). The sweeper's
+     * ordinary rescan already does one Token-2022 read for empty accounts; a
+     * card it never shows is not worth a second one.
+     */
+    const excessRead = wantsExcessRent
+      ? readExcessRentAccounts(parsed.data.owner)
+          .then((accounts) => ({ accounts, error: null as string | null }))
+          .catch(() => ({
+            accounts: [],
+            error: "Could not check for excess rent.",
+          }))
+      : null;
+
+    const [approvals, wrappedSol, sns, pump, excess] = await Promise.all([
       approvalsRead ?? Promise.resolve(null),
       wrappedSolRead ?? Promise.resolve(null),
       snsRead ?? Promise.resolve(null),
+      pumpRead,
+      excessRead ?? Promise.resolve(null),
     ]);
+
+    // Give each excess-rent account the same name the token list shows. The
+    // account usually holds an NFT, so the name is the useful identifier; the
+    // mint and token-account address are still on the object for verification.
+    const allNonFungibles = [
+      ...nonFungibles,
+      ...collectibleTokens.map(toCollectibleAsset),
+    ];
+    const labelByMint = new Map<string, string>();
+    for (const token of dustTokens) labelByMint.set(token.mint, token.symbol);
+    for (const asset of allNonFungibles) {
+      if (asset.name) labelByMint.set(asset.id, asset.name);
+    }
+    const excessRentAccounts = (excess?.accounts ?? []).map((account) => ({
+      ...account,
+      label: labelByMint.get(account.mint) ?? null,
+    }));
 
     const payload: WalletScan = {
       owner: parsed.data.owner,
@@ -379,8 +434,7 @@ export async function GET(request: Request) {
       // the only difference is which of them arrived needing to be told apart from
       // a token.
       nonFungibles: [
-        ...nonFungibles,
-        ...collectibleTokens.map(toCollectibleAsset),
+        ...allNonFungibles,
       ],
       native: {
         lamports: nativeLamports,
@@ -394,6 +448,17 @@ export async function GET(request: Request) {
       // already gone.
       emptyAccounts,
       emptyAccountsError,
+      pumpAccumulator: pump.account,
+      pumpAccumulatorError: pump.error,
+      ...(excess === null
+        ? {}
+        : {
+            // Token-2022 accounts holding more lamports than rent, separate from
+            // the empty accounts above: they still hold a token, so nothing is
+            // closed.
+            excessRentAccounts,
+            excessRentError: excess.error,
+          }),
       // Native stake positions, kept out of `tokens` for the same reason NFTs
       // are: they are not dust, and nothing may sweep a stake account.
       stakedAccounts: nativeStake.accounts,
@@ -442,8 +507,7 @@ export async function GET(request: Request) {
         { status: 424 },
       );
     }
-    const message =
-      error instanceof Error ? error.message : "Failed to scan this wallet.";
+    const message = describeFailure(error) || "Failed to scan this wallet.";
     return NextResponse.json({ error: message }, { status: 502 });
   }
 }

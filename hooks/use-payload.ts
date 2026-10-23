@@ -318,7 +318,7 @@ export function usePayload() {
 
         patch({ phase: "awaiting-signature", error: null });
 
-        // ── 1. One approval for wallets that support it; Phantom signs each ─
+        // ── 1. One approval for wallets that support it; otherwise each ─────
         const signed = await signTransactions(
           {
             signTransaction,

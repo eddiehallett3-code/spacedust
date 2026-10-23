@@ -16,9 +16,10 @@ import type { WalletScan } from "@/types/token";
  *    it is cleared on wallet change so dust from wallet A never appears under
  *    wallet B.
  */
-export function useWalletScan() {
+export function useWalletScan(config?: { includeExcessRent?: boolean }) {
   const { publicKey, connected } = useWallet();
   const owner = publicKey?.toBase58() ?? null;
+  const includeExcessRent = config?.includeExcessRent ?? false;
 
   const [scan, setScan] = useState<WalletScan | null>(null);
   const [isScanning, setIsScanning] = useState(false);
@@ -45,7 +46,9 @@ export function useWalletScan() {
 
     try {
       const result = await apiFetch<WalletScan>(
-        `/api/tokens?owner=${encodeURIComponent(owner)}`,
+        `/api/tokens?owner=${encodeURIComponent(owner)}${
+          includeExcessRent ? "&excess=1" : ""
+        }`,
         {
           signal: controller.signal,
           /**
@@ -84,7 +87,7 @@ export function useWalletScan() {
         setIsScanning(false);
       }
     }
-  }, [owner]);
+  }, [owner, includeExcessRent]);
 
   // Auto-scan on connect and on wallet change.
   useEffect(() => {

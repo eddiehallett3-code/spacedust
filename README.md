@@ -20,8 +20,9 @@ full: the 0.5% that used to come out of the swap inside Jupiter's instruction is
 gone, along with the token accounts it needed. What remains is **1.5% of the rent
 that any flow reclaims** — a token burned in The Void, an account a swap emptied
 and closed, an already-empty account closed, a Payload send that empties the
-account it came from — taken as a plain SOL transfer *after* the close has handed
-the rent back, so it is always funded by the thing it is charged on.
+account it came from, excess rent withdrawn from a Token-2022 account — taken as
+a plain SOL transfer *after* the close has handed the rent back, so it is always
+funded by the thing it is charged on.
 Burning an NFT or a cNFT costs nothing. Revoking an approval and looking a wallet
 up cost only the network fee.
 
@@ -42,12 +43,13 @@ other flow here charges for a reclaim.
 | **Slingshot** | The swap flow. Connect a wallet, pick a USD threshold, and it packs as many dust swaps into as few transactions as the 1232-byte limit allows. |
 | **The Void** | The burn flow, for tokens with no market left. Named, for a reason — see below. |
 | **Non-custodial** | Transactions are built in your browser and signed by *your* wallet. Spacedust has no keyring, no seed phrase field, and no ability to move funds. |
-| **Fewest signatures** | Swaps are packed into as few versioned transactions as the 1232-byte limit allows — often clearing 10+ dust tokens in a single transaction. Wallets that support batch signing can approve those transactions together; Phantom signs them one at a time. |
+| **Fewest signatures** | Swaps are packed into as few versioned transactions as the 1232-byte limit allows — often clearing 10+ dust tokens in a single transaction. Wallets that support batch signing can approve the whole set together; a wallet that prompts per transaction asks once for each. |
 | **Rent reclaim** | Emptied token accounts are closed in the same flow, returning each account's own rent (~0.0015 SOL for a fresh one), less the 1.5% reclaim fee. Frequently worth more than the dust itself. |
 | **Simulated first** | Every transaction is dry-run against the cluster *before* you are asked to sign. |
-| **Revoke approvals** | Finds token accounts where someone else still holds a delegate — from NFT listings and old dApp approvals — and clears them. |
+| **Approvals** | Finds token accounts where someone else still holds a delegate — from NFT listings and old dApp approvals — and clears them. |
 | **Rent from empty accounts** | A token account with no balance still holds ~0.002 SOL, and nothing else in the app can reach it. Closing it returns that rent, with no swap and no burn — for 1.5% of what comes back. |
-| **Check without connecting** | Paste any address and see what a sweep would recover from it. An address is a shareable link, and nothing is requested from you. |
+| **Excess rent** | A Token-2022 account can hold more lamports than its data size requires. Withdraw only the excess — the token and the account stay exactly where they are — for 1.5% of what comes back. |
+| **Check without connecting** | Paste any address and see what can be reclaimed from it. An address is a shareable link, and nothing is requested from you. |
 | **Smart Filter** | Hides tokens with no liquidity, a Token-2022 transfer hook, or an excessive price impact — the ones that quietly fail or cost money. |
 | **Token-2022** | Full support, including transfer-fee and transfer-hook detection. |
 | **API keys stay server-side** | The browser never sees the Helius or Jupiter key. |
@@ -199,7 +201,7 @@ Chainstack) — the code does not care which one.
 |---|---|---|
 | `HELIUS_API_KEY` | No | Enables the faster DAS scanner. Blank = free core-RPC path. |
 | `JUPITER_API_KEY` | No | Jupiter works keyless (~0.5 req/s). A free key at [portal.jup.ag](https://portal.jup.ag) removes rate-limit errors. |
-| `NEXT_PUBLIC_FEE_WALLET` | No | Receiving wallet for the 1.5% fee on reclaimed rent (Void sends, empty-account closes, Payload sends). **Leave blank to charge nothing** — every rent fee path is skipped when unset. |
+| `NEXT_PUBLIC_FEE_WALLET` | No | Receiving wallet for the 1.5% fee on reclaimed rent (Void sends, empty-account closes, excess rent, Payload sends). **Leave blank to charge nothing** — every rent fee path is skipped when unset. |
 | `NEXT_PUBLIC_FALLBACK_RPC_URL` | No | RPC used when Helius is absent. |
 | `NEXT_PUBLIC_SITE_URL` | No | The site's own origin. Feeds `metadataBase` (so the generated social-preview card resolves to an absolute URL) and `sitemap.xml`. Defaults to `https://spacedust.cc`. |
 | `NEXT_PUBLIC_TWITTER_URL` | No | The X account. Drives the footer link (labelled with the derived `@handle`), the "we only post from …" line on `/security`, and the `twitter:site`/`creator` attribution on preview cards. A value that is not an `x.com`/`twitter.com` profile is ignored rather than linked. |
@@ -440,13 +442,14 @@ that allow-list it would be an open RPC relay pointed at your Helius account.
    serialising** it with signature slots, because the 1232-byte cap applies to
    the whole packet — measuring the message alone under-reports by 64 bytes per
    signer.
-4. `signAllTransactions` covers multiple transactions in one approval for wallets
-   that support it. Phantom is signed with `signTransaction` one transaction at
-   a time, matching its simulation guidance.
+4. `signAllTransactions` is used so a wallet that supports batch approval can
+   cover the whole set in one prompt. A wallet that only exposes
+   `signTransaction` — or one that still prompts per transaction — signs them in
+   sequence.
 5. There is one fee, and it is charged on rent rather than on a swap: 1.5% of
    any rent reclaimed — a Void burn, an account a swap emptied and closed, an
-   already-empty account closed, a Payload send that emptied its account. Nothing
-   is taken out of a swap's output.
+   already-empty account closed, excess rent withdrawn, or a Payload send that
+   emptied its account. Nothing is taken out of a swap's output.
    The rent fee is a plain SOL transfer taken from the rent just returned to the
    user, so it is always funded by the thing it is charged on.
 
@@ -721,21 +724,30 @@ anything else in this space.
 
 ## Wallet Scan (read-only)
 
-`/scan` takes an address and reports what a sweep *would* recover from it: the
-dust value, the rent locked in token accounts that could be closed, and what a
-sweep would refuse to touch — frozen holdings, transfer hooks, transfer-fee mints
-whose ATA cannot be closed, and balances whose account the scanner could not name.
+`/scan` takes an address and reports what can be reclaimed from it: the dust
+value, the rent locked in token accounts that could be closed, the spare
+lamports a Token-2022 account is holding above its rent-exempt minimum, and what
+a sweep would refuse to touch — frozen holdings, transfer hooks, transfer-fee
+mints whose ATA cannot be closed, and balances whose account the scanner could
+not name.
 
 The address is a query parameter, so a result is a link. That is the whole design:
 the page has to work with no wallet present, and it must never look like it is
 about to ask for a signature.
 
-When it asks for the full scan (`approvals=1&extras=1`), it also shows the exact
-standing approvals, non-empty wSOL accounts and their rent, and the `.sns` names
-the wallet owns. Those reads are opt-in because the sweeper and the other tools
-do not display them; the scan route still works without `extras`. wSOL is shown
-in the wallet total but never in the recoverable total — unwrapping returns
-principal the wallet already owns, not new value.
+When it asks for the full scan (`approvals=1&extras=1&excess=1`), it also shows
+the exact standing approvals, non-empty wSOL accounts and their rent, the `.sns`
+names the wallet owns, and any Token-2022 excess rent. Those reads are opt-in
+because the sweeper and the other tools do not display them; the scan route still
+works without `extras` or `excess`. wSOL is shown in the wallet total but never in
+the recoverable total — unwrapping returns principal the wallet already owns, not
+new value.
+
+Excess rent is the one funded-account rent the scan *does* count. A Token-2022
+account can hold more lamports than its data size requires; `WithdrawExcessLamports`
+returns the difference without closing the account or moving the token. The scan
+reports it as its own figure, includes it in the potential-reclaim total, and links
+to Salvage where it can be withdrawn.
 
 ### Positions that are not dust
 
@@ -792,16 +804,23 @@ thing is to show the holding and say what it is.
 
 The arithmetic lives in `lib/sweep/recoverable.ts` as a pure function, because it
 is a promise about a future transaction and every number in it has to survive
-being checked later with a wallet connected. Two rules follow:
+being checked later with a wallet connected. The scan also reconciles each token
+account it reports against the chain: a holding whose account has closed — common
+right after a swap empties it — is not shown, and a frozen Token-2022 account is
+marked frozen even when the DAS index does not say so.
 
-- **Rent is only counted for accounts that can genuinely be closed.** A frozen
-  account's rent is not recoverable and neither is its value; a transfer-fee ATA
-  keeps a residue, so its value counts and its rent does not. Counting either
-  would repeat the exact mistake this project already made once, when a stale rent
-  constant made every figure it quoted wrong.
-- **An unpriced token contributes its rent and nothing else.** Not a rounding
-  choice: it has no USD value, and The Void can still burn it for the rent, which
-  is precisely the recoverable part.
+Two rules follow:
+
+- **Rent is only counted when it can genuinely be reached.** A frozen account's
+  rent is not recoverable and neither is its value; a transfer-fee ATA keeps a
+  residue, so its value counts and its rent does not. The exceptions are rent that
+  is reachable without touching a balance: an already-empty account can be closed,
+  and a Token-2022 account's excess can be withdrawn without closing it. Counting
+  anything else would repeat the exact mistake this project already made once,
+  when a stale rent constant made every figure it quoted wrong.
+- **An unpriced token contributes no USD value.** Its rent is only reachable by
+  burning it, which is a future action and not part of the scan's
+  reachable-today total. The scan still lists it, and The Void can act on it.
 
 What the total leaves out is listed explicitly, by reason and count, so the number
 is never the only thing the user sees.
@@ -848,7 +867,7 @@ note says exactly that rather than implying the position is lost.
 
 ---
 
-## Revoke token approvals
+## Approvals
 
 `/approvals` answers one question: **who else can move the tokens in this wallet?**
 

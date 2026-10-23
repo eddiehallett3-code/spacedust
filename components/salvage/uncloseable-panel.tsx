@@ -32,7 +32,49 @@ export function UncloseableAccountsPanel({
 }) {
   const plan = planEmptyAccountCloses(accounts, owner);
 
-  if (scanError || plan.skipped.length === 0) return null;
+  if (scanError) {
+    return (
+      <Card>
+        <CardHeader>
+          <SectionTitle
+            icon={<LockKeyhole className="size-4" aria-hidden />}
+            title="Accounts we cannot close"
+            description="Still visible in the scan, but the token program will not let this wallet close them."
+          />
+        </CardHeader>
+        <CardContent>
+          <p className="rounded-xl border border-warning/25 bg-warning/8 px-3 py-2.5 text-[11px] leading-relaxed text-warning">
+            {scanError}
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (plan.skipped.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <SectionTitle
+            icon={<LockKeyhole className="size-4" aria-hidden />}
+            title="Accounts we cannot close"
+            description="Still visible in the scan, but the token program will not let this wallet close them."
+            action={
+              <Badge variant="success" size="sm">
+                None
+              </Badge>
+            }
+          />
+        </CardHeader>
+        <CardContent>
+          <p className="rounded-xl border border-border bg-white/2 px-3 py-2.5 text-[11px] leading-relaxed text-muted">
+            No empty accounts are currently blocked by a close authority or
+            withheld transfer fees.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>

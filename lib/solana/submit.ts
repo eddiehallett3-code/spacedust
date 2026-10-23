@@ -5,10 +5,19 @@ import {
   type VersionedTransaction as VTx,
 } from "@solana/web3.js";
 import { base64ToBytes } from "@/lib/utils/base64";
+import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  COMPUTE_BUDGET_PROGRAM_ID,
+  SYSTEM_PROGRAM_ID,
+  TOKEN_2022_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+} from "@/lib/utils/constants";
+import { programLabel } from "@/lib/security/program-ids";
 import { BLOCKHASH_EXPIRED_MESSAGE, isBlockhashExpired } from "./blockhash";
 import {
   describeInstructionFailure,
   describeSimulationError,
+  instructionBytes,
 } from "./simulate";
 import type { PackedTransaction, TokenOutcome } from "@/types/sweep";
 
@@ -40,10 +49,11 @@ export interface SigningCapableWallet {
   /**
    * The adapter's display name.
    *
-   * Phantom's simulation guidance asks dApps to sign with `signTransaction`
-   * rather than a batch `signAllTransactions` call, so a multi-transaction flow
-   * needs to know which wallet is attached. Optional because every signing test
-   * and every wallet that only exposes one method should keep working unchanged.
+   * Kept as context for diagnostics, and it decides one thing: a wallet whose
+   * name contains "Phantom" is signed one transaction at a time. Phantom's
+   * scanner refuses a batched approval outright — see `signTransactions` — so the
+   * batch path is withheld from it even though the adapter offers it. Every
+   * other wallet with `signAllTransactions` keeps the single-prompt batch.
    */
   walletName?: string;
 }
@@ -53,6 +63,199 @@ function isUnsigned(transaction: VTx): boolean {
   return !transaction.signatures.some((signature) =>
     signature.some((byte) => byte !== 0),
   );
+}
+
+/**
+ * Programs a wallet may not *add* to a transaction it returns.
+ *
+ * A wallet is entitled to append or prepend its own guard instructions —
+ * Lighthouse-style assertions that read account state and abort on a mismatch —
+ * and to add a compute-budget instruction of its own (Phantom's priority-fee
+ * handling does exactly that, ahead of the plan's own). It is not entitled to add
+ * anything that can move value or change state, because those are the
+ * instructions the user was never shown. Compute Budget is deliberately absent
+ * from this list: it has no accounts, and its fee is the one thing the wallet's
+ * own approval sheet discloses.
+ */
+const UNINVITED_PROGRAMS = new Set<string>([
+  SYSTEM_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+  TOKEN_2022_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+]);
+
+/** The parts of a compiled message this comparison reads, across versions. */
+interface CompiledMessageView {
+  recentBlockhash: string;
+  staticAccountKeys: ReadonlyArray<{ toBase58(): string }>;
+  compiledInstructions: ReadonlyArray<{
+    programIdIndex: number;
+    accountKeyIndexes: ReadonlyArray<number>;
+    data: unknown;
+  }>;
+  addressTableLookups?: ReadonlyArray<unknown>;
+  isAccountWritable(index: number): boolean;
+  isAccountSigner(index: number): boolean;
+}
+
+function bytesEqual(a: unknown, b: unknown): boolean {
+  const left = instructionBytes(a);
+  const right = instructionBytes(b);
+  if (!left || !right || left.length !== right.length) return false;
+  return left.every((byte, index) => byte === right[index]);
+}
+
+/**
+ * Why a signed transaction is not the one that was built, or null when it is.
+ *
+ * The wallet is the last thing between a plan and the chain, and a returned
+ * transaction is not automatically the transaction that was asked for: an
+ * adapter — or a remote WalletConnect peer — can hand back different bytes with a
+ * signature attached, and `sendRawTransaction` would broadcast them. Everything
+ * the user approved lives in the message, so the message is what is compared:
+ * the same fee payer, the same blockhash, the same lookup tables, and the built
+ * instructions byte-for-byte, in order.
+ *
+ * Appended instructions are allowed only if they cannot do anything: they must
+ * name no writable account and no signer, and must not call a program that moves
+ * value (a System or Token instruction without a writable account could not run
+ * anyway, but refusing them by name says so plainly). That admits the guard
+ * instructions wallets add and nothing that could move a lamport — appending
+ * cannot alter the indices of instructions already in the message, and a
+ * transfer needs a writable source.
+ */
+function modificationReason(requested: VTx, returned: VTx): string | null {
+  try {
+    const built = requested.message as unknown as CompiledMessageView;
+    const signed = returned.message as unknown as CompiledMessageView;
+
+    if (returned.signatures.length !== requested.signatures.length) {
+      return "it carries a different number of signatures";
+    }
+    if (signed.recentBlockhash !== built.recentBlockhash) {
+      return "it references a different blockhash";
+    }
+    if (
+      signed.staticAccountKeys[0]?.toBase58() !==
+      built.staticAccountKeys[0]?.toBase58()
+    ) {
+      return "it is paid for by a different account";
+    }
+    if (
+      (signed.addressTableLookups?.length ?? 0) !==
+      (built.addressTableLookups?.length ?? 0)
+    ) {
+      return "it uses a different set of address lookup tables";
+    }
+
+    const builtInstructions = built.compiledInstructions;
+    const signedInstructions = signed.compiledInstructions;
+
+    // Compute-budget instructions are excluded from the comparison entirely, on
+    // both sides. They have no accounts, so they cannot move anything, and the
+    // fee they set is disclosed by the wallet's own approval sheet. Meanwhile
+    // Phantom both adds one ahead of the plan's and can rewrite the plan's own
+    // when its priority-fee setting changes — either of which would otherwise be
+    // reported as a tampered transaction and block the signature. What this guard
+    // exists to protect is value and authority, and no compute-budget instruction
+    // can touch either.
+    const isComputeBudget = (
+      message: CompiledMessageView,
+      instruction: { programIdIndex: number },
+    ): boolean =>
+      message.staticAccountKeys[instruction.programIdIndex]?.toBase58() ===
+      COMPUTE_BUDGET_PROGRAM_ID;
+
+    // Every instruction we built must appear, unchanged and in order — but not
+    // necessarily at the same index, because a wallet may insert its own guard in
+    // front of them. The match is therefore a subsequence: walk what we built,
+    // find each one in the returned list, and hold the skipped-over entries to the
+    // insertion rule below.
+    let cursor = 0;
+    const matched = new Set<number>();
+    for (let index = 0; index < builtInstructions.length; index += 1) {
+      const before = builtInstructions[index];
+      if (!before) return "an instruction could not be read";
+      if (isComputeBudget(built, before)) continue;
+
+      let found = -1;
+      for (let candidate = cursor; candidate < signedInstructions.length; candidate += 1) {
+        const after = signedInstructions[candidate];
+        if (!after) continue;
+        const sameKeys =
+          before.accountKeyIndexes.length === after.accountKeyIndexes.length &&
+          before.accountKeyIndexes.every(
+            (keyIndex, position) => keyIndex === after.accountKeyIndexes[position],
+          );
+        if (
+          before.programIdIndex === after.programIdIndex &&
+          sameKeys &&
+          bytesEqual(before.data, after.data)
+        ) {
+          found = candidate;
+          break;
+        }
+      }
+
+      if (found === -1) {
+        const programId = built.staticAccountKeys[before.programIdIndex]?.toBase58();
+        return `instruction ${index + 1}${programId ? ` (${programLabel(programId)})` : ""} was changed or removed`;
+      }
+      cursor = found + 1;
+      matched.add(found);
+    }
+
+    // Anything in the returned list that we did not build has to be inert: it may
+    // read accounts and abort, but it may not name a writable or signer account,
+    // and it may not call a program that moves value.
+    for (
+      let index = 0;
+      index < signedInstructions.length;
+      index += 1
+    ) {
+      if (matched.has(index)) continue;
+      const added = signedInstructions[index];
+      if (!added) return "an added instruction could not be read";
+      if (isComputeBudget(signed, added)) continue;
+      const programId =
+        signed.staticAccountKeys[added.programIdIndex]?.toBase58();
+      if (!programId) {
+        return "an added instruction calls a program that is not a static account key";
+      }
+      if (UNINVITED_PROGRAMS.has(programId)) {
+        return `an added instruction calls ${programLabel(programId)}`;
+      }
+      const canWriteOrSign = added.accountKeyIndexes.some(
+        (keyIndex) =>
+          signed.isAccountWritable(keyIndex) || signed.isAccountSigner(keyIndex),
+      );
+      if (canWriteOrSign) {
+        return `an added ${programLabel(programId)} instruction can write to an account or sign for one`;
+      }
+    }
+  } catch {
+    return "its message could not be read";
+  }
+
+  return null;
+}
+
+/**
+ * Refuse a signature over anything but the transaction that was built.
+ *
+ * Runs on every path — one transaction or a batch — before a single byte is sent.
+ */
+function assertUnmodified(requested: readonly VTx[], signed: readonly VTx[]): void {
+  signed.forEach((transaction, index) => {
+    const built = requested[index];
+    if (!built) return;
+    const reason = modificationReason(built, transaction);
+    if (reason) {
+      throw new Error(
+        `The wallet returned a transaction that is not the one this app built: ${reason}. Nothing was sent, and no funds left your wallet.`,
+      );
+    }
+  });
 }
 
 /**
@@ -115,11 +318,20 @@ async function withSigningTimeout<T>(call: () => Promise<T>): Promise<T> {
 /**
  * Ask the wallet to sign the packed transactions.
  *
- * `signAllTransactions` is used for wallets that support it and are not Phantom:
- * it triggers a single approval flow rather than N separate prompts. Phantom is
- * deliberately signed one transaction at a time, because its simulation
- * guidance requires `signTransaction` and a batch can produce its generic
- * warning instead of a reviewed approval.
+ * Phantom gets **one transaction at a time**; other wallets with
+ * `signAllTransactions` still get their single-prompt batch.
+ *
+ * That exception is not a preference, it is the difference between a sweep
+ * working and not. Observed on Phantom against a production build: a batch
+ * approval is refused by its transaction scanner ("request blocked", flagged as
+ * malicious) even when the batch contains nothing but routine Jupiter swaps —
+ * while the same wallet signs the *same* transactions one at a time without a
+ * warning, and a single-transaction sweep was never flagged at all. Phantom's
+ * guidance is to hand it one transaction so it can simulate exactly what is being
+ * approved; a batch loses that, and its generic warning is the result.
+ *
+ * So the cost of this branch is extra approval prompts for Phantom users, and
+ * the cost of not having it is that Phantom users cannot sweep at all.
  */
 export async function signTransactions(
   wallet: SigningCapableWallet,
@@ -131,9 +343,8 @@ export async function signTransactions(
 
   const single = wallet.signTransaction;
   const batch = wallet.signAllTransactions;
-  // Phantom asks dApps to hand it one transaction at a time so it can simulate
-  // the exact transaction before showing its approval sheet. Other wallets keep
-  // the single-prompt batch path, which is the better UX when available.
+  // Case-insensitive substring: adapter names reach us as "Phantom",
+  // "Phantom Wallet", and whatever the next release calls itself.
   const preferSingle =
     wallet.walletName?.toLowerCase().includes("phantom") === true &&
     single !== undefined;
@@ -143,11 +354,13 @@ export async function signTransactions(
     if (!signed || isUnsigned(signed)) {
       throw new Error("The wallet did not return a signed transaction.");
     }
+    assertUnmodified(decoded, [signed]);
     return [signed];
   }
 
-  // Multiple transactions: prefer the batch call so most wallets show a single
-  // approval rather than a queue of prompts. Fall back to signing each one.
+  // Multiple transactions: use the batch call whenever it exists — except
+  // Phantom, which is signed per transaction above — so most wallets show a
+  // single approval rather than a queue of prompts.
   if (batch && !preferSingle) {
     const signed = await withSigningTimeout(() => batch(decoded as VTx[]));
 
@@ -174,6 +387,7 @@ export async function signTransactions(
         `Transaction ${unsigned + 1} of ${signed.length} was not signed. Nothing was sent.`,
       );
     }
+    assertUnmodified(decoded, signed);
     return signed;
   }
 
@@ -195,6 +409,7 @@ export async function signTransactions(
         `The wallet signed ${signed.length} of ${decoded.length} transactions. Nothing was sent.`,
       );
     }
+    assertUnmodified(decoded, signed);
     return signed;
   }
 
@@ -285,6 +500,7 @@ async function settleSignatures(
   connection: Connection,
   inFlight: Array<{ signature: string; meta: PackedTransaction; encoded: Uint8Array }>,
   blockhashInfo: BlockhashWithExpiryBlockHeight,
+  onSettled?: () => void,
 ): Promise<SubmitResult[]> {
   if (inFlight.length === 0) return [];
 
@@ -322,6 +538,7 @@ async function settleSignatures(
         if (!entry) return;
         pending.delete(signature);
         out.push(toResult(entry, status.err ?? null));
+        onSettled?.();
       });
     }
 
@@ -385,6 +602,7 @@ async function settleSignatures(
 
     if (onChain) {
       out.push(toResult({ signature, meta }, onChain.meta?.err ?? null));
+      onSettled?.();
       continue;
     }
 
@@ -397,6 +615,7 @@ async function settleSignatures(
       error: expired ? NEVER_INCLUDED_MESSAGE : STILL_PENDING_MESSAGE,
       mints: meta.mints,
     });
+    onSettled?.();
   }
 
   return out;
@@ -542,6 +761,13 @@ export async function submitTransactions(
   // ── Phase 1: get everything on the wire, fast ─────────────────────────────
   onProgress?.(0, signed.length);
 
+  let completed = 0;
+  /** Advance once per transaction, whether it sent or was rejected outright. */
+  const reportSettled = (): void => {
+    completed = Math.min(completed + 1, signed.length);
+    onProgress?.(completed, signed.length);
+  };
+
   for (let i = 0; i < signed.length; i += 1) {
     const transaction = signed[i];
     const meta = packed[i];
@@ -561,6 +787,7 @@ export async function submitTransactions(
           error: BLOCKHASH_EXPIRED_MESSAGE,
           mints: restMeta.mints,
         });
+        reportSettled();
       }
       break;
     }
@@ -590,12 +817,22 @@ export async function submitTransactions(
         error: describeSimulationError(error, meta),
         mints: meta.mints,
       });
+      reportSettled();
     }
   }
 
   // ── Phase 2: settle them all together ─────────────────────────────────────
-  results.push(...(await settleSignatures(connection, inFlight, blockhashInfo)));
-  onProgress?.(signed.length, signed.length);
+  results.push(
+    ...(await settleSignatures(
+      connection,
+      inFlight,
+      blockhashInfo,
+      reportSettled,
+    )),
+  );
+  if (completed < signed.length) {
+    onProgress?.(signed.length, signed.length);
+  }
 
   // Deterministic order for the summary, regardless of which settled first.
   return results.sort((a, b) => a.index - b.index);

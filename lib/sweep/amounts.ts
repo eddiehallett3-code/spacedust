@@ -142,8 +142,11 @@ export interface CloseCandidate {
  *    that single bad close fails the whole sweep — so this is not a missed
  *    optimisation, it is the difference between a batch landing and none of it
  *    landing.
- *  - A **transfer-fee** mint keeps a residue for its own reason, which predates
- *    partial amounts.
+ *
+ * A transfer-fee mint is **not** decided here. Whether such an account can be
+ * closed depends on the account's own withheld-fee balance, which is read from
+ * the chain per account in `compose.ts`; a per-mint flag would refuse every
+ * transfer-fee token, including the ones that close cleanly.
  *
  * Conservative by construction: an amount the resolver rejects is treated as
  * "will not empty" and skipped, never assumed safe.
@@ -154,10 +157,6 @@ export function mintsWithoutRentReclaim(
 ): Set<string> {
   const skip = new Set<string>();
   for (const token of tokens) {
-    if (token.hasTransferFee) {
-      skip.add(token.mint);
-      continue;
-    }
     const chosen = amounts.get(token.mint);
     // No override, or an override equal to the balance: the swap empties it.
     if (chosen == null || chosen === token.rawAmount) continue;

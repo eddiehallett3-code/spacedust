@@ -29,6 +29,12 @@ import { preloadSounds, primeSounds } from "@/lib/ui/sound";
  * in @solana/wallet-adapter-react). WalletConnect — which covers Phantom and
  * most other phone wallets without any extension or local socket — is the piece
  * that needs wiring, below.
+ *
+ * METADATA: the standard `WalletProvider` has no dApp-metadata prop. The name
+ * and icon a wallet sees come from the absolute document icons and manifest in
+ * `app/layout.tsx`, the Mobile Wallet Adapter app identity, and
+ * `getDappMetadata()` in the AppKit bridge. Jupiter's own search catalogue is
+ * outside the app; see the metadata comments in those three files.
  */
 
 const RPC_ENDPOINT = "https://api.mainnet-beta.solana.com";

@@ -1,47 +1,33 @@
 import Image from "next/image";
-import styles from "./brand-logo.module.css";
 import { cn } from "@/lib/utils/cn";
 
 /**
  * The header brand.
  *
- * Tablet and desktop use the wide lockup that already contains the UFO and the
- * designed wordmark. Phones use the standalone UFO plus a live text label: the
- * full lockup would be too wide beside the Pro switch, wallet control and menu,
- * and shrinking it enough to fit would make the wordmark illegible.
+ * One asset at every breakpoint: the transparent lockup supplied as
+ * `Logo/transp logo text.png`, trimmed to its ink and served from
+ * `public/logo-text-transp.png`. The previous version swapped to a mark plus a
+ * live "Spacedust" label on phones, which meant the two breakpoints were not
+ * showing the same wordmark. This is the same lockup everywhere, and the live
+ * text is gone.
  *
- * The responsive switch lives in `brand-logo.module.css` rather than
- * Tailwind's `sm:hidden`, because that utility was not emitted for this
- * component and silently left both marks in the layout.
+ * The source is 1400 × 178 after trimming, so the rendered heights below keep
+ * the wordmark's proportions. It is larger on tablet/desktop where the header
+ * has room, and small enough on phones to sit beside the Pro switch and menu.
  */
 export function BrandLogo({ className }: { className?: string }) {
   return (
-    <>
-      <span className={cn(styles.mobile, "items-center gap-1.5", className)}>
-        <Image
-          src="/logo-mark.png"
-          alt=""
-          width={500}
-          height={156}
-          decoding="async"
-          draggable={false}
-          style={{ height: 20, width: "auto" }}
-        />
-        <span className="text-[15px] font-semibold tracking-tight">
-          Spacedust
-        </span>
-      </span>
-      <span className={cn(styles.desktop, "items-center", className)}>
-        <Image
-          src="/logo-text.png"
-          alt=""
-          width={1000}
-          height={106}
-          decoding="async"
-          draggable={false}
-          style={{ height: 28, width: "auto" }}
-        />
-      </span>
-    </>
+    <span className={cn("flex items-center", className)}>
+      <Image
+        src="/logo-text-transp.png"
+        alt=""
+        width={1400}
+        height={178}
+        sizes="(min-width: 640px) 220px, 130px"
+        decoding="async"
+        draggable={false}
+        className="h-4 w-auto sm:h-7"
+      />
+    </span>
   );
 }

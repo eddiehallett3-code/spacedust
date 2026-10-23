@@ -147,14 +147,47 @@ export async function simulateAll(
   }
   return results;
 }
+
+/**
+ * The transactions that simulated, and the ones that did not.
+ *
+ * A failed simulation is proof the transaction will not do what the preview
+ * says: it reverts, or it is rejected outright. Signing it anyway spends the
+ * user's approval and a fee on a known failure, and it makes a partial batch
+ * look larger than it was. The planners that accept per-account units drop the
+ * failures before signing and report them, rather than leaving them in the
+ * batch for the chain to refuse.
+ */
+export function splitBySimulation(
+  packed: PackedTransaction[],
+  simulations: SimulationOutcome[],
+): {
+  packed: PackedTransaction[];
+  simulations: SimulationOutcome[];
+  failed: SimulationOutcome[];
+} {
+  const ok = new Set(
+    simulations
+      .filter((outcome) => outcome.ok)
+      .map((outcome) => outcome.index),
+  );
+  return {
+    packed: packed.filter((item) => ok.has(item.index)),
+    simulations: simulations.filter((outcome) => ok.has(outcome.index)),
+    failed: simulations.filter((outcome) => !outcome.ok),
+  };
+}
 /**
  * Read a compiled instruction's bytes.
  *
  * `@solana/web3.js` declares `CompiledInstruction.data` as a base58 *string*,
  * but at runtime it is a `Buffer`. Rather than cast blindly, handle both: a
  * string is base58-encoded and gets decoded, a typed array is used as-is.
+ *
+ * Exported because `submit.ts` compares the bytes a wallet returned against the
+ * bytes that were built, and must read them the same way.
  */
-function instructionBytes(data: unknown): Uint8Array | null {
+export function instructionBytes(data: unknown): Uint8Array | null {
   if (data instanceof Uint8Array) return data;
   if (typeof data === "string") {
     try {

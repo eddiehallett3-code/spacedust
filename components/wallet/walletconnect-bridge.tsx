@@ -18,6 +18,7 @@ import {
   type WalletConnectProvider,
   type WalletConnectWalletId,
 } from "@/components/wallet/walletconnect-adapter";
+import { getDappMetadata } from "@/lib/config/site";
 
 /**
  * WalletConnect bridge.
@@ -62,10 +63,11 @@ function createAppKitOnce(projectId: string): void {
       // Reown requires this to match the origin serving the app, and the wallet
       // checks it against the domain allowlisted for the project: a mismatch is
       // what makes a wallet show "Cannot verify" instead of a verified domain.
-      name: "Spacedust",
-      description: "Slingshot: swap dust tokens out of a Solana wallet.",
-      url: window.location.origin,
-      icons: [`${window.location.origin}/logo-512.png`],
+      //
+      // `getDappMetadata` supplies absolute icon URLs on purpose. The wallet
+      // reads this object during the handshake, not from our document, so a
+      // relative path would resolve against the wallet's own origin.
+      ...getDappMetadata(window.location.origin),
     },
     enableWallets: true,
     features: { analytics: false },

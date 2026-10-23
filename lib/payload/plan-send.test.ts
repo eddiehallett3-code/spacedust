@@ -317,7 +317,12 @@ describe("planSend against a fake chain", () => {
    * simulation that passes. The fee wallet is whatever the test says it is.
    */
   function fakeConnection(
-    options: { feeAccountLamports?: number | null; readFails?: boolean } = {},
+    options: {
+      feeAccountLamports?: number | null;
+      readFails?: boolean;
+      /** Withheld transfer fees on the source account, in base units. */
+      withheld?: number;
+    } = {},
   ): Connection {
     const feeAccountLamports = options.feeAccountLamports ?? null;
 
@@ -341,6 +346,16 @@ describe("planSend against a fake chain", () => {
                       info: {
                         state: "initialized",
                         tokenAmount: { amount: "1000000", decimals: 6 },
+                        extensions: options.withheld
+                          ? [
+                              {
+                                extension: "transferFeeAmount",
+                                state: {
+                                  withheldAmount: String(options.withheld),
+                                },
+                              },
+                            ]
+                          : [],
                       },
                     },
                   },
@@ -357,6 +372,29 @@ describe("planSend against a fake chain", () => {
       }),
     } as unknown as Connection;
   }
+
+  it("closes a transfer-fee account that holds nothing withheld", async () => {
+    // The rule is per account: a fee-bearing mint whose account has no withheld
+    // balance closes like any other, and its rent comes back.
+    const result = await planSend({
+      ...request(fakeConnection()),
+      tokens: [{ ...token(), hasTransferFee: true }],
+    });
+
+    expect(result.outcomes[0]?.reclaimsRent).toBe(true);
+  });
+
+  it("leaves a transfer-fee account open when it holds withheld fees, and says why", async () => {
+    // `Custom: 35` would refuse the close, and the whole send with it.
+    const result = await planSend({
+      ...request(fakeConnection({ withheld: 5_000 })),
+      tokens: [{ ...token(), hasTransferFee: true }],
+    });
+
+    expect(result.outcomes[0]?.reclaimsRent).toBe(false);
+    expect(result.warnings.join(" ")).toMatch(/withheld transfer fees/);
+    expect(result.estimatedRentLamports).toBe(0);
+  });
 
   it("charges nothing, on screen or on chain, when no fee wallet is configured", async () => {
     delete process.env.NEXT_PUBLIC_FEE_WALLET;

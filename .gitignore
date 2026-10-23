@@ -39,3 +39,11 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
+# Source assets that ship nowhere.
+#
+# The original 3D downloads (118 MB) and the editable logo artwork are inputs to
+# asset processing, not site content: the site serves only the optimised copies in
+# `public/`. `.vercelignore` already keeps them out of a deployment, and they are
+# too large to belong in git history.
+/3d
+/Logo

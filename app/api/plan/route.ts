@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { allowRequest, rateLimitResponse } from "@/lib/api/rate-limit";
+import { describeFailure } from "@/lib/api/redact";
 import { Connection } from "@solana/web3.js";
 import { buildSwap, buildSwapsSerial, fetchPrices } from "@/lib/jupiter/server";
 import { getServerRpcUrl } from "@/lib/config/env";
@@ -264,8 +265,7 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to build the sweep.";
+    const message = describeFailure(error) || "Failed to build the sweep.";
     return NextResponse.json(
       { error: message, provider: "jupiter" },
       { status: 502 },

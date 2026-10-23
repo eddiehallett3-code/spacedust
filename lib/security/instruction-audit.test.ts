@@ -37,6 +37,11 @@ import {
   CORE_PROGRAM_ID,
   JUPITER_PROGRAM_ID,
 } from "./program-ids";
+import { buildWithdrawExcessLamportsInstruction } from "@/lib/salvage/excess-rent";
+import {
+  buildClosePumpAccumulatorInstruction,
+  derivePumpAccumulator,
+} from "@/lib/salvage/pump-accumulator";
 
 /**
  * The audit, proved against the bytes this app actually builds.
@@ -855,3 +860,108 @@ describe("a compressed transfer", () => {
   });
 });
 
+
+describe("the two rent-reclaim flows", () => {
+  // Both are new instructions in an old catalog: one Token-2022 instruction index
+  // and one Pump.fun discriminator. Each is read field by field, because both move
+  // lamports to whoever the instruction names.
+  const ACCOUNT = "A2xKwTtehdNF9KzkMbEwwj14yBbKqARf2Rbk8o4ezaK";
+
+  const withdraw = (destination = owner, authority = owner) =>
+    buildWithdrawExcessLamportsInstruction(
+      new PublicKey(ACCOUNT),
+      destination,
+      authority,
+    );
+
+  it("accepts a withdraw that returns the spare rent to the wallet", () => {
+    const result = auditInstructions([...budget(), withdraw()], {
+      flow: "excess-rent",
+      owner: OWNER,
+      feeWallet: null,
+      expectedFeeLamports: 0,
+      expectedSubjects: [ACCOUNT],
+    });
+
+    expect(result.ok).toBe(true);
+  });
+
+  it("refuses a withdraw whose destination is not the wallet", () => {
+    const result = auditInstructions(
+      [...budget(), withdraw(new PublicKey(STRANGER))],
+      {
+        flow: "excess-rent",
+        owner: OWNER,
+        feeWallet: null,
+        expectedFeeLamports: 0,
+        expectedSubjects: [ACCOUNT],
+      },
+    );
+
+    expect(result.ok).toBe(false);
+    expect(refusal(result)?.code).toBe("rent-to-third-party");
+  });
+
+  it("refuses a withdraw in a flow that does not withdraw", () => {
+    const result = auditInstructions(
+      [...budget(), jupiterSwap(), withdraw()],
+      sweep(),
+    );
+
+    expect(result.ok).toBe(false);
+  });
+
+  it("accepts closing the wallet's own Pump.fun volume account", () => {
+    const accumulator = derivePumpAccumulator(OWNER);
+    const result = auditInstructions(
+      [...budget(), buildClosePumpAccumulatorInstruction(owner)],
+      {
+        flow: "pump-accumulator",
+        owner: OWNER,
+        feeWallet: null,
+        expectedFeeLamports: 0,
+        expectedSubjects: [accumulator.toBase58()],
+      },
+    );
+
+    expect(result.ok).toBe(true);
+  });
+
+  it("refuses a Pump.fun close of an account the plan did not name", () => {
+    const result = auditInstructions(
+      [...budget(), buildClosePumpAccumulatorInstruction(owner)],
+      {
+        flow: "pump-accumulator",
+        owner: OWNER,
+        feeWallet: null,
+        expectedFeeLamports: 0,
+        expectedSubjects: [STRANGER],
+      },
+    );
+
+    expect(result.ok).toBe(false);
+    expect(refusal(result)?.code).toBe("unexpected-subject");
+  });
+
+  it("refuses a fee larger than the plan showed", () => {
+    const overpaid = SystemProgram.transfer({
+      fromPubkey: owner,
+      toPubkey: new PublicKey(FEE_WALLET),
+      lamports: 10_000,
+    });
+
+    const result = auditInstructions(
+      [...budget(), buildClosePumpAccumulatorInstruction(owner), overpaid],
+      {
+        flow: "pump-accumulator",
+        owner: OWNER,
+        feeWallet: FEE_WALLET,
+        expectedFeeLamports: 1_000,
+        expectedSubjects: [derivePumpAccumulator(OWNER).toBase58()],
+      },
+    );
+
+    expect(result.ok).toBe(false);
+    expect(refusal(result)?.code).toBe("fee-exceeds-plan");
+  });
+});

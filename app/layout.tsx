@@ -7,7 +7,13 @@ import { StarfieldBackground } from "@/components/layout/starfield-background";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { RECLAIM_FEE_BPS } from "@/lib/utils/constants";
-import { getSiteUrl } from "@/lib/config/site";
+import {
+  DAPP_ICON_180_PATH,
+  DAPP_ICON_192_PATH,
+  DAPP_ICON_PATH,
+  getAppName,
+  getSiteUrl,
+} from "@/lib/config/site";
 import { getTwitterHandle } from "@/lib/config/social";
 
 const geistSans = Geist({
@@ -36,7 +42,8 @@ const bricolage = Bricolage_Grotesque({
   display: "swap",
 });
 
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "Spacedust";
+const APP_NAME = getAppName();
+const SITE_URL = getSiteUrl();
 // The rent-reclaim rates are three separate constants so any of them can be
 // repriced alone. This summary states one number because today they are equal —
 // if that ever stops being true, this line has to say so rather than pick one.
@@ -48,13 +55,17 @@ export const metadata: Metadata = {
   // warns at build time and a relative `og:image` never resolves in a crawler —
   // so the generated card in `app/opengraph-image.tsx` would exist and never be
   // seen.
-  metadataBase: new URL(getSiteUrl()),
+  metadataBase: new URL(SITE_URL),
   title: {
     default: APP_TITLE,
     template: `%s · ${APP_NAME}`,
   },
   description: APP_DESCRIPTION,
   applicationName: APP_NAME,
+  // Absolute, not root-relative. A dApp browser can read these from outside the
+  // document, where `/dapp-icon-v2-512.png` would resolve against the wallet's
+  // own origin and render a blank tile. The same reason drives the manifest icons.
+  manifest: `${SITE_URL}/manifest.webmanifest`,
   keywords: [
     "Solana",
     "dust sweeper",
@@ -70,17 +81,39 @@ export const metadata: Metadata = {
   icons: {
     // PNG first. Several in-wallet browsers render `<link rel="icon">` with an
     // image loader that cannot display SVG, and `/favicon.ico` alone leaves them
-    // with a 16px bitmap. `public/icon.png` is the fresh 192px URL; the ICO and
-    // Apple paths stay for crawlers that request those files directly.
+    // with a 16px bitmap. The new dApp icon is a larger-in-frame 512 crop of the
+    // brand mark, published under fresh filenames so a wallet that cached the old
+    // blank tile is forced to refetch.
     icon: [
-      { url: "/icon.png", sizes: "192x192", type: "image/png" },
-      { url: "/logo-512.png", sizes: "512x512", type: "image/png" },
-      { url: "/favicon.ico", sizes: "16x16 32x32 48x48", type: "image/x-icon" },
+      {
+        url: `${SITE_URL}${DAPP_ICON_192_PATH}`,
+        sizes: "192x192",
+        type: "image/png",
+      },
+      {
+        url: `${SITE_URL}${DAPP_ICON_PATH}`,
+        sizes: "512x512",
+        type: "image/png",
+      },
+      {
+        url: `${SITE_URL}/favicon.ico`,
+        sizes: "16x16 32x32 48x48",
+        type: "image/x-icon",
+      },
     ],
     apple: [
-      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+      {
+        url: `${SITE_URL}${DAPP_ICON_180_PATH}`,
+        sizes: "180x180",
+        type: "image/png",
+      },
     ],
-    shortcut: "/favicon.ico",
+    shortcut: `${SITE_URL}/favicon.ico`,
+  },
+  appleWebApp: {
+    capable: true,
+    title: APP_NAME,
+    statusBarStyle: "black-translucent",
   },
   openGraph: {
     type: "website",

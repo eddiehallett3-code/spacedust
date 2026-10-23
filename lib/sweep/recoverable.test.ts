@@ -6,6 +6,7 @@ import {
 } from "@/lib/sweep/recoverable";
 import { OUTPUT_ASSETS } from "@/lib/utils/constants";
 import type { DustToken, EmptyTokenAccount } from "@/types/token";
+import type { ExcessRentAccount } from "@/types/salvage";
 
 /**
  * "The number has to survive being checked later with a wallet connected."
@@ -76,15 +77,33 @@ function emptyAccount(
   };
 }
 
+/** The two NFT accounts from the live report, before Sol Incinerator drained them. */
+function excessAccount(
+  overrides: Partial<ExcessRentAccount> = {},
+): ExcessRentAccount {
+  return {
+    address: "A2xKwTtehdNF9KzkMbEwwj14yBbKqARf2Rbk8o4ezaK",
+    mint: "9n3YAi3WWGUjQCJrNKSa2vxX5FGjWgBHxD38HoGK2zaf",
+    lamports: 1_912_566,
+    rentLamports: 1_534_160,
+    excessLamports: 378_406,
+    space: 174,
+    label: "NFT",
+    ...overrides,
+  };
+}
+
 function scan(
   tokens: DustToken[],
   solPrice: number | null = SOL_PRICE,
   emptyAccounts: EmptyTokenAccount[] = [],
+  excessRentAccounts: ExcessRentAccount[] = [],
 ): Parameters<typeof summariseRecoverable>[0] {
   return {
     owner: OWNER,
     tokens,
     emptyAccounts,
+    excessRentAccounts,
     native: { lamports: 5_000_000, sol: 0.005, valueUsd: 1 },
     outputPrices:
       solPrice == null ? {} : { [OUTPUT_ASSETS.SOL.mint]: solPrice },
@@ -365,6 +384,69 @@ describe("already-empty token accounts", () => {
     expect(result.emptyAccounts).toBe(1);
     expect(result.rentLamports).toBe(2_039_280);
     expect(result.limitations.emptyWithheldFees).toBe(1);
+  });
+});
+
+/**
+ * Token-2022 excess rent.
+ *
+ * The other rent that is reachable *today*. It is not under an empty account and
+ * it does not require a sale or a burn: `WithdrawExcessLamports` returns the
+ * lamports above the account's own rent-exempt minimum and leaves the token in
+ * place. Counting it is therefore the same kind of promise as an empty-account
+ * close, not the "someday, after a swap" rent this file deliberately excludes.
+ */
+describe("Token-2022 excess rent", () => {
+  it("adds excess to the amount available today", () => {
+    const result = summariseRecoverable(
+      scan([], SOL_PRICE, [], [excessAccount()]),
+    );
+
+    expect(result.excessRentAccounts).toBe(1);
+    expect(result.excessRentLamports).toBe(378_406);
+    expect(result.rentLamports).toBe(378_406);
+    expect(result.excessRentUsd).toBeCloseTo((378_406 / 1e9) * SOL_PRICE, 10);
+    expect(result.rentUsd).toBeCloseTo((378_406 / 1e9) * SOL_PRICE, 10);
+    expect(result.totalUsd).toBeCloseTo((378_406 / 1e9) * SOL_PRICE, 10);
+  });
+
+  it("keeps the empty-account and excess parts separate in one total", () => {
+    const result = summariseRecoverable(
+      scan([], SOL_PRICE, [emptyAccount()], [excessAccount()]),
+    );
+
+    expect(result.emptyRentLamports).toBe(2_039_280);
+    expect(result.excessRentLamports).toBe(378_406);
+    expect(result.rentLamports).toBe(2_417_686);
+    expect(result.excessRentAccounts).toBe(1);
+    expect(result.rentUsd).toBeCloseTo((2_417_686 / 1e9) * SOL_PRICE, 10);
+  });
+
+  it("reports the SOL amount without inventing a USD total when SOL has no price", () => {
+    const result = summariseRecoverable(
+      scan([], null, [], [excessAccount()]),
+    );
+
+    expect(result.excessRentLamports).toBe(378_406);
+    expect(result.rentLamports).toBe(378_406);
+    expect(result.excessRentUsd).toBeNull();
+    expect(result.rentUsd).toBeNull();
+    expect(result.totalUsd).toBeNull();
+  });
+
+  it("counts only accounts with a positive excess", () => {
+    const result = summariseRecoverable(
+      scan([], SOL_PRICE, [], [
+        excessAccount(),
+        excessAccount({
+          address: SECOND_ACCOUNT,
+          excessLamports: 0,
+        }),
+      ]),
+    );
+
+    expect(result.excessRentAccounts).toBe(1);
+    expect(result.excessRentLamports).toBe(378_406);
   });
 });
 

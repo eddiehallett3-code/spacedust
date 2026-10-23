@@ -125,3 +125,16 @@ export function formatDuration(ms: number): string {
 export function pluralize(count: number, singular: string, plural?: string): string {
   return `${count} ${count === 1 ? singular : (plural ?? `${singular}s`)}`;
 }
+
+/**
+ * "0 of 2 transactions", not "0 of 2 2 transactions".
+ *
+ * `pluralize` already includes the count; a caller that writes the total before
+ * it prints the number twice. The batch overlay did exactly that.
+ */
+export function formatTransactionProgress(
+  completed: number,
+  total: number,
+): string {
+  return `${completed} of ${pluralize(total, "transaction")}`;
+}

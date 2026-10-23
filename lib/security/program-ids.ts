@@ -62,6 +62,12 @@ export const SNS_NAME_PROGRAM_ID = "namesLPneVptA9Z5rqUDD9tMTWEJwofgaYwp8cawRkX"
 export const SNS_REGISTER_PROGRAM_ID = "jCebN34bUfdeUYJT13J1yG16XWQpt5PDx6Mse9GUqhR";
 
 /**
+ * Pump.fun's AMM. The only thing this app asks of it is closing the wallet's own
+ * user-volume accumulator, to take the rent back.
+ */
+export const PUMP_AMM_PROGRAM_ID = "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA";
+
+/**
  * Human names, so a refusal can say *who* it refused rather than showing a
  * base58 blob. An unknown id is truncated instead of guessed.
  *
@@ -83,6 +89,7 @@ export const PROGRAM_LABELS: Record<string, string> = {
   [NOOP_PROGRAM_ID]: "SPL Noop",
   [SNS_NAME_PROGRAM_ID]: "SNS Name Registry",
   [SNS_REGISTER_PROGRAM_ID]: "SNS Registrar",
+  [PUMP_AMM_PROGRAM_ID]: "Pump AMM",
 };
 
 /** The name to use for a program, or a short form of an unknown id. */
@@ -148,8 +155,25 @@ export const FLOW_PROGRAMS: Record<AuditFlowName, readonly string[]> = {
   salvage: [
     COMPUTE_BUDGET_PROGRAM_ID,
     TOKEN_PROGRAM_ID,
+    // An empty Token-2022 account is closed through its own program; the token
+    // rules in the audit are the same for both, so listing it widens nothing.
+    TOKEN_2022_PROGRAM_ID,
     SNS_NAME_PROGRAM_ID,
     SNS_REGISTER_PROGRAM_ID,
+    SYSTEM_PROGRAM_ID,
+  ],
+  // Withdrawing spare rent from a Token-2022 account: that program, the fee
+  // transfer, and nothing else.
+  "excess-rent": [
+    COMPUTE_BUDGET_PROGRAM_ID,
+    TOKEN_2022_PROGRAM_ID,
+    SYSTEM_PROGRAM_ID,
+  ],
+  // Closing the wallet's Pump.fun volume account: that program and the fee
+  // transfer, and nothing else.
+  "pump-accumulator": [
+    COMPUTE_BUDGET_PROGRAM_ID,
+    PUMP_AMM_PROGRAM_ID,
     SYSTEM_PROGRAM_ID,
   ],
   approvals: [
@@ -160,7 +184,7 @@ export const FLOW_PROGRAMS: Record<AuditFlowName, readonly string[]> = {
 };
 
 /**
- * The five flows, named once.
+ * The flows, named once.
  *
  * Declared here rather than in the audit so this module has no import of it —
  * the audit imports the allow-list, never the other way round.
@@ -169,4 +193,11 @@ export const FLOW_PROGRAMS: Record<AuditFlowName, readonly string[]> = {
  * and SNS name deletes in Pro. Their instructions are different, but all return
  * value to the same owner and all are audited by the same flow-specific rules.
  */
-export type AuditFlowName = "sweep" | "void" | "payload" | "salvage" | "approvals";
+export type AuditFlowName =
+  | "sweep"
+  | "void"
+  | "payload"
+  | "salvage"
+  | "approvals"
+  | "excess-rent"
+  | "pump-accumulator";

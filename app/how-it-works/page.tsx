@@ -39,7 +39,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/how-it-works" },
   title: "How it works — what each of the six tools actually does",
   description:
-    "Exactly what each of the six tools does: how a sweep finds dust, sells part of a balance and packs twenty swaps into one transaction, how The Void takes the tokens, NFTs and cNFTs you no longer want, how a batch send proves its destination, what closing an empty token account really does, how approvals are read and revoked, and what the read-only scan counts and refuses.",
+    "Exactly what each of the six tools does: how a sweep finds dust, sells part of a balance and packs twenty swaps into one transaction, how The Void takes the tokens, NFTs and cNFTs you no longer want, how a batch send proves its destination, how closing an empty account, withdrawing excess rent and unwrapping wSOL really work, how approvals are read and revoked, and what the read-only scan counts and refuses.",
 };
 
 /**
@@ -245,11 +245,15 @@ export default function HowItWorksPage() {
 
         <h3>6. Your signature, your wallet</h3>
         <p>
-          When multiple transactions are needed, Spacedust calls{" "}
-          <code>signAllTransactions</code> so most wallets show a single
-          approval rather than a queue of prompts. Signing happens inside your
-          wallet extension. Spacedust has no keyring, no seed phrase, and no
-          ability to move funds on your behalf.
+          When multiple transactions are needed, wallets that support batch
+          approval are asked once for the whole run. <strong>Phantom is the one
+          exception</strong>: it is handed one transaction at a time, because its
+          transaction scanner refuses a batched approval outright — the batch is
+          reported as blocked or malicious even when it contains nothing but
+          ordinary swaps. So a Phantom sweep asks you once per transaction instead
+          of once for the batch. Signing always happens inside your wallet
+          extension. Spacedust has no keyring, no seed phrase, and no ability to
+          move funds on your behalf.
         </p>
 
         <h3>7. The only fee is {VOID_RATE} of the rent a flow returns, and it is always visible</h3>
@@ -257,10 +261,10 @@ export default function HowItWorksPage() {
           A swap is not charged. The output of Slingshot is yours in full — the
           fee it used to take came out of the asset being swapped into, and it is
           gone. What remains is {VOID_RATE} of the rent any flow reclaims: Void
-          sends, account closes, Payload sends. It is a plain SOL transfer taken{" "}
-          <em>after</em> a close has handed the rent back, so it is always funded
-          by the thing it is charged on and never touches the dust being recovered.
-          It is shown before you sign anything.
+          sends, account closes, excess rent, Payload sends. It is a plain SOL
+          transfer taken <em>after</em> the close or excess withdrawal has returned
+          the rent, so it is always funded by the thing it is charged on and never
+          touches the dust being recovered. It is shown before you sign anything.
         </p>
 
         <h3>8. What can go wrong</h3>
@@ -678,7 +682,7 @@ export default function HowItWorksPage() {
       <ToolSection
         tool="salvage"
         name="Salvage"
-        lede="The rent reclaimer. A token account you have emptied still exists, still holds a rent-exempt deposit, and will keep holding it until somebody closes it. This finds those accounts and closes them."
+        lede="The rent reclaimer. It closes emptied token accounts, withdraws excess rent from Token-2022 accounts that hold more than their minimum, unwraps wSOL, and diagnoses empty accounts the token program will not let you close."
       >
         <h3>1. An empty account still holds your SOL</h3>
         <p>
@@ -727,15 +731,32 @@ export default function HowItWorksPage() {
           </li>
         </ul>
 
-        <h3>3. What a reclaim costs</h3>
+        <h3>3. Excess rent: the exception for a funded account</h3>
+        <p>
+          A Token-2022 account can hold more lamports than its data size requires:
+          an old deposit, a program credit, or a manual top-up. Token-2022&apos;s{" "}
+          <code>WithdrawExcessLamports</code> returns the difference without
+          closing the account or moving the token. That is the one case where rent
+          can be reclaimed from an account that still has a balance.
+        </p>
+        <p>
+          The check is per account. Its own data size sets the rent-exempt
+          minimum, and only the lamports above that minimum count. A native wSOL
+          account is excluded because its lamports are the wrapped balance, not
+          spare rent; a zero-balance account is left to the close flow above,
+          which returns the whole deposit. The card stays visible at zero so an
+          empty result is still an answer.
+        </p>
+
+        <h3>4. What a reclaim costs</h3>
         <p>
           The fee is {RECLAIM_RATE} of the rent actually returned, charged per
-          account after its close has succeeded — never on an estimate, and never
-          on an account that refused. It is summed from the per-account figures
-          rather than taken as a percentage of the batch total, so one large
-          legacy account and ten small Token-2022 ones are each charged on their
-          own deposit, and a large batch does not round in anyone&rsquo;s favour
-          by accident.
+          account after its close or excess withdrawal has succeeded — never on
+          an estimate, and never on an account that refused. It is summed from
+          the per-account figures rather than taken as a percentage of the batch
+          total, so one large legacy account and ten small Token-2022 ones are
+          each charged on their own deposit, and a large batch does not round in
+          anyone&rsquo;s favour by accident.
         </p>
         <p>
           The network fee is the other side of it, and it is small next to what
@@ -745,21 +766,24 @@ export default function HowItWorksPage() {
           the moment that token is received again, the answer is usually yes.
         </p>
 
-        <h3>4. Pro adds the irreversible job, and the diagnostics</h3>
-        <p>
-          Deleting an unused <code>.sns</code> name and the diagnostic list of
-          empty accounts this wallet cannot close are the Pro additions. Giving a
-          name back to the open namespace is the one action here that cannot be
-          undone with another transaction, and a foreign close authority or
-          withheld Token-2022 fee means no instruction this wallet can sign will
-          work. The deletion is previewed and simulated before a wallet is asked
-          to sign; the diagnostics list is read-only.
-        </p>
+        <h3>5. Wrapped SOL and diagnostics are Basic; Pro adds only <code>.sns</code></h3>
         <p>
           Wrapped SOL is part of the basic flow. Closing a wSOL account is an
           unwrap, not a burn: the token program returns the wrapped balance and
-          the rent to the owner, so there is no asset to give up and no reason to
-          hide it behind a mode.
+          the rent to the owner, so there is no asset to give up. The wrapped-SOL
+          card is shown even when it finds none.
+        </p>
+        <p>
+          The list of empty accounts this wallet cannot close is also Basic. It
+          is a read-only diagnostic, shown even when it finds nothing: a foreign
+          close authority or withheld Token-2022 fee means no instruction this
+          wallet can sign will work.
+        </p>
+        <p>
+          The one Pro action is deleting an unused <code>.sns</code> name. Giving
+          a name back to the open namespace cannot be undone with another
+          transaction, so it deserves a deliberate switch. The deletion is
+          previewed and simulated before a wallet is asked to sign.
         </p>
       </ToolSection>
 
@@ -839,7 +863,7 @@ export default function HowItWorksPage() {
       <ToolSection
         tool="scan"
         name="Wallet Scan"
-        lede="The look-before-you-connect screen. It answers one question about any address — no wallet, no connection, nothing signed: what would a sweep actually recover from this?"
+        lede="The look-before-you-connect screen. It answers one question about any address — no wallet, no connection, nothing signed: what could actually be reclaimed from this wallet?"
       >
         <h3>1. A result is a link</h3>
         <p>
@@ -857,23 +881,30 @@ export default function HowItWorksPage() {
 
         <h3>2. What the number counts</h3>
         <p>
-          The dust value, plus the rent locked in token accounts that could
-          genuinely be closed. Two rules keep the figure honest:
+          The dust value, plus rent that can genuinely be reached today: deposits
+          in already-empty accounts and any lamports above a Token-2022 account&apos;s
+          rent-exempt minimum. Two rules keep the figure honest:
         </p>
         <ul>
           <li>
-            <strong>Rent is only counted for accounts that can really be
-            closed.</strong> A frozen account&apos;s rent is not recoverable, and
-            neither is its value. A transfer-fee account keeps a residue, so its
-            value counts and its rent does not.
+            <strong>Rent is counted only when it can be reached.</strong> A frozen
+            account&apos;s rent and value are not recoverable, and a transfer-fee
+            account keeps a residue, so its value counts and its rent does not.
+            An empty account&apos;s deposit and a Token-2022 account&apos;s excess
+            are the exceptions: both can be recovered without a sale or a burn.
           </li>
           <li>
-            <strong>An unpriced token contributes its rent and nothing
-            else.</strong> Not a rounding choice: it has no USD value, and The
-            Void can still take it for the rent, which is precisely the
-            recoverable part.
+            <strong>An unpriced token contributes no USD value.</strong> The Void
+            can still burn it for the rent its account holds, but that rent is
+            not counted in this scan until the account is closed.
           </li>
         </ul>
+        <p>
+          The scan also gives wrapped SOL and excess rent their own windows, even
+          when both are zero. wSOL principal is not part of the recoverable total
+          because unwrapping returns SOL the wallet already owns; the window
+          reports it and the account&apos;s rent separately.
+        </p>
 
         <h3>3. What it leaves out, by name</h3>
         <p>
@@ -893,7 +924,9 @@ export default function HowItWorksPage() {
           address substituted for it; an empty account another key holds a close
           authority over cannot be closed by you at all; and an empty Token-2022
           account still holding withheld fees has to wait for its mint to harvest
-          them.
+          them. A foreign close authority blocks a close, not an excess
+          withdrawal: Token-2022 excess rent is still reachable when the owner can
+          sign.
         </p>
         <p>
           The first two look similar and are opposites. A liquid staking token is
@@ -911,7 +944,7 @@ export default function HowItWorksPage() {
           The total comes from <code>lib/sweep/recoverable.ts</code>, a pure
           function with no chain access — because it is a promise about a future
           transaction, and every number in it has to survive being checked later
-          with a wallet connected. That is also how to check it: connect, sweep,
+          with a wallet connected. That is also how to check it: connect, reclaim,
           and compare the two figures. If they disagree, this one is wrong.
         </p>
       </ToolSection>
@@ -930,7 +963,7 @@ export default function HowItWorksPage() {
               sweep, a Void send, a send, a reclaim, a revoke and a set of account
               closes all run the same pipeline: read the chain, build the
               instructions locally, pack them byte-exactly, simulate against the
-              cluster, then ask for one signature. There is no separate preview
+              cluster, then ask your wallet to sign. There is no separate preview
               implementation that could drift from what ships.
             </li>
             <li>

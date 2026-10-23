@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { PublicKey, type TransactionInstruction } from "@solana/web3.js";
 import { allowRequest, rateLimitResponse } from "@/lib/api/rate-limit";
+import { describeFailure } from "@/lib/api/redact";
 import { z } from "zod";
 import { burnDomain } from "@bonfida/spl-name-service";
 import { MissingEnvError } from "@/lib/config/env";
@@ -61,9 +62,9 @@ function serializeInstruction(instruction: TransactionInstruction): ApiInstructi
 export async function GET(request: Request): Promise<NextResponse> {
   // The expensive half of this route: `getSnsDomainsForOwner` composes a
   // `getProgramAccounts` lookup with a batched reverse lookup. The POST beside it
-  // is deliberately *not* metered — it serialises delete instructions locally and
-  // touches no provider, so charging it against a budget would only get in a
-  // user's way.
+  // is metered too, on the same budget: it serialises instructions locally and
+  // touches no provider, but it is still an unmetered endpoint that does work on
+  // request, and "cheap" is a number that changes.
   const quota = allowRequest(request, "domains");
   if (!quota.allowed) return rateLimitResponse(quota);
 
@@ -89,7 +90,7 @@ export async function GET(request: Request): Promise<NextResponse> {
       return NextResponse.json({ error: error.message }, { status: 424 });
     }
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Lookup failed" },
+      { error: describeFailure(error) || "Lookup failed" },
       { status: 502 },
     );
   }
@@ -116,6 +117,9 @@ const DeleteSchema = z.object({
  * so a stale or mismatched pair cannot burn a different name.
  */
 export async function POST(request: Request): Promise<NextResponse> {
+  const quota = allowRequest(request, "domains");
+  if (!quota.allowed) return rateLimitResponse(quota);
+
   let body: unknown;
   try {
     body = await request.json();
@@ -150,9 +154,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json(
       {
         error:
-          error instanceof Error
-            ? error.message
-            : "Could not build the burn instructions",
+          describeFailure(error) || "Could not build the burn instructions",
       },
       { status: 502 },
     );

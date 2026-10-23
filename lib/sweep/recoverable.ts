@@ -10,15 +10,18 @@ import type { WalletScan } from "@/types/token";
  * for an address nobody has connected a wallet to. Two rules follow from the
  * fact that the answer is a *promise about a future transaction*:
  *
- *  - **Rent is only counted for accounts we can genuinely close.** A frozen
+ *  - **Rent is only counted when it can genuinely be reached.** A frozen
  *    account, a mint with a transfer hook, and a transfer-fee mint that keeps a
  *    residue in its ATA all fail on chain. Counting them would repeat the exact
  *    mistake that made this project's earlier rent figures wrong — a number that
  *    looks authoritative, is quoted to the user, and does not survive contact
- *    with the chain.
- *  - **A token with no price contributes its rent and nothing else.** Not a
- *    rounding choice: an unpriced token has no USD value, and The Void can still
- *    burn it for the rent, which is precisely the recoverable part.
+ *    with the chain. The two exceptions are rent that is reachable now without
+ *    touching a balance: an already-empty account can be closed, and a
+ *    Token-2022 account's excess can be withdrawn without closing it.
+ *  - **A token with no price contributes no USD value.** Its account's rent is
+ *    only reachable by burning it, which is a future action and is not part of
+ *    the scan's reachable-today total. The scan still lists it, and The Void can
+ *    act on it.
  *
  * Everything here is derived from a scan the user can reproduce with a wallet
  * connected, so the number is checkable rather than statistical.
@@ -97,6 +100,15 @@ export interface RecoverableBreakdown {
   /** Already-empty accounts whose rent is still recoverable by closing them. */
   emptyAccounts: number;
   /**
+   * Token-2022 accounts holding lamports above their rent-exempt minimum.
+   *
+   * These still hold a token or NFT, so they cannot be closed. Token-2022's
+   * `WithdrawExcessLamports` returns only the spare lamports and leaves the
+   * account and its balance untouched. That makes the excess reachable *now*,
+   * unlike the rent under a funded account that first has to be emptied.
+   */
+  excessRentAccounts: number;
+  /**
    * Rent sitting in accounts that are **already empty**, summed from each
    * account's own lamports.
    *
@@ -112,11 +124,21 @@ export interface RecoverableBreakdown {
    * from a constant: a Token-2022 account with extensions holds 2,074,080 where
    * a legacy one holds 2,039,280.
    */
-  rentLamports: number;
-  /** The part of `rentLamports` that sits in accounts which are already empty. */
   emptyRentLamports: number;
+  /**
+   * Spare lamports in Token-2022 accounts, also available without a sale or a
+   * burn. Kept separate from `emptyRentLamports` so the UI can name both.
+   */
+  excessRentLamports: number;
+  /**
+   * Everything reachable as rent today: already-empty deposits plus Token-2022
+   * excess. This is the figure the scan's "potential reclaim" headline quotes.
+   */
+  rentLamports: number;
   /** `rentLamports` in USD, or null when there is no SOL price to convert at. */
   rentUsd: number | null;
+  /** `excessRentLamports` in USD, or null when there is no SOL price. */
+  excessRentUsd: number | null;
   /** USD value a sweep could actually sell — frozen and hook-held value excluded. */
   sweepableValueUsd: number;
   /** USD value of every token in the scan, including the ones we refuse. */
@@ -154,7 +176,13 @@ export interface RecoverableBreakdown {
 export function summariseRecoverable(
   scan: Pick<
     WalletScan,
-    "tokens" | "native" | "outputPrices" | "owner" | "emptyAccounts" | "wrappedSol"
+    | "tokens"
+    | "native"
+    | "outputPrices"
+    | "owner"
+    | "emptyAccounts"
+    | "wrappedSol"
+    | "excessRentAccounts"
   >,
 ): RecoverableBreakdown {
   const limitations: RecoverableLimitations = {
@@ -210,13 +238,27 @@ export function summariseRecoverable(
   }
 
   const emptyRentLamports = emptyPlan.lamports;
-  // Only what is reachable today: an empty account's own deposit. A funded
-  // account has rent too, but nothing can collect it until the balance is sold
-  // or burned, and this page is a promise about what can be done now.
-  const rentLamports = emptyRentLamports;
+
+  /**
+   * Token-2022 excess is the other rent that is reachable *today*. Unlike the
+   * deposit under a funded account, it can be withdrawn without selling,
+   * burning or closing anything — the token stays where it is. Keep the two
+   * parts separate so the UI can show which account types produced the total.
+   */
+  const excessAccounts = (scan.excessRentAccounts ?? []).filter(
+    (account) => account.excessLamports > 0,
+  );
+  const excessRentLamports = excessAccounts.reduce(
+    (sum, account) => sum + account.excessLamports,
+    0,
+  );
+
+  const rentLamports = emptyRentLamports + excessRentLamports;
 
   const solPriceUsd = validPrice(scan.outputPrices[OUTPUT_ASSETS.SOL.mint]);
   const rentUsd = solPriceUsd == null ? null : (rentLamports / 1e9) * solPriceUsd;
+  const excessRentUsd =
+    solPriceUsd == null ? null : (excessRentLamports / 1e9) * solPriceUsd;
   const totalUsd = rentUsd == null ? null : sweepableValueUsd + rentUsd;
 
   // Native value comes from the scan, which priced it with the same SOL price —
@@ -244,9 +286,12 @@ export function summariseRecoverable(
   return {
     closableAccounts,
     emptyAccounts: emptyPlan.closeable.length,
-    rentLamports,
+    excessRentAccounts: excessAccounts.length,
     emptyRentLamports,
+    excessRentLamports,
+    rentLamports,
     rentUsd,
+    excessRentUsd,
     sweepableValueUsd,
     heldValueUsd,
     walletValueUsd,

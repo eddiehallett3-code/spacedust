@@ -11,17 +11,17 @@ export const metadata: Metadata = {
   // page. It matters because the site answers on two hosts — the custom domain and
   // the *.vercel.app one — and a crawler finding both is free to choose either.
   alternates: { canonical: "/salvage" },
-  title: "Salvage — reclaim rent, unwrap wSOL, release unused .sns names",
-  description: `Close token accounts that hold no balance, unwrap wrapped SOL and get the rent back. Pro also gives unused .sns names back and explains which accounts cannot be closed. ${RECLAIM_RATE} of reclaimed rent.`,
+  title: "Salvage — rent, excess rent, wSOL and .sns names",
+  description: `Retrieve rent from empty token accounts and excess rent, unwrap wSOL, and close unused .sns names in Pro. ${RECLAIM_RATE} of reclaimed rent.`,
 };
 
 /**
  * Salvage.
  *
- * Basic mode is the routine recovery: empty token accounts and wrapped SOL,
- * both returning something the wallet already owns. Pro adds the irreversible
- * SNS name deletion and the diagnostic list of empty accounts the token program
- * will not let this wallet close.
+ * Basic mode is the routine recovery: empty token accounts, Token-2022 excess
+ * rent, wrapped SOL, and the diagnostic list of empty accounts the token program
+ * will not let this wallet close. Pro adds only the irreversible SNS name
+ * deletion.
  */
 export default function SalvagePage() {
   return (
@@ -29,7 +29,7 @@ export default function SalvagePage() {
       <PageHeader
         emblem={<ToolEmblem tool="salvage" />}
         title="Salvage"
-        description="Basic closes empty token accounts, unwraps wrapped SOL and returns their rent. Pro gives unused .sns names back and shows which accounts cannot be closed."
+        description="Retrieve rent from empty accounts and excess rent, unwrap wSOL, and close unused .sns names in Pro."
       />
       <SalvageApp />
     </Container>
