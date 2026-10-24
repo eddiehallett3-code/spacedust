@@ -100,6 +100,15 @@ export interface AuditExpectations {
   expectedCompressedDestination?: string | null;
   /** Accounts SOL may legitimately be moved to besides the fee wallet. */
   allowedSolDestinations?: readonly string[];
+  /**
+   * The sponsor advancing the network fee, when one is used.
+   *
+   * Its repayment is a System transfer from the wallet back to the sponsor, and
+   * it is capped exactly like the Spacedust fee is: a plan that pays back more
+   * than it said it would is refused, not merely reported. Without this field a
+   * repayment would be indistinguishable from SOL leaving to a stranger.
+   */
+  sponsor?: { address: string; expectedLamports: number } | null;
   /** Wallets that may own an account this batch creates. Defaults to you. */
   allowedAtaOwners?: readonly string[];
 }
@@ -120,6 +129,7 @@ export type AuditCode =
   | "system-instruction"
   | "sol-leaves-owner"
   | "fee-exceeds-plan"
+  | "sponsor-repayment-exceeds-plan"
   | "delegate-grant"
   | "authority-change"
   | "mint-authority"
@@ -609,6 +619,28 @@ export function auditInstructions(
           into,
           programId,
           `fee ${transfer.lamports.toLocaleString()} lamports → ${short(transfer.to)}`,
+        );
+        return;
+      }
+      // Repaying the sponsor that advanced the network fee. Capped like the fee
+      // is, and counted separately: it is the network fee coming back, not the
+      // Spacedust fee, and adding it to `feeLamports` would misstate both.
+      if (expected.sponsor && transfer.to === expected.sponsor.address) {
+        if (transfer.lamports > expected.sponsor.expectedLamports) {
+          noteProgram(into, programId);
+          refuse(
+            into,
+            "sponsor-repayment-exceeds-plan",
+            `The batch repays ${transfer.lamports.toLocaleString()} lamports to the fee sponsor, more than the ${expected.sponsor.expectedLamports.toLocaleString()} the plan showed you.`,
+            programId,
+            index,
+          );
+          return;
+        }
+        noteProgram(
+          into,
+          programId,
+          `network fee repaid ${transfer.lamports.toLocaleString()} lamports → ${short(transfer.to)}`,
         );
         return;
       }
@@ -1315,7 +1347,7 @@ export function refusalMessage(result: AuditResult): string {
  */
 export function auditPackedPrograms(
   packed: readonly { base64: string }[],
-  expected: Pick<AuditExpectations, "flow" | "owner">,
+  expected: Pick<AuditExpectations, "flow" | "owner" | "sponsor">,
 ): AuditFinding[] {
   const allowed = new Set(FLOW_PROGRAMS[expected.flow]);
   const findings: AuditFinding[] = [];
@@ -1335,7 +1367,10 @@ export function auditPackedPrograms(
 
     const keys = transaction.message.staticAccountKeys;
     const payer = keys[0]?.toBase58();
-    if (payer !== expected.owner) {
+    // The fee payer is the wallet — or the sponsor that advanced the fee, when
+    // the plan said one would. Never anyone else: this is the same property the
+    // sponsor's own server re-derives from these bytes before it signs.
+    if (payer !== expected.owner && payer !== expected.sponsor?.address) {
       findings.push({
         severity: "refuse",
         code: "sol-leaves-owner",

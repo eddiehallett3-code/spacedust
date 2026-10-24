@@ -18,6 +18,7 @@ import { isBusyPhase } from "@/lib/sweep/phase";
 import { apiFetch } from "@/lib/utils/api";
 import { RECLAIM_FEE_BPS } from "@/lib/utils/constants";
 import { toFriendlyError, type FriendlyError } from "@/lib/utils/errors";
+import { useFeeSponsor } from "@/hooks/use-fee-sponsor";
 import type { ApiInstruction } from "@/types/jupiter";
 import type { PackedTransaction, SimulationOutcome, SweepPhase } from "@/types/sweep";
 import type {
@@ -77,6 +78,7 @@ const INITIAL: SalvageState = {
 export function useSalvage() {
   const { publicKey, signTransaction, signAllTransactions, wallet } = useWallet();
   const connection = getConnection();
+  const { address: feeSponsor } = useFeeSponsor();
 
   const busyRef = useRef(false);
   const preparedRef = useRef<{
@@ -144,6 +146,7 @@ export function useSalvage() {
         const result = await planDomainDeletes({
           connection,
           owner: publicKey,
+          feeSponsor,
           domains,
           instructions: built.instructions,
         });
@@ -178,7 +181,7 @@ export function useSalvage() {
         busyRef.current = false;
       }
     },
-    [connection, patch, publicKey],
+    [connection, feeSponsor, patch, publicKey],
   );
 
   /** Sign everything in one approval, then submit and attribute the results. */
@@ -237,6 +240,7 @@ export function useSalvage() {
         result = await planDomainDeletes({
           connection,
           owner: publicKey,
+          feeSponsor,
           domains,
           instructions: rebuilt.instructions,
         });
@@ -248,6 +252,7 @@ export function useSalvage() {
       const signed = await signTransactions(
         { signTransaction, signAllTransactions, walletName: wallet?.adapter.name },
         result.packed,
+        { sponsor: result.sponsor !== null },
       );
 
       patch({
@@ -342,7 +347,7 @@ export function useSalvage() {
     } finally {
       busyRef.current = false;
     }
-  }, [connection, patch, publicKey, signAllTransactions, signTransaction, wallet?.adapter.name]);
+  }, [connection, feeSponsor, patch, publicKey, signAllTransactions, signTransaction, wallet?.adapter.name]);
 
   return {
     ...state,

@@ -18,6 +18,7 @@ import { feeFromRentLamports } from "@/lib/solana/rent";
 import { RECLAIM_FEE_BPS } from "@/lib/utils/constants";
 import { signTransactions, submitTransactions } from "@/lib/solana/submit";
 import { isBusyPhase } from "@/lib/sweep/phase";
+import { useFeeSponsor } from "@/hooks/use-fee-sponsor";
 import { toFriendlyError, type FriendlyError } from "@/lib/utils/errors";
 import type {
   CloseOutcome,
@@ -89,6 +90,7 @@ const INITIAL: CloseState = {
 export function useClose() {
   const { publicKey, signTransaction, signAllTransactions, wallet } = useWallet();
   const connection = getConnection();
+  const { address: feeSponsor } = useFeeSponsor();
 
   const busyRef = useRef(false);
   const preparedRef = useRef<{
@@ -144,6 +146,7 @@ export function useClose() {
         const result = await planEmptyAccountClosesTx({
           connection,
           owner: publicKey,
+          feeSponsor,
           accounts: request.accounts,
         });
 
@@ -178,7 +181,7 @@ export function useClose() {
         busyRef.current = false;
       }
     },
-    [connection, patch, publicKey],
+    [connection, feeSponsor, patch, publicKey],
   );
 
   /** Sign the batch, then submit and attribute the results. */
@@ -227,6 +230,7 @@ export function useClose() {
         result = await planEmptyAccountClosesTx({
           connection,
           owner: publicKey,
+          feeSponsor,
           accounts: request.accounts,
         });
         preparedRef.current = { result, request };
@@ -250,6 +254,7 @@ export function useClose() {
       const signed = await signTransactions(
         { signTransaction, signAllTransactions, walletName: wallet?.adapter.name },
         result.packed,
+        { sponsor: result.sponsor !== null },
       );
 
       patch({
@@ -351,7 +356,7 @@ export function useClose() {
     } finally {
       busyRef.current = false;
     }
-  }, [connection, patch, publicKey, signAllTransactions, signTransaction, wallet]);
+  }, [connection, feeSponsor, patch, publicKey, signAllTransactions, signTransaction, wallet]);
 
   return {
     ...state,

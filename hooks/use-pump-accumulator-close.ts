@@ -16,6 +16,7 @@ import {
 import { CloseError } from "@/lib/solana/close-accounts";
 import { isBusyPhase } from "@/lib/sweep/phase";
 import { toFriendlyError, type FriendlyError } from "@/lib/utils/errors";
+import { useFeeSponsor } from "@/hooks/use-fee-sponsor";
 import type {
   PackedTransaction,
   SimulationOutcome,
@@ -74,6 +75,7 @@ const INITIAL: PumpAccumulatorCloseState = {
 export function usePumpAccumulatorClose() {
   const { publicKey, signTransaction, signAllTransactions, wallet } = useWallet();
   const connection = getConnection();
+  const { address: feeSponsor } = useFeeSponsor();
 
   const busyRef = useRef(false);
   const preparedRef = useRef<{
@@ -128,6 +130,7 @@ export function usePumpAccumulatorClose() {
         const result = await planPumpAccumulatorCloseTx({
           connection,
           owner: publicKey,
+          feeSponsor,
           account,
         });
         preparedRef.current = { result, account };
@@ -145,7 +148,7 @@ export function usePumpAccumulatorClose() {
         busyRef.current = false;
       }
     },
-    [applyPlan, connection, patch, publicKey],
+    [applyPlan, connection, feeSponsor, patch, publicKey],
   );
 
 
@@ -189,6 +192,7 @@ export function usePumpAccumulatorClose() {
         result = await planPumpAccumulatorCloseTx({
           connection,
           owner: publicKey,
+          feeSponsor,
           account: prepared.account,
         });
         preparedRef.current = { result, account: prepared.account };
@@ -200,6 +204,7 @@ export function usePumpAccumulatorClose() {
       const signed = await signTransactions(
         { signTransaction, signAllTransactions, walletName: wallet?.adapter.name },
         result.packed,
+        { sponsor: result.sponsor !== null },
       );
 
       patch({
@@ -257,6 +262,7 @@ export function usePumpAccumulatorClose() {
   }, [
     applyPlan,
     connection,
+    feeSponsor,
     patch,
     publicKey,
     signAllTransactions,

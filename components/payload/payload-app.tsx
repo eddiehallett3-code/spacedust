@@ -304,7 +304,7 @@ export function PayloadApp() {
         </p>
         <p className="mx-auto mt-2 max-w-sm text-xs leading-relaxed text-muted">
           Payload builds and simulates the batch locally, then asks for one
-          signature. It holds no keys and cannot move anything on its own.
+          signature. It never holds your key and cannot move anything without it.
         </p>
         <div className="mt-4 flex justify-center">
           <ConnectWalletCta />

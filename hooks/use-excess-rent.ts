@@ -14,6 +14,7 @@ import {
   type PlanExcessRentResult,
 } from "@/lib/solana/withdraw-excess-rent";
 import { CloseError } from "@/lib/solana/close-accounts";
+import { useFeeSponsor } from "@/hooks/use-fee-sponsor";
 import { isBusyPhase } from "@/lib/sweep/phase";
 import { toFriendlyError, type FriendlyError } from "@/lib/utils/errors";
 import type {
@@ -76,6 +77,7 @@ const INITIAL: ExcessRentState = {
 export function useExcessRent() {
   const { publicKey, signTransaction, signAllTransactions, wallet } = useWallet();
   const connection = getConnection();
+  const { address: feeSponsor } = useFeeSponsor();
 
   const busyRef = useRef(false);
   const preparedRef = useRef<{
@@ -144,6 +146,7 @@ export function useExcessRent() {
         const result = await planExcessRentTx({
           connection,
           owner: publicKey,
+          feeSponsor,
           accounts,
         });
         preparedRef.current = { result, accounts };
@@ -161,7 +164,7 @@ export function useExcessRent() {
         busyRef.current = false;
       }
     },
-    [applyPlan, connection, patch, publicKey],
+    [applyPlan, connection, feeSponsor, patch, publicKey],
   );
 
 
@@ -203,6 +206,7 @@ export function useExcessRent() {
         result = await planExcessRentTx({
           connection,
           owner: publicKey,
+          feeSponsor,
           accounts: prepared.accounts,
         });
         preparedRef.current = { result, accounts: prepared.accounts };
@@ -214,6 +218,7 @@ export function useExcessRent() {
       const signed = await signTransactions(
         { signTransaction, signAllTransactions, walletName: wallet?.adapter.name },
         result.packed,
+        { sponsor: result.sponsor !== null },
       );
 
       patch({
@@ -286,6 +291,7 @@ export function useExcessRent() {
   }, [
     applyPlan,
     connection,
+    feeSponsor,
     patch,
     publicKey,
     signAllTransactions,

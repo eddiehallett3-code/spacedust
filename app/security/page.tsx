@@ -38,7 +38,7 @@ const GUARANTEES = [
   {
     icon: Wallet,
     title: "Your wallet signs",
-    body: "Signing happens inside Phantom, Solflare, Backpack or Jupiter. Spacedust cannot sign, cannot co-sign, and holds no key on any server.",
+    body: "Signing happens inside Phantom, Solflare, Backpack or Jupiter. Spacedust never holds your key and cannot move your assets. It does hold one key of its own: a small fee wallet that can only pay a network fee for a transaction your wallet has already signed, and only when that same transaction pays it back out of the rent it releases.",
   },
   {
     icon: ShieldCheck,

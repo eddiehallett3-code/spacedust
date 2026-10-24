@@ -4,7 +4,6 @@ import {
   type Connection,
 } from "@solana/web3.js";
 import {
-  BASE_FEE_LAMPORTS,
   CLOSE_COMPUTE_UNIT_LIMIT,
   PRIORITY_FEE_MICRO_LAMPORTS,
   RECLAIM_FEE_BPS,
@@ -15,6 +14,13 @@ import { fetchRentMinimums, feeFromRentLamports } from "@/lib/solana/rent";
 import { packTransactions } from "@/lib/solana/pack";
 import { simulateAll, splitBySimulation } from "@/lib/solana/simulate";
 import { auditPlanBeforeSigning } from "@/lib/security/audit-plan";
+import {
+  feePerTransaction,
+  planPayer,
+  sponsorPlanFor,
+  sponsorRepaymentInstruction,
+  type FeeSponsorPlan,
+} from "@/lib/sponsor/plan";
 import { CloseError } from "@/lib/solana/close-accounts";
 import type { PackedTransaction, SimulationOutcome } from "@/types/sweep";
 import type { PumpAccumulator } from "@/types/salvage";
@@ -50,12 +56,16 @@ export interface PlanPumpAccumulatorCloseResult {
   reclaimFeeLamports: number;
   netRentLamports: number;
   hasFailures: boolean;
+  /** The sponsor advancing this fee, when one did. */
+  sponsor: FeeSponsorPlan | null;
 }
 
 export interface PlanPumpAccumulatorCloseInput {
   connection: Connection;
   owner: PublicKey;
   account: PumpAccumulator;
+  /** The fee sponsor's address, when one is configured. A request only. */
+  feeSponsor?: string | null;
 }
 
 export async function planPumpAccumulatorCloseTx(
@@ -147,13 +157,27 @@ export async function planPumpAccumulatorCloseTx(
     },
   ];
 
+  // The sponsor pays the fee only when the account's own rent can repay it.
+  const candidate = sponsorPlanFor(input.feeSponsor, CLOSE_COMPUTE_UNIT_LIMIT);
+  const sponsor =
+    candidate && lamports - accountFee > candidate.repaymentLamports
+      ? candidate
+      : null;
+  if (candidate && !sponsor) {
+    warnings.push(
+      "The rent is smaller than the network fee a sponsor would advance, so this one needs SOL in the wallet.",
+    );
+  }
+  const tail = sponsor ? [sponsorRepaymentInstruction(sponsor, owner)] : [];
+
   const packedResult = packTransactions({
     units,
     prologue,
-    payer: owner,
+    payer: planPayer(owner, sponsor),
     blockhash: blockhashInfo.blockhash,
     // One account and the owner: nothing an address lookup table could shrink.
     lookupTables: [],
+    tail,
   });
 
   if (packedResult.transactions.length === 0) {
@@ -172,12 +196,19 @@ export async function planPumpAccumulatorCloseTx(
     prologue,
     units,
     packed: packedResult.transactions,
+    tail,
     expected: {
       flow: "pump-accumulator",
       owner: owner.toBase58(),
       feeWallet,
       expectedFeeLamports: accountFee,
       expectedSubjects: [account.address],
+      sponsor: sponsor
+        ? {
+            address: sponsor.address,
+            expectedLamports: sponsor.repaymentLamports,
+          }
+        : null,
     },
   });
 
@@ -220,10 +251,11 @@ export async function planPumpAccumulatorCloseTx(
     warnings,
     blockhash: blockhashInfo.blockhash,
     lastValidBlockHeight: blockhashInfo.lastValidBlockHeight,
-    estimatedFeeLamports: packed.length * (BASE_FEE_LAMPORTS + priorityFee),
+    estimatedFeeLamports: packed.length * feePerTransaction(sponsor, priorityFee),
     rentLamports: lamports,
     reclaimFeeLamports: accountFee,
     netRentLamports: lamports - accountFee,
     hasFailures: failed.length > 0,
+    sponsor,
   };
 }

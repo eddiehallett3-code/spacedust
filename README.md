@@ -42,7 +42,7 @@ other flow here charges for a reclaim.
 |---|---|
 | **Slingshot** | The swap flow. Connect a wallet, pick a USD threshold, and it packs as many dust swaps into as few transactions as the 1232-byte limit allows. |
 | **The Void** | The burn flow, for tokens with no market left. Named, for a reason — see below. |
-| **Non-custodial** | Transactions are built in your browser and signed by *your* wallet. Spacedust has no keyring, no seed phrase field, and no ability to move funds. |
+| **Non-custodial** | Transactions are built in your browser and signed by *your* wallet. Spacedust never has your key, has no seed phrase field, and cannot move your funds. Its one server-side key is a small fee wallet that can only pay network fees for transactions you have already signed. |
 | **Fewest signatures** | Swaps are packed into as few versioned transactions as the 1232-byte limit allows — often clearing 10+ dust tokens in a single transaction. Wallets that support batch signing can approve the whole set together; a wallet that prompts per transaction asks once for each. |
 | **Rent reclaim** | Emptied token accounts are closed in the same flow, returning each account's own rent (~0.0015 SOL for a fresh one), less the 1.5% reclaim fee. Frequently worth more than the dust itself. |
 | **Simulated first** | Every transaction is dry-run against the cluster *before* you are asked to sign. |

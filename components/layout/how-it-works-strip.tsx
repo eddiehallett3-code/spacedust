@@ -28,7 +28,7 @@ const STEPS = [
   {
     icon: CheckCircle2,
     title: "Sign",
-    body: "Wallets that support batch signing show one approval for the whole batch. Spacedust never holds a key and cannot move funds itself.",
+    body: "Wallets that support batch signing show one approval for the whole batch. Spacedust never holds your key; its fee wallet can only pay a network fee for a transaction you have already signed.",
   },
 ];
 

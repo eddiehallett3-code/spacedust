@@ -1,5 +1,8 @@
-import { PublicKey, VersionedTransaction, type Connection } from "@solana/web3.js";
+import { PublicKey, Keypair, VersionedTransaction, type Connection } from "@solana/web3.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { SYSTEM_PROGRAM_ID } from "@/lib/utils/constants";
+import { base64ToBytes } from "@/lib/utils/base64";
+import { SPONSOR_MARGIN_LAMPORTS } from "@/lib/sponsor/policy";
 
 const mocks = vi.hoisted(() => ({
   fetchRentMinimums: vi.fn(),
@@ -138,3 +141,92 @@ describe("planExcessRentTx", () => {
     ).rejects.toThrow(/none of these accounts.*surplus rent/i);
   });
 });
+
+/**
+ * The fee sponsor, end to end through a real planner.
+ *
+ * The policy tests prove the server refuses the wrong things; this proves the
+ * plans it is asked about are the right shape — the sponsor is the fee payer, the
+ * last instruction of the transaction is a repayment from the wallet to it, and
+ * the repayment and the two-signature fee agree with each other.
+ */
+describe("planExcessRentTx — with a fee sponsor", () => {
+  const SPONSOR = Keypair.generate().publicKey.toBase58();
+
+  beforeEach(() => {
+    mocks.fetchRentMinimums.mockReset();
+    mocks.simulateAll.mockReset();
+    mocks.fetchRentMinimums.mockResolvedValue({
+      tokenAccount: 2_039_280,
+      emptyAccount: 890_880,
+    });
+    mocks.simulateAll.mockResolvedValue([
+      {
+        index: 0,
+        ok: true,
+        unitsConsumed: 5_000,
+        error: null,
+        feeLamports: 10_050,
+        dryRun: false,
+      },
+    ]);
+  });
+
+  it("makes the sponsor the fee payer and repays it at the end of the transaction", async () => {
+    const result = await planExcessRentTx({
+      connection: fakeConnection(),
+      owner: new PublicKey(OWNER),
+      accounts: [selected],
+      feeSponsor: SPONSOR,
+    });
+
+    expect(result.sponsor?.address).toBe(SPONSOR);
+
+    const transaction = VersionedTransaction.deserialize(
+      base64ToBytes(result.packed[0]!.base64),
+    );
+    const message = transaction.message;
+    if (!("compiledInstructions" in message)) throw new Error("not a v0 message");
+
+    // The fee payer is the sponsor, so the sponsor pays the network fee.
+    expect(message.staticAccountKeys[0]!.toBase58()).toBe(SPONSOR);
+
+    // The repayment is last, so every close has already credited the wallet.
+    const last = message.compiledInstructions.at(-1)!;
+    expect(message.staticAccountKeys[last.programIdIndex]!.toBase58()).toBe(
+      SYSTEM_PROGRAM_ID,
+    );
+
+    const data = last.data as Uint8Array;
+    expect(data[0]).toBe(2); // SystemInstruction.Transfer
+    const repaid = Number(
+      new DataView(data.buffer, data.byteOffset + 4, 8).getBigUint64(0, true),
+    );
+    expect(repaid).toBe(result.sponsor!.repaymentLamports);
+
+    expect(
+      message.staticAccountKeys[last.accountKeyIndexes[0]!]!.toBase58(),
+    ).toBe(OWNER);
+    expect(
+      message.staticAccountKeys[last.accountKeyIndexes[1]!]!.toBase58(),
+    ).toBe(SPONSOR);
+
+    // Two signatures cost twice the base fee, and the margin is on top.
+    expect(result.estimatedFeeLamports).toBe(
+      result.sponsor!.repaymentLamports - SPONSOR_MARGIN_LAMPORTS,
+    );
+  });
+
+  it("declines the sponsor when the refund cannot cover the advance", async () => {
+    const result = await planExcessRentTx({
+      connection: fakeConnection(1_535_000), // 840 lamports of surplus
+      owner: new PublicKey(OWNER),
+      accounts: [selected],
+      feeSponsor: SPONSOR,
+    });
+
+    expect(result.sponsor).toBeNull();
+    expect(result.warnings.join(" ")).toMatch(/needs SOL in the wallet/i);
+  });
+});
+

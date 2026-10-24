@@ -38,14 +38,26 @@ export function auditPlanBeforeSigning(input: {
     instructions: readonly TransactionInstruction[];
   }[];
   packed: readonly { mints: string[]; base64: string }[];
+  /**
+   * Instructions the packer appends to every transaction after the body — the
+   * fee-sponsor repayment. Audited once, because they are byte-identical in
+   * every transaction and each one is capped on its own; the sponsor's own
+   * server re-sums them per transaction before it signs.
+   */
+  tail?: readonly TransactionInstruction[];
   expected: AuditExpectations;
 }): AuditResult {
+  const instructions = signedInstructions({
+    prologue: input.prologue,
+    units: input.units,
+    packedMints: input.packed.flatMap((transaction) => transaction.mints),
+  });
+
   return assertPlanAudited({
-    instructions: signedInstructions({
-      prologue: input.prologue,
-      units: input.units,
-      packedMints: input.packed.flatMap((transaction) => transaction.mints),
-    }),
+    instructions:
+      input.tail && input.tail.length > 0
+        ? [...instructions, ...input.tail]
+        : instructions,
     packed: input.packed,
     expected: input.expected,
   });

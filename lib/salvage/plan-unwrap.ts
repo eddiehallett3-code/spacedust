@@ -1,6 +1,5 @@
 import { PublicKey, SystemProgram, type Connection } from "@solana/web3.js";
 import {
-  BASE_FEE_LAMPORTS,
   CLOSE_COMPUTE_UNIT_LIMIT,
   PRIORITY_FEE_MICRO_LAMPORTS,
   RECLAIM_FEE_BPS,
@@ -15,6 +14,13 @@ import { feeFromRentLamports, fetchRentMinimums } from "@/lib/solana/rent";
 import { packTransactions, type PackUnit } from "@/lib/solana/pack";
 import { simulateAll, splitBySimulation } from "@/lib/solana/simulate";
 import { auditPlanBeforeSigning } from "@/lib/security/audit-plan";
+import {
+  feePerTransaction,
+  planPayer,
+  sponsorPlanFor,
+  sponsorRepaymentInstruction,
+  type FeeSponsorPlan,
+} from "@/lib/sponsor/plan";
 import { isValidSolanaAddress } from "@/lib/utils/sanitize";
 import type { PackedTransaction, SimulationOutcome } from "@/types/sweep";
 import type { WrappedSolAccount } from "@/types/salvage";
@@ -40,6 +46,8 @@ export interface PlanUnwrapInput {
   connection: Connection;
   owner: PublicKey;
   accounts: readonly WrappedSolAccount[];
+  /** The fee sponsor's address, when one is configured. A request only. */
+  feeSponsor?: string | null;
 }
 
 export interface PlanUnwrapResult {
@@ -62,6 +70,8 @@ export interface PlanUnwrapResult {
   netReturnedLamports: number;
   /** True when at least one packed transaction failed to simulate. */
   hasFailures: boolean;
+  /** The sponsor advancing this fee, when one did. */
+  sponsor: FeeSponsorPlan | null;
 }
 
 export class UnwrapError extends Error {
@@ -227,12 +237,39 @@ export async function planWrappedSolUnwrapsTx(
     PRIORITY_FEE_MICRO_LAMPORTS,
   );
 
+  // The advance is only worth taking when the rent being returned covers it and
+  // Spacedust's fee. A wSOL account whose rent cannot pay both is still
+  // unwrappable — just not on the sponsor's lamports.
+  const totalRentLamports = plan.closeable.reduce(
+    (sum, account) => sum + Math.max(0, account.rentLamports),
+    0,
+  );
+  const totalFeeLamports = feeEnabled
+    ? plan.closeable.reduce(
+        (sum, account) => sum + wrappedSolFeeLamports(account),
+        0,
+      )
+    : 0;
+  const candidate = sponsorPlanFor(input.feeSponsor, CLOSE_COMPUTE_UNIT_LIMIT);
+  const sponsor =
+    candidate &&
+    totalRentLamports - totalFeeLamports > candidate.repaymentLamports
+      ? candidate
+      : null;
+  if (candidate && !sponsor) {
+    warnings.push(
+      "The rent is smaller than the network fee a sponsor would advance, so this one needs SOL in the wallet.",
+    );
+  }
+  const tail = sponsor ? [sponsorRepaymentInstruction(sponsor, owner)] : [];
+
   const packedResult = packTransactions({
     units,
     prologue,
-    payer: owner,
+    payer: planPayer(owner, sponsor),
     blockhash: blockhashInfo.blockhash,
     lookupTables: [],
+    tail,
   });
 
   warnings.push(
@@ -280,6 +317,7 @@ export async function planWrappedSolUnwrapsTx(
     prologue,
     units,
     packed: packedResult.transactions,
+    tail,
     expected: {
       flow: "salvage",
       owner: ownerAddress,
@@ -292,6 +330,12 @@ export async function planWrappedSolUnwrapsTx(
         : 0,
       expectedSubjects: packedList.map((account) => account.address),
       expectedCloses: packedList.map((account) => account.address),
+      sponsor: sponsor
+        ? {
+            address: sponsor.address,
+            expectedLamports: sponsor.repaymentLamports,
+          }
+        : null,
     },
   });
 
@@ -336,12 +380,13 @@ export async function planWrappedSolUnwrapsTx(
     warnings,
     blockhash: blockhashInfo.blockhash,
     lastValidBlockHeight: blockhashInfo.lastValidBlockHeight,
-    estimatedFeeLamports: packed.length * (BASE_FEE_LAMPORTS + priorityFee),
+    estimatedFeeLamports: packed.length * feePerTransaction(sponsor, priorityFee),
     closeCount: signedAccounts.size,
     wrappedLamports,
     rentLamports,
     reclaimFeeLamports,
     netReturnedLamports: wrappedLamports + rentLamports - reclaimFeeLamports,
     hasFailures: failed.length > 0,
+    sponsor,
   };
 }

@@ -4,7 +4,7 @@ import {
   type Connection,
   type VersionedTransaction as VTx,
 } from "@solana/web3.js";
-import { base64ToBytes } from "@/lib/utils/base64";
+import { base64ToBytes, bytesToBase64 } from "@/lib/utils/base64";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   COMPUTE_BUDGET_PROGRAM_ID,
@@ -378,6 +378,104 @@ async function withSigningTimeout<T>(call: () => Promise<T>): Promise<T> {
  * the cost of not having it is that Phantom users cannot sweep at all.
  */
 export async function signTransactions(
+  wallet: SigningCapableWallet,
+  packed: PackedTransaction[],
+  options?: { sponsor?: boolean },
+): Promise<VTx[]> {
+  const signed = await signWithWallet(wallet, packed);
+
+  // The sponsor signs last, on the bytes the wallet just signed. It is an extra
+  // signature slot on the same message — never a different transaction — and the
+  // server refuses anything that is not already signed by the wallet.
+  return options?.sponsor ? coSignSponsored(signed) : signed;
+}
+
+/**
+ * Add the fee sponsor's signature, one transaction at a time.
+ *
+ * The wallet is the authority on what it signed; the sponsor is the authority on
+ * what it paid for. So the server is sent exactly what the wallet returned, and
+ * what comes back must carry the same message bytes — a co-signature over a
+ * changed message is either a bug or an attack, and either way it is refused
+ * here rather than broadcast.
+ *
+ * One request per transaction because the sponsor prices and guesses per
+ * transaction: it is repaid once per fee, by the transaction that incurred it.
+ */
+async function coSignSponsored(signed: VTx[]): Promise<VTx[]> {
+  const out: VTx[] = [];
+
+  for (const transaction of signed) {
+    let response: Response;
+    try {
+      response = await fetch("/api/sponsor", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        // Same-origin cookies are irrelevant here, but the header makes the
+        // request's origin unambiguous to the endpoint's own check.
+        credentials: "same-origin",
+        cache: "no-store",
+        body: JSON.stringify({
+          transaction: bytesToBase64(transaction.serialize()),
+        }),
+      });
+    } catch {
+      throw new Error(
+        "The fee sponsor could not be reached, so the network fee was not advanced and nothing was sent.",
+      );
+    }
+
+    let body: { transaction?: unknown; error?: unknown } = {};
+    try {
+      body = (await response.json()) as typeof body;
+    } catch {
+      // Falls through to the refusal below, with no detail to leak.
+    }
+
+    if (!response.ok || typeof body.transaction !== "string") {
+      const detail =
+        typeof body.error === "string"
+          ? body.error
+          : `The fee sponsor refused to sign (HTTP ${response.status}).`;
+      throw new Error(`${detail} Nothing was sent.`);
+    }
+
+    const coSigned = VersionedTransaction.deserialize(
+      base64ToBytes(body.transaction),
+    );
+
+    // The sponsor may add its own signature and nothing else. Comparing the
+    // message bytes is the strongest form of that: any change to an account, an
+    // instruction or the fee payer shows up here.
+    if (
+      !sameBytes(transaction.message.serialize(), coSigned.message.serialize())
+    ) {
+      throw new Error(
+        "The fee sponsor returned a different transaction from the one your wallet signed. Nothing was sent, and no funds left your wallet.",
+      );
+    }
+    if (isUnsigned(coSigned)) {
+      throw new Error(
+        "The fee sponsor did not return a fully signed transaction. Nothing was sent.",
+      );
+    }
+
+    out.push(coSigned);
+  }
+
+  return out;
+}
+
+function sameBytes(left: Uint8Array, right: Uint8Array): boolean {
+  if (left.length !== right.length) return false;
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return false;
+  }
+  return true;
+}
+
+/** The wallet's signatures, exactly as they were before sponsorship existed. */
+async function signWithWallet(
   wallet: SigningCapableWallet,
   packed: PackedTransaction[],
 ): Promise<VTx[]> {

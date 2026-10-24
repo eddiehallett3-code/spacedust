@@ -252,8 +252,10 @@ export default function HowItWorksPage() {
           reported as blocked or malicious even when it contains nothing but
           ordinary swaps. So a Phantom sweep asks you once per transaction instead
           of once for the batch. Signing always happens inside your wallet
-          extension. Spacedust has no keyring, no seed phrase, and no ability to
-          move funds on your behalf.
+          extension. Spacedust never has your key, has no seed phrase field, and
+          cannot move funds on your behalf. Its own fee wallet is a separate,
+          single-purpose key: it can only pay a network fee for a transaction you
+          have already signed.
         </p>
 
         <h3>7. The only fee is {VOID_RATE} of the rent a flow returns, and it is always visible</h3>
@@ -771,13 +773,21 @@ export default function HowItWorksPage() {
           the moment that token is received again, the answer is usually yes.
         </p>
         <p>
-          If the wallet cannot cover that fee at all, nothing is signed. The plan
-          stops before the wallet is asked for anything and states the exact
-          amount of SOL that is missing and the address to send it to — from
-          another wallet or an exchange. This is the one case where rent cannot
-          fund its own recovery: Solana takes the fee before it runs the close,
-          so the rent it would release is not available in time. The app advances
-          nothing and holds no key; it tells you the number instead.
+          If the wallet cannot cover that fee, Spacedust advances it. A small fee
+          wallet, held server-side and funded by hand, is the fee payer for that
+          one transaction — and the same transaction pays it back out of the rent
+          the close has just released. The repayment sits after the close,
+          exactly like the fee above, because Solana takes its fee before any
+          instruction runs and the rent is not available until afterwards.
+        </p>
+        <p>
+          That key can do one thing. It is the fee payer and never appears in an
+          instruction, it is offered only for flows that close an account and
+          create nothing, and the server re-checks and simulates every transaction
+          before adding its signature. If it cannot pay — out of SOL, or a refund
+          too small to cover the advance — nothing is signed and the plan states
+          the exact amount of SOL to send instead, from another wallet or an
+          exchange.
         </p>
 
         <h3>5. Wrapped SOL and diagnostics are Basic; Pro adds only <code>.sns</code></h3>
@@ -987,10 +997,13 @@ export default function HowItWorksPage() {
               reason. Silent dropping is the one behaviour this app does not have.
             </li>
             <li>
-              <strong>Your wallet signs, and Spacedust cannot.</strong> Signing
-              happens inside your wallet extension. There is no keyring, no seed
+              <strong>Your wallet signs, and only your wallet can move your funds.</strong>{" "}
+              Signing happens inside your wallet extension. There is no seed
               phrase field, and no code path from a server key to a signed
-              transaction.
+              transaction on your behalf. The one key Spacedust holds is a fee
+              wallet: it can pay a network fee for a transaction you have already
+              signed, is repaid from the rent in that same transaction, and can
+              never appear in an instruction of its own.
             </li>
           </ul>
         </Prose>

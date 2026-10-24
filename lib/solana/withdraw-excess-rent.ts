@@ -1,6 +1,5 @@
 import { PublicKey, SystemProgram, type Connection } from "@solana/web3.js";
 import {
-  BASE_FEE_LAMPORTS,
   CLOSE_COMPUTE_UNIT_LIMIT,
   PRIORITY_FEE_MICRO_LAMPORTS,
   RECLAIM_FEE_BPS,
@@ -12,6 +11,13 @@ import { packTransactions, type PackUnit } from "@/lib/solana/pack";
 import { simulateAll, splitBySimulation } from "@/lib/solana/simulate";
 import { auditPlanBeforeSigning } from "@/lib/security/audit-plan";
 import { CloseError } from "@/lib/solana/close-accounts";
+import {
+  feePerTransaction,
+  planPayer,
+  sponsorPlanFor,
+  sponsorRepaymentInstruction,
+  type FeeSponsorPlan,
+} from "@/lib/sponsor/plan";
 import {
   TOKEN_2022_PROGRAM,
   buildWithdrawExcessLamportsInstruction,
@@ -50,6 +56,14 @@ export interface PlanExcessRentResult {
   /** Spacedust fee attributed to each account, in lamports. */
   feeByAccount: Record<string, number>;
   hasFailures: boolean;
+  /**
+   * The sponsor advancing this plan's network fee, when one did.
+   *
+   * Present means the fee payer is the sponsor, every transaction ends with a
+   * transfer repaying it from the rent it released, and the signature step must
+   * have the server co-sign before anything is sent.
+   */
+  sponsor: FeeSponsorPlan | null;
 }
 
 interface ParsedTokenInfo {
@@ -87,6 +101,12 @@ export async function planExcessRentTx(input: {
   connection: Connection;
   owner: PublicKey;
   accounts: readonly ExcessRentAccount[];
+  /**
+   * The fee sponsor's address, when the server has one configured. Its presence
+   * is only a request: the plan refuses it below when the refund is too small
+   * to pay the advance back.
+   */
+  feeSponsor?: string | null;
 }): Promise<PlanExcessRentResult> {
   const { connection, owner, accounts } = input;
   const warnings: string[] = [];
@@ -241,12 +261,40 @@ export async function planExcessRentTx(input: {
     PRIORITY_FEE_MICRO_LAMPORTS,
   );
 
+  // ── The fee sponsor, if this refund can pay it back ───────────────────────
+  // Only worth advancing when the wallet nets more than the advance: the
+  // repayment and Spacedust's fee both come out of the same rent, and a refund
+  // smaller than the two would produce a transaction that cannot repay it. The
+  // sponsor's own simulation would refuse that too; refusing it here keeps the
+  // preview honest about who is paying.
+  const totalExcessLamports = Object.values(excessByAccount).reduce(
+    (sum, value) => sum + value,
+    0,
+  );
+  const totalFeeLamports = Object.values(feeByAccount).reduce(
+    (sum, value) => sum + value,
+    0,
+  );
+  const candidate = sponsorPlanFor(input.feeSponsor, CLOSE_COMPUTE_UNIT_LIMIT);
+  const sponsor =
+    candidate &&
+    totalExcessLamports - totalFeeLamports > candidate.repaymentLamports
+      ? candidate
+      : null;
+  if (candidate && !sponsor) {
+    warnings.push(
+      "The refund is smaller than the network fee a sponsor would advance, so this one needs SOL in the wallet.",
+    );
+  }
+  const tail = sponsor ? [sponsorRepaymentInstruction(sponsor, owner)] : [];
+
   const packedResult = packTransactions({
     units,
     prologue,
-    payer: owner,
+    payer: planPayer(owner, sponsor),
     blockhash: blockhashInfo.blockhash,
     lookupTables: [],
+    tail,
   });
 
   warnings.push(
@@ -280,12 +328,19 @@ export async function planExcessRentTx(input: {
     prologue,
     units,
     packed: packedResult.transactions,
+    tail,
     expected: {
       flow: "excess-rent",
       owner: owner.toBase58(),
       feeWallet,
       expectedFeeLamports: auditedFeeLamports,
       expectedSubjects: packedAddresses,
+      sponsor: sponsor
+        ? {
+            address: sponsor.address,
+            expectedLamports: sponsor.repaymentLamports,
+          }
+        : null,
     },
   });
 
@@ -335,7 +390,7 @@ export async function planExcessRentTx(input: {
     warnings,
     blockhash: blockhashInfo.blockhash,
     lastValidBlockHeight: blockhashInfo.lastValidBlockHeight,
-    estimatedFeeLamports: packed.length * (BASE_FEE_LAMPORTS + priorityFee),
+    estimatedFeeLamports: packed.length * feePerTransaction(sponsor, priorityFee),
     excessLamports: signedExcessLamports,
     reclaimFeeLamports: signedFeeLamports,
     netRentLamports: signedExcessLamports - signedFeeLamports,
@@ -343,5 +398,6 @@ export async function planExcessRentTx(input: {
     excessByAccount,
     feeByAccount,
     hasFailures: failed.length > 0,
+    sponsor,
   };
 }

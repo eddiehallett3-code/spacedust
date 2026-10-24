@@ -1,6 +1,5 @@
 import { PublicKey, SystemProgram, type Connection } from "@solana/web3.js";
 import {
-  BASE_FEE_LAMPORTS,
   CLOSE_COMPUTE_UNIT_LIMIT,
   PRIORITY_FEE_MICRO_LAMPORTS,
   RECLAIM_FEE_BPS,
@@ -15,6 +14,13 @@ import { feeFromRentLamports, fetchRentMinimums } from "@/lib/solana/rent";
 import { packTransactions, type PackUnit } from "@/lib/solana/pack";
 import { simulateAll, splitBySimulation } from "@/lib/solana/simulate";
 import { auditPlanBeforeSigning } from "@/lib/security/audit-plan";
+import {
+  feePerTransaction,
+  planPayer,
+  sponsorPlanFor,
+  sponsorRepaymentInstruction,
+  type FeeSponsorPlan,
+} from "@/lib/sponsor/plan";
 import {
   EMPTY_ACCOUNT_SKIP_TEXT,
   planEmptyAccountCloses,
@@ -46,6 +52,11 @@ export interface PlanCloseInput {
   connection: Connection;
   owner: PublicKey;
   accounts: readonly EmptyTokenAccount[];
+  /**
+   * The fee sponsor's address, when one is configured. A request only: the plan
+   * declines it when the rent does not cover the advance and Spacedust's fee.
+   */
+  feeSponsor?: string | null;
 }
 
 export interface PlanCloseResult {
@@ -73,6 +84,11 @@ export interface PlanCloseResult {
   netRentLamports: number;
   /** True when at least one packed transaction failed to simulate. */
   hasFailures: boolean;
+  /**
+   * The sponsor advancing this plan's fee, when one did. Its presence means the
+   * fee payer is the sponsor and the signature step must co-sign server-side.
+   */
+  sponsor: FeeSponsorPlan | null;
 }
 
 /** A planning failure, with the warnings gathered along the way. */
@@ -185,14 +201,44 @@ export async function planEmptyAccountClosesTx(
     PRIORITY_FEE_MICRO_LAMPORTS,
   );
 
+  // ── The fee sponsor, if this rent can pay it back ─────────────────────────
+  // The repayment and Spacedust's fee both come out of the same deposit, and a
+  // deposit smaller than the two would produce a sponsored transaction that
+  // cannot repay its own advance. The sponsor's server would refuse it; declining
+  // here is what lets the preview say who is paying before anything is signed.
+  const totalRentLamports = plan.closeable.reduce(
+    (sum, account) => sum + account.lamports,
+    0,
+  );
+  const totalFeeLamports = feeEnabled
+    ? plan.closeable.reduce(
+        (sum, account) =>
+          sum + feeFromRentLamports(account.lamports, RECLAIM_FEE_BPS),
+        0,
+      )
+    : 0;
+  const candidate = sponsorPlanFor(input.feeSponsor, CLOSE_COMPUTE_UNIT_LIMIT);
+  const sponsor =
+    candidate &&
+    totalRentLamports - totalFeeLamports > candidate.repaymentLamports
+      ? candidate
+      : null;
+  if (candidate && !sponsor) {
+    warnings.push(
+      "The rent is smaller than the network fee a sponsor would advance, so this one needs SOL in the wallet.",
+    );
+  }
+  const tail = sponsor ? [sponsorRepaymentInstruction(sponsor, owner)] : [];
+
   const packedResult = packTransactions({
     units,
     prologue,
-    payer: owner,
+    payer: planPayer(owner, sponsor),
     blockhash: blockhashInfo.blockhash,
     // A close references only its own account and the owner, so there is nothing
     // an address lookup table could shrink.
     lookupTables: [],
+    tail,
   });
 
   warnings.push(
@@ -241,6 +287,7 @@ export async function planEmptyAccountClosesTx(
     prologue,
     units,
     packed: packedResult.transactions,
+    tail,
     expected: {
       flow: "salvage",
       owner: owner.toBase58(),
@@ -248,6 +295,12 @@ export async function planEmptyAccountClosesTx(
       expectedFeeLamports: feeFor(packedList),
       expectedSubjects: packedList.map((account) => account.address),
       expectedCloses: packedList.map((account) => account.address),
+      sponsor: sponsor
+        ? {
+            address: sponsor.address,
+            expectedLamports: sponsor.repaymentLamports,
+          }
+        : null,
     },
   });
 
@@ -301,12 +354,13 @@ export async function planEmptyAccountClosesTx(
     warnings,
     blockhash: blockhashInfo.blockhash,
     lastValidBlockHeight: blockhashInfo.lastValidBlockHeight,
-    estimatedFeeLamports: packed.length * (BASE_FEE_LAMPORTS + priorityFee),
+    estimatedFeeLamports: packed.length * feePerTransaction(sponsor, priorityFee),
     closeCount: signedAccounts.size,
     rentLamports,
     reclaimFeeLamports,
     // What the user actually receives, which is the only number worth showing them.
     netRentLamports: rentLamports - reclaimFeeLamports,
     hasFailures: failed.length > 0,
+    sponsor,
   };
 }

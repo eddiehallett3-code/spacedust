@@ -1,6 +1,5 @@
 import { PublicKey, SystemProgram, type Connection } from "@solana/web3.js";
 import {
-  BASE_FEE_LAMPORTS,
   DELETE_COMPUTE_UNIT_FLOOR,
   DELETE_COMPUTE_UNITS_PER_UNIT,
   MAX_COMPUTE_UNIT_LIMIT,
@@ -16,6 +15,13 @@ import { feeFromRentLamports, fetchRentMinimums } from "@/lib/solana/rent";
 import { packTransactions, type PackUnit } from "@/lib/solana/pack";
 import { simulateAll } from "@/lib/solana/simulate";
 import { auditPlanBeforeSigning } from "@/lib/security/audit-plan";
+import {
+  feePerTransaction,
+  planPayer,
+  sponsorPlanFor,
+  sponsorRepaymentInstruction,
+  type FeeSponsorPlan,
+} from "@/lib/sponsor/plan";
 import type { ApiInstruction } from "@/types/jupiter";
 import type { PackedTransaction, SimulationOutcome } from "@/types/sweep";
 import type { SalvageDomain } from "@/types/salvage";
@@ -56,6 +62,8 @@ export interface PlanDeleteInput {
    * either be deleted or say why it was not.
    */
   instructions: readonly ApiInstruction[];
+  /** The fee sponsor's address, when one is configured. A request only. */
+  feeSponsor?: string | null;
 }
 
 export interface PlanDeleteResult {
@@ -78,6 +86,8 @@ export interface PlanDeleteResult {
   netRentLamports: number;
   /** True when at least one packed transaction failed to simulate. */
   hasFailures: boolean;
+  /** The sponsor advancing this fee, when one did. */
+  sponsor: FeeSponsorPlan | null;
 }
 
 /** A planning failure, with the warnings gathered along the way. */
@@ -209,13 +219,42 @@ export async function planDomainDeletes(
     PRIORITY_FEE_MICRO_LAMPORTS,
   );
 
+  // The sponsor pays only when the name accounts being given up hold enough rent
+  // to repay the advance and Spacedust's fee. Deleting a name cannot be undone,
+  // so declining the sponsorship here is the safe direction: the plan still
+  // exists, and the user is told they need SOL instead.
+  const candidateRentLamports = domains.reduce(
+    (sum, domain) => sum + domain.lamports,
+    0,
+  );
+  const candidateFeeLamports = feeEnabled
+    ? domains.reduce(
+        (sum, domain) =>
+          sum + feeFromRentLamports(domain.lamports, RECLAIM_FEE_BPS),
+        0,
+      )
+    : 0;
+  const candidate = sponsorPlanFor(input.feeSponsor, computeUnitLimit);
+  const sponsor =
+    candidate &&
+    candidateRentLamports - candidateFeeLamports > candidate.repaymentLamports
+      ? candidate
+      : null;
+  if (candidate && !sponsor) {
+    warnings.push(
+      "The rent is smaller than the network fee a sponsor would advance, so this one needs SOL in the wallet.",
+    );
+  }
+  const tail = sponsor ? [sponsorRepaymentInstruction(sponsor, owner)] : [];
+
   const packedResult = packTransactions({
     units,
     prologue,
-    payer: owner,
+    payer: planPayer(owner, sponsor),
     blockhash: blockhashInfo.blockhash,
     // A delete names the name account and the owner. Nothing to shrink with a table.
     lookupTables: [],
+    tail,
   });
 
   warnings.push(
@@ -264,12 +303,19 @@ export async function planDomainDeletes(
     prologue,
     units,
     packed: packedResult.transactions,
+    tail,
     expected: {
       flow: "salvage",
       owner: owner.toBase58(),
       feeWallet,
       expectedFeeLamports: reclaimFeeLamports,
       expectedSubjects: packedDomains.map((domain) => domain.address),
+      sponsor: sponsor
+        ? {
+            address: sponsor.address,
+            expectedLamports: sponsor.repaymentLamports,
+          }
+        : null,
     },
   });
 
@@ -295,13 +341,14 @@ export async function planDomainDeletes(
     blockhash: blockhashInfo.blockhash,
     lastValidBlockHeight: blockhashInfo.lastValidBlockHeight,
     estimatedFeeLamports:
-      packedResult.transactions.length * (BASE_FEE_LAMPORTS + priorityFee),
+      packedResult.transactions.length * feePerTransaction(sponsor, priorityFee),
     computeUnitLimit,
     deleteCount: packedAccounts.size,
     rentLamports,
     reclaimFeeLamports,
     netRentLamports: rentLamports - reclaimFeeLamports,
     hasFailures: simulations.some((simulation) => !simulation.ok),
+    sponsor,
   };
 }
 

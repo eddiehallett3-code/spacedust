@@ -14,6 +14,7 @@ import {
   type PlanUnwrapResult,
 } from "@/lib/salvage/plan-unwrap";
 import { signTransactions, submitTransactions } from "@/lib/solana/submit";
+import { useFeeSponsor } from "@/hooks/use-fee-sponsor";
 import { isBusyPhase } from "@/lib/sweep/phase";
 import { playFlowSound } from "@/lib/ui/sound";
 import { toFriendlyError, type FriendlyError } from "@/lib/utils/errors";
@@ -74,6 +75,7 @@ const INITIAL: UnwrapState = {
 export function useUnwrapWrappedSol() {
   const { publicKey, signTransaction, signAllTransactions, wallet } = useWallet();
   const connection = getConnection();
+  const { address: feeSponsor } = useFeeSponsor();
 
   const busyRef = useRef(false);
   const preparedRef = useRef<{
@@ -138,6 +140,7 @@ export function useUnwrapWrappedSol() {
         const result = await planWrappedSolUnwrapsTx({
           connection,
           owner: publicKey,
+          feeSponsor,
           accounts,
         });
 
@@ -158,7 +161,7 @@ export function useUnwrapWrappedSol() {
         busyRef.current = false;
       }
     },
-    [connection, describe, patch, publicKey],
+    [connection, describe, feeSponsor, patch, publicKey],
   );
 
   const execute = useCallback(async (): Promise<boolean> => {
@@ -200,6 +203,7 @@ export function useUnwrapWrappedSol() {
         result = await planWrappedSolUnwrapsTx({
           connection,
           owner: publicKey,
+          feeSponsor,
           accounts,
         });
         preparedRef.current = { result, accounts };
@@ -211,6 +215,7 @@ export function useUnwrapWrappedSol() {
       const signed = await signTransactions(
         { signTransaction, signAllTransactions, walletName: wallet?.adapter.name },
         result.packed,
+        { sponsor: result.sponsor !== null },
       );
 
       patch({
@@ -295,6 +300,7 @@ export function useUnwrapWrappedSol() {
   }, [
     connection,
     describe,
+    feeSponsor,
     patch,
     publicKey,
     signAllTransactions,

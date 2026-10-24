@@ -2,7 +2,15 @@
 
 Spacedust is a non-custodial Solana wallet tool. It builds transactions in the
 browser and asks your wallet to sign them: it never asks for a private key or a
-seed phrase, holds no keyring, and cannot move funds on its own.
+seed phrase, and it cannot move your funds on its own.
+
+It holds exactly one key of its own: a **fee wallet** that can pay a network fee
+for a transaction the user's wallet has already signed, and only when that same
+transaction repays it from the rent it releases. The rules live in
+`lib/sponsor/policy.ts` and are enforced server-side — the key is never a signer
+of user instructions, never funds account creation, and never appears in a
+transaction it has not simulated. Treat anything that asks you for a seed phrase
+or a key as an attack, as before: this key is Spacedust's, never yours.
 
 ## Reporting a vulnerability
 

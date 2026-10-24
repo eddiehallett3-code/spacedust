@@ -53,6 +53,16 @@ export interface PackOptions {
   payer: PublicKey;
   blockhash: string;
   lookupTables: AddressLookupTableAccount[];
+  /**
+   * Instructions appended to every transaction, after the body.
+   *
+   * Used for the fee-sponsor repayment, which is per *transaction* (the sponsor
+   * pays one fee per transaction) rather than per unit, and has to come after
+   * every close so it is funded by the rent those closes have just released.
+   * It is measured like everything else, so a transaction it does not fit into
+   * fails to pack rather than failing on chain.
+   */
+  tail?: TransactionInstruction[];
 }
 
 export interface PackResult {
@@ -101,6 +111,7 @@ export function packTransactions(options: PackOptions): PackResult {
     payer,
     blockhash,
     lookupTables,
+    tail = [],
   } = options;
 
   // Leave headroom so we are never the reason a transaction is rejected for
@@ -120,10 +131,10 @@ export function packTransactions(options: PackOptions): PackResult {
    * wire — that used to be masked only by the headroom constant.
    */
   const measure = (body: TransactionInstruction[]): number | null => {
-    if (body.length + prologue.length > MAX_INSTRUCTIONS_PER_TX) {
+    if (body.length + prologue.length + tail.length > MAX_INSTRUCTIONS_PER_TX) {
       return null;
     }
-    const instructions = [...prologue, ...body];
+    const instructions = [...prologue, ...body, ...tail];
     if (
       lockedAccountCount(instructions, payer, lookupTables) >
       MAX_LOCKED_ACCOUNTS_PER_TX
@@ -185,7 +196,7 @@ export function packTransactions(options: PackOptions): PackResult {
     mints: string[],
     rentReclaimMints: string[],
   ): boolean => {
-    const instructions = [...prologue, ...body];
+    const instructions = [...prologue, ...body, ...tail];
     if (
       lockedAccountCount(instructions, payer, lookupTables) >
       MAX_LOCKED_ACCOUNTS_PER_TX
