@@ -32,6 +32,21 @@ export function isNoLiquidityFailure(reason: string): boolean {
   return NO_LIQUIDITY_PATTERN.test(reason);
 }
 
+/**
+ * Phantom's words for "this site is no longer authorised", shared between the
+ * message the user reads and the button that fixes it.
+ *
+ * Exported so a panel can offer the one action that works — disconnect — rather
+ * than telling someone to go and find a menu item while nothing responds.
+ */
+export const WALLET_DEAUTHORISED_PATTERN =
+  /requested method and\/or account has not been authorized|has not been authorized by the user|no longer has Spacedust authorised/i;
+
+/** True when the only way forward is to reconnect the wallet. */
+export function needsWalletReconnect(message: string): boolean {
+  return WALLET_DEAUTHORISED_PATTERN.test(message);
+}
+
 const RULES: Rule[] = [
   {
     // The WalletConnect relay is one DNS lookup away from working, and this is
@@ -77,7 +92,7 @@ const RULES: Rule[] = [
     // the user nothing and invites a retry that cannot possibly work — and because
     // Phantom support's own advice after a domain review is to restart the app,
     // which is precisely what puts users in this state.
-    test: /requested method and\/or account has not been authorized|has not been authorized by the user/i,
+    test: WALLET_DEAUTHORISED_PATTERN,
     map: () => ({
       title: "Reconnect your wallet",
       message:

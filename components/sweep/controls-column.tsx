@@ -5,13 +5,14 @@ import { AlertTriangle, Orbit, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, SectionTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { useMode } from "@/components/layout/mode-provider";
 import { OutputToggle } from "@/components/sweep/output-toggle";
 import { SweepPanel } from "@/components/sweep/sweep-panel";
 import { SmartFilterToggle } from "@/components/sweep/smart-filter-toggle";
 import { RentReclaimPanel } from "@/components/sweep/rent-reclaim-panel";
 import type { OutputAsset } from "@/types/sweep";
-import type { FriendlyError } from "@/lib/utils/errors";
+import { needsWalletReconnect, type FriendlyError } from "@/lib/utils/errors";
 import type { EmptyTokenAccount } from "@/types/token";
 import type { useSweep } from "@/hooks/use-sweep";
 import { SweepHistoryPanel } from "@/components/sweep/sweep-history-panel";
@@ -208,6 +209,22 @@ export function ControlsColumn({
 
 /** Inline error banner for sweep failures. */
 export function SweepError({ error }: { error: FriendlyError | null }) {
+  const { disconnect, select, wallet } = useWallet();
+  const canReconnect = error ? needsWalletReconnect(error.message) : false;
+
+  /**
+   * Drop the dead session and ask the same wallet again.
+   *
+   * Disconnecting alone is not enough in practice: it leaves the app on "Select
+   * wallet", and the user has to know to pick the same one. Selecting it triggers
+   * a fresh authorisation prompt, which is the only thing that clears the state.
+   */
+  const reconnect = async (): Promise<void> => {
+    const name = wallet?.adapter.name;
+    await disconnect();
+    if (name) select(name);
+  };
+
   return (
     <AnimatePresence>
       {error ? (
@@ -230,6 +247,20 @@ export function SweepError({ error }: { error: FriendlyError | null }) {
             <p className="mt-1.5 text-[11px] leading-relaxed text-subtle">
               {error.hint}
             </p>
+          ) : null}
+          {canReconnect ? (
+            // The action itself, not directions to it. A stale wallet session
+            // shows a connected address while every request is refused, and
+            // sending the user hunting through a menu is how a dead session
+            // becomes a support message.
+            <Button
+              size="sm"
+              variant="outline"
+              className="mt-2"
+              onClick={() => void reconnect()}
+            >
+              Reconnect wallet
+            </Button>
           ) : null}
         </motion.div>
       ) : null}
