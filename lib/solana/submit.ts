@@ -66,7 +66,22 @@ function isUnsigned(transaction: VTx): boolean {
 }
 
 /**
- * Programs a wallet may not *add* to a transaction it returns.
+ * Does Phantom get a batched approval?
+ *
+ * `true` while we re-test after Phantom's domain review. Their support confirmed
+ * the warning should no longer appear, which may also have changed how a
+ * `signAllTransactions` request is treated. That request is what was refused
+ * before ("request blocked", flagged as malicious) while the same transactions
+ * signed individually were accepted — so this is the one question the review may
+ * have answered, and it is worth one prompt instead of three if it has.
+ *
+ * Flip to `false` the moment a batched approval is refused again: with it on and
+ * the block still in place, Phantom users cannot sign anything at all. The test
+ * below covers whichever value is set, so neither state ships unexamined.
+ */
+export const PHANTOM_USES_BATCH = true;
+
+/** Programs a wallet may not *add* to a transaction it returns.
  *
  * A wallet is entitled to add its own guard instructions — Phantom appends
  * Lighthouse assertions, which read account state and abort on a mismatch — and
@@ -373,6 +388,7 @@ export async function signTransactions(
   // Case-insensitive substring: adapter names reach us as "Phantom",
   // "Phantom Wallet", and whatever the next release calls itself.
   const preferSingle =
+    !PHANTOM_USES_BATCH &&
     wallet.walletName?.toLowerCase().includes("phantom") === true &&
     single !== undefined;
 

@@ -9,6 +9,7 @@ import {
 import { base64ToBytes, bytesToBase64 } from "@/lib/utils/base64";
 import type { PackedTransaction } from "@/types/sweep";
 import {
+  PHANTOM_USES_BATCH,
   SIGNING_TIMEOUT_MS,
   SigningTimeoutError,
   settleTransaction,
@@ -281,12 +282,12 @@ describe("signTransactions — a wallet that never answers", () => {
     expect(result?.signatures[0]?.some((byte) => byte !== 0)).toBe(true);
   });
 
-  it("signs Phantom one transaction at a time, because a batch is what it blocks", async () => {
-    // Observed against a production build: Phantom's scanner refuses a batched
-    // approval ("request blocked", flagged as malicious) even when the batch is
-    // nothing but routine Jupiter swaps — while the same transactions signed one
-    // at a time raise no warning, and a single-transaction sweep was never
-    // flagged. Extra prompts are the price of a sweep that works at all.
+  it("signs Phantom the way the batch switch says", async () => {
+    // The switch exists because Phantom refused a batched approval before its
+    // domain review and accepted the same transactions one at a time. Whichever
+    // way it is set, this pins the behaviour so neither state ships unexamined —
+    // and if it is on while Phantom still blocks, that is the failure users see
+    // first: nothing signs at all.
     let singles = 0;
     let batches = 0;
     const wallet = {
@@ -304,8 +305,13 @@ describe("signTransactions — a wallet that never answers", () => {
     const result = await signTransactions(wallet, [packed(0), packed(1)]);
 
     expect(result).toHaveLength(2);
-    expect(singles).toBe(2);
-    expect(batches).toBe(0);
+    if (PHANTOM_USES_BATCH) {
+      expect(batches).toBe(1);
+      expect(singles).toBe(0);
+    } else {
+      expect(batches).toBe(0);
+      expect(singles).toBe(2);
+    }
   });
 
   it("still gives every other wallet the single-prompt batch", async () => {
