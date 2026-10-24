@@ -529,20 +529,22 @@ describe("signTransactions — a wallet that returns different bytes", () => {
     }),
   ];
 
-  it("accepts a transaction the wallet stripped an account create out of", async () => {
-    // Phantom drops the idempotent ATA create on a route whose account it treats
-    // as existing. That cannot misdirect anything — the swap instruction is
-    // byte-identical and still names the same destination — so refusing it only
-    // blocks the user. A *new* ATA create is still refused below.
+  it("accepts a transaction whose account keys the wallet renumbered", async () => {
+    // Phantom prunes an account create it treats as redundant, and rebuilding the
+    // message drops that instruction's key — which shifts the compiled index of
+    // every later instruction. The swap is byte-identical and still names the same
+    // accounts, so the comparison must survive the renumbering; comparing positions
+    // is what produced "instruction 5 (Jupiter) was changed or removed".
+    const prunedKey = new PublicKey("7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU");
     const ata = new TransactionInstruction({
       programId: new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"),
       keys: [
         { pubkey: PublicKey.default, isSigner: true, isWritable: true },
-        { pubkey: PublicKey.default, isSigner: false, isWritable: true },
+        { pubkey: prunedKey, isSigner: false, isWritable: true },
       ],
       data: Buffer.from([1]),
     });
-    const transfer = transferTo(PublicKey.default.toBase58())[0]!;
+    const transfer = transferTo(STRANGER)[0]!;
 
     const call = signTransactions(
       walletReturning(() => signed(messageWith([transfer]))),

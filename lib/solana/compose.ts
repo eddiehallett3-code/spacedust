@@ -306,15 +306,15 @@ function planClose(
   skipCloseMints: Set<string>,
 ): ClosePlan {
   if (skipCloseMints.has(build.mint)) {
-    // A partial amount leaves a balance behind, and `closeAccount` refuses a
-    // non-empty account. Say so: the rent is money the preview is not returning,
-    // and a silent skip is a number the user cannot account for.
+    // Silent, deliberately: the user chose a partial amount, so there is no rent
+    // to reclaim because they asked for part of the balance to stay. Reporting it
+    // as a warning told people something had gone wrong when everything had gone
+    // exactly as instructed.
     return {
       mint: build.mint,
       account: null,
       program: null,
-      reason:
-        "only part of its balance is being swapped, so the account keeps a balance and cannot be closed this time",
+      reason: null,
     };
   }
 

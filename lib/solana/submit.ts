@@ -84,15 +84,18 @@ const UNINVITED_PROGRAMS = new Set<string>([
   ASSOCIATED_TOKEN_PROGRAM_ID,
 ]);
 
+/** One compiled instruction, as this comparison reads it. */
+interface CompiledInstructionView {
+  programIdIndex: number;
+  accountKeyIndexes: ReadonlyArray<number>;
+  data: unknown;
+}
+
 /** The parts of a compiled message this comparison reads, across versions. */
 interface CompiledMessageView {
   recentBlockhash: string;
   staticAccountKeys: ReadonlyArray<{ toBase58(): string }>;
-  compiledInstructions: ReadonlyArray<{
-    programIdIndex: number;
-    accountKeyIndexes: ReadonlyArray<number>;
-    data: unknown;
-  }>;
+  compiledInstructions: ReadonlyArray<CompiledInstructionView>;
   addressTableLookups?: ReadonlyArray<unknown>;
   isAccountWritable(index: number): boolean;
   isAccountSigner(index: number): boolean;
@@ -111,18 +114,18 @@ function bytesEqual(a: unknown, b: unknown): boolean {
  * The wallet is the last thing between a plan and the chain, and a returned
  * transaction is not automatically the transaction that was asked for: an
  * adapter — or a remote WalletConnect peer — can hand back different bytes with a
- * signature attached, and `sendRawTransaction` would broadcast them. Everything
- * the user approved lives in the message, so the message is what is compared:
- * the same fee payer, the same blockhash, the same lookup tables, and the built
- * instructions byte-for-byte, in order.
+ * signature attached, and `sendRawTransaction` would broadcast them.
  *
- * Appended instructions are allowed only if they cannot do anything: they must
- * name no writable account and no signer, and must not call a program that moves
- * value (a System or Token instruction without a writable account could not run
- * anyway, but refusing them by name says so plainly). That admits the guard
- * instructions wallets add and nothing that could move a lamport — appending
- * cannot alter the indices of instructions already in the message, and a
- * transfer needs a writable source.
+ * Instructions are matched by **meaning**, not by position: same program, same
+ * data bytes, same accounts by public key. A wallet rebuilds the message to insert
+ * its own compute-budget instruction or to prune an account create, and rebuilding
+ * renumbers the account keys — so a byte-identical swap arrives with different
+ * indices. Positional comparison produced three false refusals; resolved-key
+ * comparison cannot.
+ *
+ * Instructions a wallet *adds* are allowed only if they cannot do anything: they
+ * must name no writable account and no signer, and must not call a program that
+ * moves value.
  */
 function modificationReason(requested: VTx, returned: VTx): string | null {
   try {
@@ -166,11 +169,40 @@ function modificationReason(requested: VTx, returned: VTx): string | null {
       message.staticAccountKeys[instruction.programIdIndex]?.toBase58() ===
       COMPUTE_BUDGET_PROGRAM_ID;
 
-    // Every instruction we built must appear, unchanged and in order — but not
-    // necessarily at the same index, because a wallet may insert its own guard in
-    // front of them. The match is therefore a subsequence: walk what we built,
-    // find each one in the returned list, and hold the skipped-over entries to the
-    // insertion rule below.
+    // Every instruction we built must appear, unchanged, in order — matched by the
+    // accounts it names and the data it carries, *not* by its compiled indices.
+    //
+    // Indices cannot be trusted across a wallet's edit. Phantom rebuilds the
+    // message when it inserts a compute-budget instruction or prunes an account
+    // create it thinks is redundant, and rebuilding renumbers the account keys —
+    // so a byte-identical Jupiter swap can arrive with every index shifted. Three
+    // separate false refusals came from comparing positions rather than meaning.
+    const resolveKey = (
+      message: CompiledMessageView,
+      index: number,
+    ): string | null => message.staticAccountKeys[index]?.toBase58() ?? null;
+
+    const sameInstruction = (
+      a: CompiledInstructionView,
+      b: CompiledInstructionView,
+    ): boolean => {
+      const builtProgram = resolveKey(built, a.programIdIndex);
+      const signedProgram = resolveKey(signed, b.programIdIndex);
+      if (!builtProgram || builtProgram !== signedProgram) return false;
+      if (a.accountKeyIndexes.length !== b.accountKeyIndexes.length) return false;
+      if (!bytesEqual(a.data, b.data)) return false;
+      for (let position = 0; position < a.accountKeyIndexes.length; position += 1) {
+        const left = resolveKey(built, a.accountKeyIndexes[position]!);
+        const right = resolveKey(signed, b.accountKeyIndexes[position]!);
+        // An account held in an address lookup table cannot be resolved from the
+        // message alone. The count and the data still match, and every account the
+        // message *can* name must — which covers the ones that matter: the wallet's
+        // own token account, the mint, and the destination.
+        if (left && right && left !== right) return false;
+      }
+      return true;
+    };
+
     let cursor = 0;
     const matched = new Set<number>();
     for (let index = 0; index < builtInstructions.length; index += 1) {
@@ -182,16 +214,7 @@ function modificationReason(requested: VTx, returned: VTx): string | null {
       for (let candidate = cursor; candidate < signedInstructions.length; candidate += 1) {
         const after = signedInstructions[candidate];
         if (!after) continue;
-        const sameKeys =
-          before.accountKeyIndexes.length === after.accountKeyIndexes.length &&
-          before.accountKeyIndexes.every(
-            (keyIndex, position) => keyIndex === after.accountKeyIndexes[position],
-          );
-        if (
-          before.programIdIndex === after.programIdIndex &&
-          sameKeys &&
-          bytesEqual(before.data, after.data)
-        ) {
+        if (sameInstruction(before, after)) {
           found = candidate;
           break;
         }
