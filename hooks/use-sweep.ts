@@ -19,11 +19,8 @@ import {
   buildTokenOutcomes,
   signTransactions,
   submitTransactions,
-  walletSignsSequentially,
   type OutcomeMeta,
-  type SubmitResult,
 } from "@/lib/solana/submit";
-import { signAndSubmitSequentially } from "@/lib/solana/sequential-submit";
 import { toFriendlyError, type FriendlyError } from "@/lib/utils/errors";
 import type {
   OutputAsset,
@@ -342,85 +339,30 @@ export function useSweep() {
 
       patch({ phase: "awaiting-signature", error: null });
 
-      const signer = {
-        signTransaction,
-        signAllTransactions,
-        walletName: wallet?.adapter.name,
-      };
+      // ── 1. Ask the wallet to sign. Phantom gets one transaction at a time,
+      // because its scanner blocks a batched approval; other wallets still get
+      // their single-prompt batch method. ────────────────────────────────────
+      const signed = await signTransactions(
+        { signTransaction, signAllTransactions, walletName: wallet?.adapter.name },
+        result.packed,
+      );
 
-      // ── 1. Sign, and for a wallet that prompts per transaction, send before
-      // asking again. A batch wallet still gets one approval for the whole run —
-      // that path is untouched. This branch exists for the wallets that ask once
-      // per transaction: Phantom, pinned in `submit.ts`, and anything with no
-      // batch method. Their prompts are what consume the blockhash window, so a
-      // third or fourth approval used to begin after it had already died.
-      let submits: SubmitResult[];
-      if (walletSignsSequentially(signer)) {
-        patch({
-          phase: "submitting",
-          progress: { completed: 0, total: result.packed.length },
-        });
+      // ── 2. Submit and confirm, one transaction at a time ──────────────────
+      patch({
+        phase: "submitting",
+        progress: { completed: 0, total: signed.length },
+      });
 
-        const sequential = await signAndSubmitSequentially({
-          batch: result,
-          refresh: async () => {
-            const fresh = await refreshBlockhash(connection, result);
-            result = fresh;
-            preparedRef.current = { result, request };
-            patch({
-              packed: fresh.packed,
-              rentLamports: fresh.estimatedRentReclaimLamports,
-              reclaimFeeLamports: fresh.estimatedReclaimFeeLamports,
-            });
-            return fresh;
-          },
-          nearExpiry: (batch) =>
-            isBlockhashExpired(
-              connection,
-              batch.lastValidBlockHeight,
-              BLOCKHASH_PROMPT_MARGIN_SLOTS,
-            ),
-          signOne: async (meta) => {
-            const [signedTransaction] = await signTransactions(signer, [meta]);
-            if (!signedTransaction) {
-              throw new Error("The wallet returned no signed transaction.");
-            }
-            return signedTransaction;
-          },
-          submitOne: (signedTransaction, meta, window) =>
-            submitTransactions(
-              connection,
-              [signedTransaction],
-              [meta],
-              {
-                blockhash: window.blockhash,
-                lastValidBlockHeight: window.lastValidBlockHeight,
-              },
-            ),
-          onProgress: (completed, total) =>
-            patch({ progress: { completed, total } }),
-        });
-        submits = sequential.submits;
-      } else {
-        const signed = await signTransactions(signer, result.packed);
-
-        // ── 2. Submit and confirm, every transaction in flight at once ──────
-        patch({
-          phase: "submitting",
-          progress: { completed: 0, total: signed.length },
-        });
-
-        submits = await submitTransactions(
-          connection,
-          signed,
-          result.packed,
-          {
-            blockhash: result.blockhash,
-            lastValidBlockHeight: result.lastValidBlockHeight,
-          },
-          (completed, total) => patch({ progress: { completed, total } }),
-        );
-      }
+      const submits = await submitTransactions(
+        connection,
+        signed,
+        result.packed,
+        {
+          blockhash: result.blockhash,
+          lastValidBlockHeight: result.lastValidBlockHeight,
+        },
+        (completed, total) => patch({ progress: { completed, total } }),
+      );
 
       patch({ phase: "confirming" });
 
@@ -474,10 +416,7 @@ export function useSweep() {
         isDryRun: false,
         outcomes,
         summary,
-        progress: {
-          completed: result.packed.length,
-          total: result.packed.length,
-        },
+        progress: { completed: signed.length, total: signed.length },
       });
 
       // A signed sweep is finished. Re-signing the same batch could only
