@@ -5,7 +5,7 @@ import {
   PRIORITY_FEE_MICRO_LAMPORTS,
   SYSTEM_PROGRAM_ID,
 } from "@/lib/utils/constants";
-import { FLOW_PROGRAMS } from "@/lib/security/program-ids";
+import { FLOW_PROGRAMS, LIGHTHOUSE_PROGRAM_ID } from "@/lib/security/program-ids";
 
 /**
  * Fee-sponsor policy — the rules a transaction must satisfy before Spacedust
@@ -25,8 +25,10 @@ import { FLOW_PROGRAMS } from "@/lib/security/program-ids";
  *    simulation rejects, and the balance floor below caps the total at the
  *    float, but the sponsor can lose one fee per attempt.
  *  - The key cannot be drained by a malicious transaction: it is the fee payer
- *    and may appear in no instruction at all, so the only lamports it can lose
- *    are the fee itself.
+ *    and appears in no instruction it did not authorise — only as the
+ *    destination of its own repayment, and inside Phantom's assertion guard,
+ *    which cannot move lamports — so the only lamports it can lose are the fee
+ *    itself.
  */
 
 /**
@@ -63,14 +65,21 @@ export const MAX_SPONSORED_PRIORITY_MICRO_LAMPORTS =
 /**
  * Programs a sponsored transaction may call.
  *
- * The union of the three flow allow-lists that can be sponsored. This is not the
- * same list as "programs the app knows": a sweep names Jupiter and an ATA create
- * pays the payer for rent the sponsor would never get back, so neither is here.
+ * The union of the three flow allow-lists that can be sponsored, plus Phantom's
+ * assertion guard. This is not the same list as "programs the app knows": a
+ * sweep names Jupiter and an ATA create pays the payer for rent the sponsor would
+ * never get back, so neither is here.
+ *
+ * Lighthouse earns its place on one fact: it cannot move lamports. It reads
+ * account state and aborts. See the exception in `verifySponsoredTransaction`
+ * for why a mention of the sponsor inside it is inert when the same mention from
+ * any other program is a refusal.
  */
 export const SPONSOR_ALLOWED_PROGRAMS: ReadonlySet<string> = new Set([
   ...FLOW_PROGRAMS.salvage,
   ...FLOW_PROGRAMS["excess-rent"],
   ...FLOW_PROGRAMS["pump-accumulator"],
+  LIGHTHOUSE_PROGRAM_ID,
 ]);
 
 /** System program discriminants this policy understands. */
@@ -313,8 +322,16 @@ export function verifySponsoredTransaction(
       continue;
     }
 
-    // Every non-System instruction: the sponsor must not be named at all, so it
-    // cannot be debited by a token program, made an authority, or closed.
+    // Phantom's guard: it reads accounts and aborts, and it cannot move a
+    // lamport, so the sponsor being named inside it is inert. Not a general
+    // "read-only mentions are fine" rule — that would be wrong, because Solana
+    // marks writability per *message*: the fee payer is writable in every
+    // message and its signature is already present, so a mention is only safe
+    // when the program itself cannot move value. Hence one hard-coded id.
+    if (program === LIGHTHOUSE_PROGRAM_ID) continue;
+
+    // Every other non-System instruction: the sponsor must not be named at all,
+    // so it cannot be debited by a token program, made an authority, or closed.
     if (accountKeys.includes(sponsor)) {
       return {
         ok: false,

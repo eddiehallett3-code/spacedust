@@ -13,6 +13,7 @@ import {
   TOKEN_PROGRAM_ID,
 } from "@/lib/utils/constants";
 import { createCloseAccountInstruction, createComputeBudgetInstructions } from "@/lib/solana/instructions";
+import { LIGHTHOUSE_PROGRAM_ID } from "@/lib/security/program-ids";
 import {
   MAX_SPONSORED_PRIORITY_MICRO_LAMPORTS,
   MIN_SPONSOR_BALANCE_LAMPORTS,
@@ -389,6 +390,64 @@ describe("verifySponsoredTransaction — the remaining refusals", () => {
 
     expect(verdict.ok).toBe(false);
     if (!verdict.ok) expect(verdict.reason).toMatch(/two signers/i);
+  });
+});
+
+
+/**
+ * Phantom appends its own guard instruction to transactions it signs, and the
+ * sponsor has to tolerate it or Phantom users cannot use the feature at all.
+ *
+ * This is not hypothetical: the first sponsored close attempted in Phantom was
+ * refused with "the sponsor does not pay for L2TE…", after the wallet had already
+ * signed. The two tests here are the pair that matters — the guard is inert and
+ * allowed even when it names the fee payer, and the identical mention from a
+ * program that *can* move lamports is still refused.
+ */
+describe("Phantom's assertion guard", () => {
+  function guard(): TransactionInstruction {
+    return new TransactionInstruction({
+      programId: new PublicKey(LIGHTHOUSE_PROGRAM_ID),
+      keys: [
+        // Writable on purpose: the message already marks the fee payer writable,
+        // so a read-only flag in the instruction would prove nothing.
+        { pubkey: sponsor.publicKey, isSigner: false, isWritable: true },
+        { pubkey: wallet.publicKey, isSigner: false, isWritable: false },
+      ],
+      data: Buffer.alloc(0),
+    });
+  }
+
+  it("is accepted, and does not change the fee or the repayment", () => {
+    const verdict = verifySponsoredTransaction(
+      bytes({ instructions: [guard()] }),
+      sponsor.publicKey.toBase58(),
+    );
+
+    expect(verdict).toEqual({
+      ok: true,
+      feeLamports: FEE,
+      repaymentLamports: FEE + SPONSOR_MARGIN_LAMPORTS,
+      feePayer: sponsor.publicKey.toBase58(),
+    });
+  });
+
+  it("does not let the same mention through from the token program", () => {
+    const verdict = verifySponsoredTransaction(
+      bytes({
+        instructions: [
+          createCloseAccountInstruction(
+            sponsor.publicKey,
+            wallet.publicKey,
+            new PublicKey(TOKEN_PROGRAM_ID),
+          ),
+        ],
+      }),
+      sponsor.publicKey.toBase58(),
+    );
+
+    expect(verdict.ok).toBe(false);
+    if (!verdict.ok) expect(verdict.reason).toMatch(/may not appear/i);
   });
 });
 

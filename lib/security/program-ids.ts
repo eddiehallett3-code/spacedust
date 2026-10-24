@@ -75,6 +75,22 @@ export const PUMP_AMM_PROGRAM_ID = "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA"
  * is the list the audit reasons about, and the two are allowed to differ only in
  * length — never in the ids they name.
  */
+/**
+ * Phantom's transaction guard — "Lighthouse".
+ *
+ * Phantom appends one of these to transactions it signs. It reads account state
+ * and aborts the transaction if a value it did not expect has changed, which is
+ * why it appears in a close that Phantom suspects. It **cannot move lamports**,
+ * and that is the only reason the fee sponsor will tolerate seeing it in a
+ * transaction it pays for (see `lib/sponsor/policy.ts`).
+ *
+ * Deliberately absent from `FLOW_PROGRAMS`: the wallet adds this *after* our
+ * planner has finished, so it is not part of any plan and the client-side audit
+ * should never be taught to expect it.
+ */
+export const LIGHTHOUSE_PROGRAM_ID =
+  "L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95";
+
 export const PROGRAM_LABELS: Record<string, string> = {
   [SYSTEM_PROGRAM_ID]: "System",
   [COMPUTE_BUDGET_PROGRAM_ID]: "Compute Budget",
@@ -90,6 +106,7 @@ export const PROGRAM_LABELS: Record<string, string> = {
   [SNS_NAME_PROGRAM_ID]: "SNS Name Registry",
   [SNS_REGISTER_PROGRAM_ID]: "SNS Registrar",
   [PUMP_AMM_PROGRAM_ID]: "Pump AMM",
+  [LIGHTHOUSE_PROGRAM_ID]: "Phantom guard (Lighthouse)",
 };
 
 /** The name to use for a program, or a short form of an unknown id. */
