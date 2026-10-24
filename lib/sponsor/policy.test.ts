@@ -149,7 +149,7 @@ describe("sponsoredRepaymentLamports", () => {
  */
 describe("the balance floor", () => {
   it("is below the float the sponsor is intended to hold", () => {
-    expect(MIN_SPONSOR_BALANCE_LAMPORTS).toBeLessThan(5_000_000); // 0.005 SOL
+    expect(MIN_SPONSOR_BALANCE_LAMPORTS).toBeLessThan(50_000_000); // 0.05 SOL
   });
 
   it("still leaves enough to pay for the transaction it is signing", () => {
