@@ -529,7 +529,30 @@ describe("signTransactions — a wallet that returns different bytes", () => {
     }),
   ];
 
-  it("refuses a transaction with an instruction the wallet added", async () => {
+  it("accepts a transaction the wallet stripped an account create out of", async () => {
+    // Phantom drops the idempotent ATA create on a route whose account it treats
+    // as existing. That cannot misdirect anything — the swap instruction is
+    // byte-identical and still names the same destination — so refusing it only
+    // blocks the user. A *new* ATA create is still refused below.
+    const ata = new TransactionInstruction({
+      programId: new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"),
+      keys: [
+        { pubkey: PublicKey.default, isSigner: true, isWritable: true },
+        { pubkey: PublicKey.default, isSigner: false, isWritable: true },
+      ],
+      data: Buffer.from([1]),
+    });
+    const transfer = transferTo(PublicKey.default.toBase58())[0]!;
+
+    const call = signTransactions(
+      walletReturning(() => signed(messageWith([transfer]))),
+      [packedWith([ata, transfer])],
+    );
+
+    await expect(call).resolves.toHaveLength(1);
+  });
+
+  it("still refuses a transaction with an instruction the wallet added", async () => {
     const call = signTransactions(
       walletReturning(() => signed(messageWith(transferTo(STRANGER)))),
       [packed(0)],

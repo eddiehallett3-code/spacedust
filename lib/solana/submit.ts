@@ -199,6 +199,16 @@ function modificationReason(requested: VTx, returned: VTx): string | null {
 
       if (found === -1) {
         const programId = built.staticAccountKeys[before.programIdIndex]?.toBase58();
+        // An Associated Token *create* may be dropped by the wallet, and that is
+        // tolerated rather than treated as tampering. It creates an account whose
+        // owner and payer the pre-signing audit already pinned to the wallet, so
+        // removing it cannot move value or redirect anything: the swap's own
+        // instruction is byte-identical and still names the same destination, so
+        // the worst case is a transaction that fails on chain and costs a fee.
+        //
+        // Added ones are still refused below — a wallet inventing an account for
+        // the user to pay for is either a bug or a charge they never approved.
+        if (programId === ASSOCIATED_TOKEN_PROGRAM_ID) continue;
         return `instruction ${index + 1}${programId ? ` (${programLabel(programId)})` : ""} was changed or removed`;
       }
       cursor = found + 1;
