@@ -196,7 +196,7 @@ export default async function RootLayout({
               it and unclickable. */}
           <main
             id="main"
-            className="relative z-10 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:pb-8"
+            className="relative z-10 pb-[calc(8rem+env(safe-area-inset-bottom))] sm:pb-8"
           >
             {children}
           </main>

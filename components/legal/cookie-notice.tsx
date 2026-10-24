@@ -1,9 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { STORAGE_KEYS } from "@/lib/utils/constants";
+
+/**
+ * How long the notice stays before it takes itself away.
+ *
+ * Long enough to read a twelve-word sentence twice; short enough that nobody has
+ * to dismiss it. It is a notice, not a consent gate, so there is nothing to
+ * acknowledge before it can leave.
+ */
+const VISIBLE_MS = 7_000;
+
+/** Remember the dismissal — either the timer's or the button's. */
+function rememberDismissed(): void {
+  try {
+    window.localStorage.setItem(STORAGE_KEYS.cookieNotice, "1");
+  } catch {
+    // Storage blocked: it will show again next load, and hide itself again.
+  }
+}
 
 /**
  * An essential-storage notice, not a consent gate.
@@ -27,25 +45,32 @@ import { STORAGE_KEYS } from "@/lib/utils/constants";
 export function CookieNotice() {
   const [visible, setVisible] = useState(false);
 
-  useEffect(() => {
-    try {
-      setVisible(window.localStorage.getItem(STORAGE_KEYS.cookieNotice) !== "1");
-    } catch {
-      // Storage blocked: show the notice rather than assume consent.
-      setVisible(true);
-    }
+  const dismiss = useCallback((): void => {
+    rememberDismissed();
+    setVisible(false);
   }, []);
 
-  if (!visible) return null;
-
-  function dismiss(): void {
+  useEffect(() => {
+    let alreadySeen = false;
     try {
-      window.localStorage.setItem(STORAGE_KEYS.cookieNotice, "1");
+      alreadySeen =
+        window.localStorage.getItem(STORAGE_KEYS.cookieNotice) === "1";
     } catch {
-      // Applies for this page; it just will not survive a reload.
+      // Storage blocked: show the notice rather than assume anything.
     }
-    setVisible(false);
-  }
+
+    if (alreadySeen) return;
+
+    setVisible(true);
+
+    // No click required. The button stays for anyone who reads faster than the
+    // timer, but nothing depends on it being pressed — which mattered on a
+    // phone, where the button could end up under the browser's own toolbar.
+    const timer = window.setTimeout(dismiss, VISIBLE_MS);
+    return () => window.clearTimeout(timer);
+  }, [dismiss]);
+
+  if (!visible) return null;
 
   return (
     <div
