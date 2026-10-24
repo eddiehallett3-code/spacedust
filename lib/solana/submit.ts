@@ -68,18 +68,20 @@ function isUnsigned(transaction: VTx): boolean {
 /**
  * Does Phantom get a batched approval?
  *
- * `true` while we re-test after Phantom's domain review. Their support confirmed
- * the warning should no longer appear, which may also have changed how a
- * `signAllTransactions` request is treated. That request is what was refused
- * before ("request blocked", flagged as malicious) while the same transactions
- * signed individually were accepted — so this is the one question the review may
- * have answered, and it is worth one prompt instead of three if it has.
+ * `false`. Tested both ways after Phantom's domain review:
  *
- * Flip to `false` the moment a batched approval is refused again: with it on and
- * the block still in place, Phantom users cannot sign anything at all. The test
- * below covers whichever value is set, so neither state ships unexamined.
+ *  - batched (`signAllTransactions`, one request for two transactions): two
+ *    warnings at the wallet
+ *  - sequential (`signTransaction` per transaction): the same sweep signed
+ *    cleanly
+ *
+ * So the review cleared the *domain* verdict and did not change how a batched
+ * request is treated — and a second prompt is a better outcome than a warning on
+ * every sweep. Leave this false unless Phantom says otherwise; the one-line test
+ * is a 3-token sweep with the flag flipped, and the failure mode of getting it
+ * wrong is that Phantom users cannot sign at all.
  */
-export const PHANTOM_USES_BATCH = true;
+export const PHANTOM_USES_BATCH = false;
 
 /** Programs a wallet may not *add* to a transaction it returns.
  *
