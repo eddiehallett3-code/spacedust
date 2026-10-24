@@ -68,14 +68,17 @@ function isUnsigned(transaction: VTx): boolean {
 /**
  * Programs a wallet may not *add* to a transaction it returns.
  *
- * A wallet is entitled to append or prepend its own guard instructions —
- * Lighthouse-style assertions that read account state and abort on a mismatch —
- * and to add a compute-budget instruction of its own (Phantom's priority-fee
- * handling does exactly that, ahead of the plan's own). It is not entitled to add
- * anything that can move value or change state, because those are the
- * instructions the user was never shown. Compute Budget is deliberately absent
- * from this list: it has no accounts, and its fee is the one thing the wallet's
- * own approval sheet discloses.
+ * A wallet is entitled to add its own guard instructions — Phantom appends
+ * Lighthouse assertions, which read account state and abort on a mismatch — and
+ * to add a compute-budget instruction of its own. It is not entitled to add
+ * anything that moves value, which on Solana means System, the token programs, or
+ * an account create.
+ *
+ * Note what is *not* checked: writability. Solana marks an account writable for
+ * the whole message, not per instruction, so a read-only Lighthouse assertion on
+ * an account the swap writes to reports as writable by construction. Using that
+ * as a rule refused Phantom's guards every time; the only reliable statement about
+ * an added instruction is which program it calls.
  */
 const UNINVITED_PROGRAMS = new Set<string>([
   SYSTEM_PROGRAM_ID,
@@ -97,8 +100,6 @@ interface CompiledMessageView {
   staticAccountKeys: ReadonlyArray<{ toBase58(): string }>;
   compiledInstructions: ReadonlyArray<CompiledInstructionView>;
   addressTableLookups?: ReadonlyArray<unknown>;
-  isAccountWritable(index: number): boolean;
-  isAccountSigner(index: number): boolean;
 }
 
 function bytesEqual(a: unknown, b: unknown): boolean {
@@ -257,13 +258,6 @@ function modificationReason(requested: VTx, returned: VTx): string | null {
       }
       if (UNINVITED_PROGRAMS.has(programId)) {
         return `an added instruction calls ${programLabel(programId)}`;
-      }
-      const canWriteOrSign = added.accountKeyIndexes.some(
-        (keyIndex) =>
-          signed.isAccountWritable(keyIndex) || signed.isAccountSigner(keyIndex),
-      );
-      if (canWriteOrSign) {
-        return `an added ${programLabel(programId)} instruction can write to an account or sign for one`;
       }
     }
   } catch {

@@ -650,6 +650,34 @@ describe("signTransactions — a wallet that returns different bytes", () => {
     await expect(call).resolves.toHaveLength(1);
   });
 
+  it("accepts a guard instruction that names a writable account", async () => {
+    // Solana marks writability for the whole message, so a read-only Lighthouse
+    // assertion on an account the swap writes to still reports as writable. That
+    // made "does it touch a writable account" refuse Phantom's own guards on every
+    // sweep; the reliable question is which program it calls.
+    const guard = new TransactionInstruction({
+      programId: new PublicKey(GUARD_PROGRAM),
+      keys: [
+        { pubkey: PublicKey.default, isSigner: true, isWritable: true },
+      ],
+      data: Buffer.from([1, 2, 3]),
+    });
+
+    const call = signTransactions(
+      walletReturning(() =>
+        signed(
+          messageWith([
+            ...transferTo(PublicKey.default.toBase58()),
+            guard,
+          ]),
+        ),
+      ),
+      [packedWith(transferTo(PublicKey.default.toBase58()))],
+    );
+
+    await expect(call).resolves.toHaveLength(1);
+  });
+
   it("accepts a read-only guard instruction the wallet appended", async () => {
     const call = signTransactions(
       walletReturning(() =>
