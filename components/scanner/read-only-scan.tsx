@@ -324,7 +324,7 @@ function Metric({
 /**
  * A full-width scan window rather than a compact metric.
  *
- * Excess rent and wrapped SOL both have a meaningful zero state — "we checked,
+ * Rent refunds and wrapped SOL both have a meaningful zero state — "we checked,
  * there is none" — so they need room for the value, the account count and the
  * next action, not a disappearing callout.
  */
@@ -416,12 +416,12 @@ function ScanSummary({
       ? "—"
       : formatSol(recoverable.excessRentLamports);
   const excessHint = scan.excessRentError
-    ? `Could not check excess rent: ${scan.excessRentError}`
+    ? `Could not check rent refunds: ${scan.excessRentError}`
     : scan.excessRentAccounts === undefined
-      ? "Excess rent was not checked."
+      ? "Rent refunds were not checked."
       : excessAccounts.length === 0
         ? "No Token-2022 account is holding spare rent."
-        : `${pluralize(excessAccounts.length, "account")} · withdraw without closing anything.`;
+        : `${pluralize(excessAccounts.length, "account")} · refund the surplus without closing anything.`;
   const rentUsd = recoverable.rentUsd;
   const totalUsd = recoverable.totalUsd;
   const rentShare =
@@ -539,7 +539,7 @@ function ScanSummary({
               <span className="text-foreground">{scan.emptyAccounts.length}</span>
             </li>
             <li className="flex justify-between gap-2">
-              <span>Excess-rent accounts</span>
+              <span>Rent-refund accounts</span>
               <span className="text-foreground">
                 {scan.excessRentError || scan.excessRentAccounts === undefined
                   ? "—"
@@ -566,7 +566,7 @@ function ScanSummary({
       <div className="grid gap-3 border-t border-border/60 p-4 sm:grid-cols-2 sm:p-5">
         <ScanWindow
           icon={<Coins className="size-4 text-violet-glow" aria-hidden />}
-          title="Excess rent"
+          title="Rent refund"
           value={excessDisplay}
           hint={excessHint}
           action={

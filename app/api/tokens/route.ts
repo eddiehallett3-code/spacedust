@@ -397,7 +397,7 @@ export async function GET(request: Request) {
           .then((accounts) => ({ accounts, error: null as string | null }))
           .catch(() => ({
             accounts: [],
-            error: "Could not check for excess rent.",
+            error: "Could not check for rent refunds.",
           }))
       : null;
 

@@ -39,7 +39,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/how-it-works" },
   title: "How it works — what each of the six tools actually does",
   description:
-    "Exactly what each of the six tools does: how a sweep finds dust, sells part of a balance and packs twenty swaps into one transaction, how The Void takes the tokens, NFTs and cNFTs you no longer want, how a batch send proves its destination, how closing an empty account, withdrawing excess rent and unwrapping wSOL really work, how approvals are read and revoked, and what the read-only scan counts and refuses.",
+    "Exactly what each of the six tools does: how a sweep finds dust, sells part of a balance and packs twenty swaps into one transaction, how The Void takes the tokens, NFTs and cNFTs you no longer want, how a batch send proves its destination, how closing an empty account, refunding surplus rent and unwrapping wSOL really work, how approvals are read and revoked, and what the read-only scan counts and refuses.",
 };
 
 /**
@@ -261,8 +261,8 @@ export default function HowItWorksPage() {
           A swap is not charged. The output of Slingshot is yours in full — the
           fee it used to take came out of the asset being swapped into, and it is
           gone. What remains is {VOID_RATE} of the rent any flow reclaims: Void
-          sends, account closes, excess rent, Payload sends. It is a plain SOL
-          transfer taken <em>after</em> the close or excess withdrawal has returned
+          sends, account closes, rent refunds, Payload sends. It is a plain SOL
+          transfer taken <em>after</em> the close or refund has returned
           the rent, so it is always funded by the thing it is charged on and never
           touches the dust being recovered. It is shown before you sign anything.
         </p>
@@ -682,7 +682,7 @@ export default function HowItWorksPage() {
       <ToolSection
         tool="salvage"
         name="Salvage"
-        lede="The rent reclaimer. It closes emptied token accounts, withdraws excess rent from Token-2022 accounts that hold more than their minimum, unwraps wSOL, and diagnoses empty accounts the token program will not let you close."
+        lede="The rent reclaimer. It closes emptied token accounts, refunds the surplus rent held by Token-2022 accounts, unwraps wSOL, and diagnoses empty accounts the token program will not let you close."
       >
         <h3>1. An empty account still holds your SOL</h3>
         <p>
@@ -731,27 +731,32 @@ export default function HowItWorksPage() {
           </li>
         </ul>
 
-        <h3>3. Excess rent: the exception for a funded account</h3>
+        <h3>3. Rent refund: the exception for a funded account</h3>
         <p>
-          A Token-2022 account can hold more lamports than its data size requires:
-          an old deposit, a program credit, or a manual top-up. Token-2022&apos;s{" "}
-          <code>WithdrawExcessLamports</code> returns the difference without
-          closing the account or moving the token. That is the one case where rent
-          can be reclaimed from an account that still has a balance.
+          A Token-2022 account can hold more lamports than its own data size
+          requires: an old deposit, a program credit, or a manual top-up.
+          Token-2022&apos;s <code>WithdrawExcessLamports</code> hands back exactly
+          that surplus — the lamports above the account&apos;s <em>current</em>{" "}
+          rent-exempt reserve — and nothing else. The account is not closed, the
+          token balance is not moved, and the reserve it needs to keep existing
+          stays put. That is the one case where rent can come back from an
+          account that still holds a balance, which is why the card calls it a
+          refund rather than a cleanup.
         </p>
         <p>
           The check is per account. Its own data size sets the rent-exempt
-          minimum, and only the lamports above that minimum count. A native wSOL
-          account is excluded because its lamports are the wrapped balance, not
-          spare rent; a zero-balance account is left to the close flow above,
-          which returns the whole deposit. The card stays visible at zero so an
-          empty result is still an answer.
+          reserve, read from the chain at the moment of the plan rather than from
+          a constant, and only the lamports above it count. A native wSOL account
+          is excluded because its lamports are the wrapped balance, not spare
+          rent; a zero-balance account is left to the close flow above, which
+          returns the whole deposit. The card stays visible at zero so an empty
+          result is still an answer.
         </p>
 
         <h3>4. What a reclaim costs</h3>
         <p>
           The fee is {RECLAIM_RATE} of the rent actually returned, charged per
-          account after its close or excess withdrawal has succeeded — never on
+          account after its close or refund has succeeded — never on
           an estimate, and never on an account that refused. It is summed from
           the per-account figures rather than taken as a percentage of the batch
           total, so one large legacy account and ten small Token-2022 ones are
@@ -890,7 +895,7 @@ export default function HowItWorksPage() {
             <strong>Rent is counted only when it can be reached.</strong> A frozen
             account&apos;s rent and value are not recoverable, and a transfer-fee
             account keeps a residue, so its value counts and its rent does not.
-            An empty account&apos;s deposit and a Token-2022 account&apos;s excess
+            An empty account&apos;s deposit and a Token-2022 account&apos;s surplus
             are the exceptions: both can be recovered without a sale or a burn.
           </li>
           <li>
@@ -900,7 +905,7 @@ export default function HowItWorksPage() {
           </li>
         </ul>
         <p>
-          The scan also gives wrapped SOL and excess rent their own windows, even
+          The scan also gives wrapped SOL and rent refunds their own windows, even
           when both are zero. wSOL principal is not part of the recoverable total
           because unwrapping returns SOL the wallet already owns; the window
           reports it and the account&apos;s rent separately.
@@ -924,8 +929,8 @@ export default function HowItWorksPage() {
           address substituted for it; an empty account another key holds a close
           authority over cannot be closed by you at all; and an empty Token-2022
           account still holding withheld fees has to wait for its mint to harvest
-          them. A foreign close authority blocks a close, not an excess
-          withdrawal: Token-2022 excess rent is still reachable when the owner can
+          them. A foreign close authority blocks a close, not a rent refund:
+          Token-2022 surplus rent is still reachable when the owner can
           sign.
         </p>
         <p>

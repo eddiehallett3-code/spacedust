@@ -60,7 +60,7 @@ export function Footer() {
               />
               <span>
                 No fee on a swap. {(RECLAIM_FEE_BPS / 100).toFixed(1)}% of the
-                rent any flow returns — Void sends, account closes, excess rent,
+                rent any flow returns — Void sends, account closes, rent refunds,
                 Payload sends. Shown before you sign, and you sign every
                 transaction.
               </span>

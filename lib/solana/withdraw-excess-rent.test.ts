@@ -135,6 +135,6 @@ describe("planExcessRentTx", () => {
         owner: new PublicKey(OWNER),
         accounts: [selected],
       }),
-    ).rejects.toThrow(/none of these accounts.*excess rent/i);
+    ).rejects.toThrow(/none of these accounts.*surplus rent/i);
   });
 });

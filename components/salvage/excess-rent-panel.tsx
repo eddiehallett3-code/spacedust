@@ -21,11 +21,19 @@ import { formatSol, pluralize, truncateAddress } from "@/lib/utils/format";
 import type { ExcessRentAccount } from "@/types/salvage";
 
 /**
- * Excess rent.
+ * Rent refund.
  *
  * A Token-2022 account can hold more lamports than its data size requires: an
  * old deposit, a program credit, or a manual top-up. `WithdrawExcessLamports`
- * returns the difference and leaves the account and its tokens untouched.
+ * returns only the surplus above the account's own rent-exempt reserve, and
+ * leaves the account and its tokens exactly where they are.
+ *
+ * The user-facing name is "rent refund", because that is what happens to the
+ * person reading the card: rent comes back and nothing is cleaned up or given
+ * away. The internal names stay `excess*` — the instruction really is
+ * `WithdrawExcessLamports`, and renaming the code to match a label would make
+ * the mapping to Token-2022 harder to follow, not easier.
+ *
  * This card surfaces those accounts and prices the same 1.5% reclaim fee the
  * other rent flows charge.
  */
@@ -47,8 +55,8 @@ export function ExcessRentPanel({
         <CardHeader>
           <SectionTitle
             icon={<Landmark className="size-4" aria-hidden />}
-            title="Excess rent"
-            description="Token accounts can hold lamports above their rent-exempt minimum. Withdrawing the excess leaves the tokens and the account untouched."
+            title="Rent refund"
+            description="Token accounts can hold lamports above their own rent-exempt reserve. A refund withdraws only that surplus — the account stays open and the tokens stay where they are."
           />
         </CardHeader>
         <CardContent>
@@ -58,8 +66,8 @@ export function ExcessRentPanel({
             </p>
           ) : (
             <p className="rounded-xl border border-border bg-white/2 px-3 py-2.5 text-[11px] leading-relaxed text-muted">
-              No excess rent found. This checks Token-2022 accounts for lamports
-              above their rent-exempt minimum.
+              No rent refunds found. This checks Token-2022 accounts for lamports
+              above their own rent-exempt reserve.
             </p>
           )}
         </CardContent>
@@ -95,8 +103,8 @@ export function ExcessRentPanel({
       <CardHeader>
         <SectionTitle
           icon={<Landmark className="size-4" aria-hidden />}
-          title="Excess rent"
-          description="Token accounts can hold lamports above their rent-exempt minimum. Withdrawing the excess leaves the tokens and the account untouched."
+          title="Rent refund"
+          description="Token accounts can hold lamports above their own rent-exempt reserve. A refund withdraws only that surplus — the account stays open and the tokens stay where they are."
         />
       </CardHeader>
 
@@ -105,15 +113,15 @@ export function ExcessRentPanel({
         {summary ? (
           <div className="rounded-xl border border-success/25 bg-success/6 p-3">
             <p className="text-sm font-medium">
-              Excess rent withdrawn · {formatSol(summary.netRentLamports)} back
-              in your wallet
+              Rent refunded · {formatSol(summary.netRentLamports)} back in your
+              wallet
             </p>
             <p className="mt-1 text-[11px] leading-relaxed text-subtle">
               {pluralize(summary.accountCount, "account")} processed
               {summary.failedCount > 0
                 ? ` · ${pluralize(summary.failedCount, "account")} failed`
                 : ""}
-              , {formatSol(summary.excessLamports)} freed
+              , {formatSol(summary.excessLamports)} refunded
               {summary.reclaimFeeLamports > 0
                 ? `, our ${RECLAIM_RATE} fee ${formatSol(summary.reclaimFeeLamports)}`
                 : ""}
@@ -141,7 +149,7 @@ export function ExcessRentPanel({
           <>
             <div className="grid grid-cols-3 gap-3">
               <div className="rounded-xl border border-border bg-white/2 p-3">
-                <p className="text-[11px] text-subtle">Excess</p>
+                <p className="text-[11px] text-subtle">Refund</p>
                 <p className="mt-0.5 font-mono text-base tabular-nums">
                   {formatSol(excessLamports)}
                 </p>
@@ -162,7 +170,7 @@ export function ExcessRentPanel({
 
             <details className="rounded-xl border border-border bg-white/2 px-3 py-2">
               <summary className="cursor-pointer list-none text-[11px] font-medium text-muted [&::-webkit-details-marker]:hidden">
-                {pluralize(accounts.length, "account")} with excess — review
+                {pluralize(accounts.length, "account")} with a refund due — review
               </summary>
               <ul className="mt-2 max-h-48 space-y-1 overflow-auto border-t border-border/50 pt-2 text-[11px]">
                 {accounts.map((account) => (
@@ -192,12 +200,12 @@ export function ExcessRentPanel({
             aria-hidden
           />
           <span>
-            This withdraws only lamports above each account&apos;s rent-exempt
-            minimum. Nothing is closed, sold or transferred, and the token
-            balance stays exactly where it is.{" "}
+            This withdraws only the surplus above each account&apos;s current
+            rent-exempt reserve. Nothing is closed, sold or transferred, and the
+            token balance stays exactly where it is.{" "}
             {getPublicFeeWallet() === null
-              ? "No fee is taken — the whole excess comes back to you."
-              : `Spacedust takes ${RECLAIM_RATE} of the excess it returns.`}
+              ? "No fee is taken — the whole refund comes back to you."
+              : `Spacedust takes ${RECLAIM_RATE} of the rent it refunds.`}
           </span>
         </p>
 
@@ -241,7 +249,7 @@ export function ExcessRentPanel({
               >
                 {withdraw.isBusy
                   ? "Waiting for your wallet…"
-                  : "Sign & withdraw"}
+                  : "Sign & refund"}
               </Button>
               <Button
                 size="md"
@@ -261,7 +269,7 @@ export function ExcessRentPanel({
             >
               {withdraw.isBusy
                 ? "Checking on chain…"
-                : `Withdraw excess from ${pluralize(accounts.length, "account")}`}
+                : `Refund rent from ${pluralize(accounts.length, "account")}`}
             </Button>
           )}
         </div>

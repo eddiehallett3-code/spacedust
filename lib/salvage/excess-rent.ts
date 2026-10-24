@@ -1,7 +1,7 @@
 import { PublicKey, TransactionInstruction } from "@solana/web3.js";
 
 /**
- * Token-2022 excess rent.
+ * Token-2022 surplus rent.
  *
  * A token account can hold more lamports than its rent-exempt minimum — a
  * program credited it, an old deposit is larger than today's rate, or the

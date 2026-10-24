@@ -21,7 +21,7 @@ import type { PackedTransaction, SimulationOutcome } from "@/types/sweep";
 import type { ExcessRentAccount } from "@/types/salvage";
 
 /**
- * Plan withdrawing excess rent from Token-2022 accounts.
+ * Plan a rent refund from Token-2022 accounts.
  *
  * The instruction withdraws everything above the account's rent-exempt minimum
  * at execution — it does not accept an amount. The planner therefore re-reads
@@ -191,7 +191,7 @@ export async function planExcessRentTx(input: {
     const excess = computeExcessLamports(onChain.lamports, minimum);
     if (excess <= 0) {
       warnings.push(
-        `Skipped ${selected.address.slice(0, 6)}…: it no longer holds excess rent.`,
+        `Skipped ${selected.address.slice(0, 6)}…: it no longer has surplus rent to refund.`,
       );
       continue;
     }
@@ -229,7 +229,7 @@ export async function planExcessRentTx(input: {
 
   if (units.length === 0) {
     throw new CloseError(
-      "None of these accounts still holds excess rent.",
+      "None of these accounts has surplus rent to refund.",
       "Rescan the wallet and try again.",
       warnings,
     );
@@ -293,7 +293,7 @@ export async function planExcessRentTx(input: {
   if (simulated.every((simulation) => !simulation.ok)) {
     const firstError = simulated.find((simulation) => !simulation.ok);
     throw new CloseError(
-      firstError?.error ?? "The excess-rent withdrawal failed to simulate.",
+      firstError?.error ?? "The rent refund failed to simulate.",
       "Nothing was signed or sent. Rescan the wallet and try again.",
       warnings,
     );

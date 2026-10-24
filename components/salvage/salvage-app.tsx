@@ -15,8 +15,8 @@ import { useWalletScan } from "@/hooks/use-wallet-scan";
 /**
  * Salvage.
  *
- * Basic mode is the routine recovery: empty token accounts, Token-2022 excess
- * rent, wrapped SOL, and the diagnostic list of empty accounts the token
+ * Basic mode is the routine recovery: empty token accounts, Token-2022 rent
+ * refunds, wrapped SOL, and the diagnostic list of empty accounts the token
  * program will not let this wallet close. Pro adds the one irreversible action
  * here: deleting an unused `.sns` name. The split is about consequence, not
  * difficulty: giving a name back to the open namespace deserves a deliberate
@@ -34,8 +34,9 @@ export function SalvageApp() {
           Connect the wallet to see what is recoverable
         </p>
         <p className="mx-auto mt-2 max-w-sm text-xs leading-relaxed text-muted">
-          Salvage retrieves rent, reclaims excess rent, unwraps wSOL and closes
-          unused .sns names in Pro — returning rent the wallet already owns.
+          Salvage retrieves rent, refunds the surplus rent on Token-2022
+          accounts, unwraps wSOL and closes unused .sns names in Pro — returning
+          rent the wallet already owns.
         </p>
         <div className="mt-4 flex justify-center">
           <ConnectWalletCta />
@@ -61,9 +62,10 @@ export function SalvageApp() {
       />
 
       {/* Part of Basic: a Token-2022 account can hold more lamports than its
-          data size requires. Withdrawing the excess leaves the token and the
-          account untouched, so this is a rent recovery, not a cleanup. It hides
-          itself when no account qualifies. */}
+          data size requires. A refund withdraws only the surplus above the
+          account's own rent-exempt reserve, leaving the token and the account
+          untouched, so this is a rent recovery, not a cleanup. It hides itself
+          when no account qualifies. */}
       <ExcessRentPanel
         accounts={scan.scan?.excessRentAccounts ?? []}
         scanError={scan.scan?.excessRentError ?? null}

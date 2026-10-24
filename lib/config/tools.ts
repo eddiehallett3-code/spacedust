@@ -94,7 +94,7 @@ export const TOOLS: Tool[] = [
     name: "Salvage",
     href: "/salvage",
     tagline:
-      "Retrieve rent from empty accounts and excess rent, unwrap wSOL, and close unused .sns names in Pro.",
+      "Retrieve rent from empty accounts and refund the surplus rent held by Token-2022 accounts, unwrap wSOL, and close unused .sns names in Pro.",
     cta: "Open Salvage",
   },
   {

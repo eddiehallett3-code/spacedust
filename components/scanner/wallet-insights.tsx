@@ -325,9 +325,9 @@ export function WalletInsights({
               <span className="font-mono">
                 {formatSol(recoverable.excessRentLamports)}
               </span>{" "}
-              of excess rent sits in{" "}
+              of surplus rent sits in{" "}
               {pluralize(recoverable.excessRentAccounts, "Token-2022 account")}.
-              It can be withdrawn without closing the account or moving the
+              It can be refunded without closing the account or moving the
               token.{" "}
               <Link
                 href="/salvage"
@@ -399,7 +399,7 @@ export function WalletInsights({
         across {pluralize(scan.pages, "page")}
         {scan.truncated ? ", truncated where the provider stopped" : ""}. Rent is
         read from each empty account&apos;s own balance and each Token-2022
-        account&apos;s excess
+        account&apos;s surplus
         {recoverable.solPriceUsd !== null
           ? `, converted at SOL = ${formatUsd(recoverable.solPriceUsd)}`
           : ""}

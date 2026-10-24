@@ -24,7 +24,7 @@ import type {
 import type { ExcessRentAccount } from "@/types/salvage";
 
 /**
- * Withdraw excess rent from Token-2022 accounts.
+ * Refund surplus rent from Token-2022 accounts.
  *
  * Same preview → simulate → sign → submit pipeline as the close flows, but no
  * account is closed: each instruction returns the lamports above that account's
@@ -119,7 +119,7 @@ export function useExcessRent() {
         patch({
           error: {
             title: "Wallet not connected",
-            message: "Connect the wallet before withdrawing excess rent.",
+            message: "Connect the wallet before refunding rent.",
           },
         });
         return false;
@@ -238,7 +238,7 @@ export function useExcessRent() {
       if (landed.length === 0) {
         const failed = submits.find((submit) => !submit.ok);
         throw new Error(
-          failed?.error ?? "The excess-rent withdrawal was not submitted.",
+          failed?.error ?? "The rent refund was not submitted.",
         );
       }
 
