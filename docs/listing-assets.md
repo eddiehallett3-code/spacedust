@@ -41,11 +41,21 @@ Icon, unchanged and already in use: https://spacedust.cc/dapp-icon-v3-512.png
 - **No wallet was connected** for any capture. That is deliberate: no balance,
   address or holding of any real wallet appears in a public listing, and the
   states shown are the ones a first-time visitor sees.
-- **Banner:** flat vector gradient plus two real assets — the saucer
-  (`public/logo-mark.png`) above the wordmark (`public/logo-text-transp.png`,
-  the same file the site header renders). `logo-mark.png` is *only* the saucer;
-  the first version of this banner used it alone and carried the ship with no
-  name on it.
+- **Banner:** the app's own background, not a new one. `space-950` (`#04050c`)
+  under the two washes `app/globals.css` puts on `body` — violet-deep at 22%
+  from `50% -10%`, cyan-core at 10% from `90% 10%` — plus the hero's violet glow
+  and a starfield built to the rules in
+  `components/layout/starfield-background.tsx`: same four tints
+  (`#e2e8ff #bae6fd #ddd6fe #ffffff`), radius and alpha derived from depth the
+  same way, same density of one star per 9,000 px² (80 at this size), same faint
+  halo on the nearest few. Measured against a background-only crop of
+  `screenshot-1-landing.jpg`: 15.3/16.3/30.5 against 18.5/19.0/37.4.
+  - **Wordmark only.** `public/logo-text-transp.png` is the whole lockup — the
+    same file `components/layout/brand-logo.tsx` renders in the header. An
+    earlier version stacked `logo-mark.png` above it, which printed the saucer
+    twice.
+  - **No meteor,** though the app draws them: a meteor is a motion cue, and
+    frozen in a still it reads as a scratch on the artwork.
 - Verified after generation: every screenshot is 1080×1920 and carries
   0.5–1.0% bright text pixels (i.e. rendered, not blank), and the banner's
   text strip is non-empty.
