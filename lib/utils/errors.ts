@@ -6,6 +6,11 @@
  * text so nothing is ever swallowed.
  */
 
+import {
+  describeFeeShortfall,
+  FeeShortfallError,
+} from "@/lib/solana/fee-shortfall";
+
 /** One error message plus optional recovery guidance. */
 export interface FriendlyError {
   title: string;
@@ -135,8 +140,12 @@ const RULES: Rule[] = [
     map: () => ({
       title: "Not enough SOL for fees",
       message:
-        "Your wallet needs a small amount of SOL to cover network fees before any swap can land.",
-      hint: "Top up ~0.01 SOL, or reclaim rent from an empty token account to fund it.",
+        "The wallet could not cover the network fee, so the transaction was not accepted.",
+      // Not "reclaim rent to fund it": that is circular for a wallet with no
+      // SOL, because the close that would return the rent needs the fee first.
+      // The plan-time case states the exact amount — this is the fallback for a
+      // failure that arrives later, where there are no figures to quote.
+      hint: "Send a little SOL to this wallet from another wallet or exchange and try again. Solana takes the fee before a close releases anything, so the rent cannot pay for the transaction that returns it.",
     }),
   },
   {
@@ -236,6 +245,13 @@ export function toFriendlyError(error: unknown): FriendlyError {
               return "Unknown error";
             }
           })();
+
+  // Checked before the rules: a shortfall already knows its own numbers — how
+  // much is missing, and the address to send it to — and the generic
+  // "top up ~0.01 SOL" rule below would throw all of that away.
+  if (error instanceof FeeShortfallError) {
+    return describeFeeShortfall(error.shortfall);
+  }
 
   for (const rule of RULES) {
     const match = raw.match(rule.test);

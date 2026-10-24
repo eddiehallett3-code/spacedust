@@ -58,6 +58,9 @@ function collectSourceFiles(directory: string): string[] {
 const RPC_METHOD_FOR: Record<string, string> = {
   getAccountInfo: "getAccountInfo",
   getAddressLookupTable: "getAddressLookupTable",
+  // The fee-payer check reads one balance before it can say exactly how much
+  // SOL is missing — `getBalance` is both the web3.js name and the RPC method.
+  getBalance: "getBalance",
   getBlockHeight: "getBlockHeight",
   getLatestBlockhash: "getLatestBlockhash",
   getMinimumBalanceForRentExemption: "getMinimumBalanceForRentExemption",

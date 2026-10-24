@@ -770,6 +770,15 @@ export default function HowItWorksPage() {
           you want the account gone — and since it is empty and can be recreated
           the moment that token is received again, the answer is usually yes.
         </p>
+        <p>
+          If the wallet cannot cover that fee at all, nothing is signed. The plan
+          stops before the wallet is asked for anything and states the exact
+          amount of SOL that is missing and the address to send it to — from
+          another wallet or an exchange. This is the one case where rent cannot
+          fund its own recovery: Solana takes the fee before it runs the close,
+          so the rent it would release is not available in time. The app advances
+          nothing and holds no key; it tells you the number instead.
+        </p>
 
         <h3>5. Wrapped SOL and diagnostics are Basic; Pro adds only <code>.sns</code></h3>
         <p>

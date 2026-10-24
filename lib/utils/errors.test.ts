@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { SigningTimeoutError } from "@/lib/solana/submit";
+import {
+  assessFeeShortfall,
+  FeeShortfallError,
+} from "@/lib/solana/fee-shortfall";
 import { toFriendlyError } from "./errors";
 
 /**
@@ -68,5 +72,34 @@ describe("toFriendlyError — a wallet that never answered", () => {
 
     expect(friendly.title).toBe("Something went wrong");
     expect(friendly.message).toBe("some brand new upstream failure");
+  });
+});
+
+/**
+ * A shortfall is the one failure whose fix is a number the user has to act on.
+ *
+ * The generic rule below it ("top up ~0.01 SOL, or reclaim rent…") is both
+ * vague and, in this case, circular — the rent cannot be reclaimed without a
+ * fee. So the typed error must win, and its figures must survive untouched.
+ */
+describe("toFriendlyError — a wallet with no SOL for the fee", () => {
+  const shortfall = assessFeeShortfall({
+    payer: "YNvAM4wiyvkgoExvz2ZH2AdhxaRF8ggi15BVSdvb6uA",
+    availableLamports: 0,
+    firstFeeLamports: 5_323,
+    totalFeeLamports: 5_323,
+    transactionCount: 1,
+  });
+
+  it("returns the exact amount and address, not the generic top-up hint", () => {
+    const friendly = toFriendlyError(new FeeShortfallError(shortfall!));
+
+    expect(friendly.title).toBe("Not enough SOL for the fee");
+    expect(friendly.message).toMatch(/holds 0 SOL/i);
+    expect(friendly.hint).toContain(
+      "YNvAM4wiyvkgoExvz2ZH2AdhxaRF8ggi15BVSdvb6uA",
+    );
+    expect(friendly.hint).toMatch(/another wallet or exchange/i);
+    expect(friendly.hint).not.toMatch(/Top up ~0\.01 SOL/);
   });
 });

@@ -24,6 +24,11 @@ export const ALLOWED_METHODS = new Set([
   "getBlockHeight",
   "getAccountInfo",
   "getMultipleAccounts",
+  // One account's lamport balance. Asked only when a simulation has already
+  // failed for fees: it is what turns "insufficient funds for fee" into the
+  // exact amount of SOL to send and the address to send it to. Read-only, and
+  // for a single public address the caller already knows — the wallet's own.
+  "getBalance",
   // Parsed token accounts, so the client can read an account's `state` as the
   // word "frozen" rather than a byte at a hand-counted offset. Read-only.
   "getMultipleParsedAccounts",

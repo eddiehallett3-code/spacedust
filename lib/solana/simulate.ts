@@ -1,4 +1,4 @@
-import { VersionedTransaction, type Connection } from "@solana/web3.js";
+import { VersionedTransaction, type Connection, type PublicKey } from "@solana/web3.js";
 import bs58 from "bs58";
 import { base64ToBytes } from "@/lib/utils/base64";
 import {
@@ -8,6 +8,10 @@ import {
   TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from "@/lib/utils/constants";
+import {
+  assessFeeShortfall,
+  FeeShortfallError,
+} from "@/lib/solana/fee-shortfall";
 import type { PackedTransaction, SimulationOutcome } from "@/types/sweep";
 
 /**
@@ -145,8 +149,89 @@ export async function simulateAll(
   for (const item of packed) {
     results.push(await simulateTransaction(connection, item));
   }
+
+  // The one failure that is not about this plan's instructions. Checked here,
+  // where every money path passes, so each flow says the same exact thing.
+  await assertFeePayerCanStart(connection, packed, results);
+
   return results;
 }
+
+/**
+ * Simulation's words for "the fee payer cannot pay the fee".
+ *
+ * Two shapes arrive: the raw program error, and the sentence
+ * `describeInstructionFailure` turns it into. Both are matched, because this run
+ * sees the translated one.
+ */
+const INSUFFICIENT_FUNDS_PATTERN =
+  /insufficient funds for fee|InsufficientFunds|insufficient lamports|does not have enough SOL to cover network fees/i;
+
+/**
+ * Stop the batch when the wallet cannot pay for its first transaction.
+ *
+ * A simulation that fails for fees is the one failure the user can fix, and the
+ * wallet's own message does not say what to do. So the balance is read and the
+ * shortfall stated exactly: how much SOL, to which address, and that it must
+ * come from another wallet — the app holds no key and advances nothing.
+ *
+ * Guarded three ways, because a diagnostic must never make a working flow fail:
+ * only the *first* transaction is judged (rent returned later in the batch can
+ * only fund later transactions, so this is the real barrier); only when its
+ * failure is a fee failure; and only when the balance could actually be read.
+ * Any doubt returns quietly and leaves the existing, honest failure in place.
+ *
+ * Read-only. Nothing here signs, and no fee is paid by anyone but the wallet.
+ */
+async function assertFeePayerCanStart(
+  connection: Connection,
+  packed: PackedTransaction[],
+  outcomes: SimulationOutcome[],
+): Promise<void> {
+  const first = packed[0];
+  const firstOutcome = outcomes[0];
+  if (!first || !firstOutcome || firstOutcome.ok) return;
+  if (!INSUFFICIENT_FUNDS_PATTERN.test(firstOutcome.error ?? "")) return;
+
+  let fees: number[];
+  let payer: PublicKey;
+  try {
+    const transactions = packed.map((item) =>
+      VersionedTransaction.deserialize(base64ToBytes(item.base64)),
+    );
+    const firstTransaction = transactions[0];
+    if (!firstTransaction) return;
+
+    // In a v0 message the fee payer is by definition the first static key — it
+    // is the first signer, and the message header counts it there. This is the
+    // built message, not a wallet's rebuild, so the position is ours to rely on;
+    // instruction accounts are never read this way anywhere in this app.
+    const firstKey = firstTransaction.message.staticAccountKeys[0];
+    if (!firstKey) return;
+    payer = firstKey;
+    fees = transactions.map((transaction) => estimateFeeLamports(transaction));
+  } catch {
+    return;
+  }
+
+  let availableLamports: number;
+  try {
+    availableLamports = await connection.getBalance(payer, "confirmed");
+  } catch {
+    return;
+  }
+
+  const shortfall = assessFeeShortfall({
+    payer: payer.toBase58(),
+    availableLamports,
+    firstFeeLamports: fees[0] ?? 0,
+    totalFeeLamports: fees.reduce((sum, fee) => sum + fee, 0),
+    transactionCount: packed.length,
+  });
+
+  if (shortfall) throw new FeeShortfallError(shortfall);
+}
+
 
 /**
  * The transactions that simulated, and the ones that did not.
@@ -208,14 +293,15 @@ export function instructionBytes(data: unknown): Uint8Array | null {
  *   priority = ceil(computeUnitLimit × microLamportsPerCU / 1_000_000)
  *
  * This matches what submission will actually be charged, which is what makes
- * the fee shown before signing trustworthy.
+ * the fee shown before signing trustworthy — and what lets the fee-payer check
+ * price a batch without a second, drifting implementation.
  *
  * NOTE: a v0 message stores its instructions under `compiledInstructions`.
  * There is no `instructions` property on `MessageV0` — reading that silently
  * yields `undefined`, which would drop the priority fee from the estimate
  * without any error.
  */
-function estimateFeeLamports(transaction: VersionedTransaction): number {
+export function estimateFeeLamports(transaction: VersionedTransaction): number {
   const message = transaction.message;
   const base = message.header.numRequiredSignatures * BASE_FEE_LAMPORTS;
   let priority = 0;
