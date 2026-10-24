@@ -9,6 +9,7 @@ import {
   SectionTitle,
 } from "@/components/ui/card";
 import { SimulationReport } from "@/components/sweep/simulation-report";
+import { SponsorAdvanceNote } from "@/components/salvage/sponsor-advance-note";
 import { SweepError } from "@/components/sweep/controls-column";
 import { WarningsList } from "@/components/sweep/warnings-list";
 import { useExcessRent } from "@/hooks/use-excess-rent";
@@ -125,7 +126,11 @@ export function ExcessRentPanel({
               {summary.reclaimFeeLamports > 0
                 ? `, our ${RECLAIM_RATE} fee ${formatSol(summary.reclaimFeeLamports)}`
                 : ""}
-              , network fee {formatSol(summary.feeLamports)}.
+              , network fee {formatSol(summary.feeLamports)}
+              {summary.sponsorRepaymentLamports > 0
+                ? ", which Spacedust advanced and took back out of this rent"
+                : ""}
+              .
             </p>
             {summary.signatures.length > 0 ? (
               <div className="mt-2 flex flex-wrap gap-1.5">
@@ -167,6 +172,11 @@ export function ExcessRentPanel({
                 </p>
               </div>
             </div>
+
+            <SponsorAdvanceNote
+              feeLamports={withdraw.estimatedFeeLamports}
+              repaymentLamports={withdraw.sponsorRepaymentLamports}
+            />
 
             <details className="rounded-xl border border-border bg-white/2 px-3 py-2">
               <summary className="cursor-pointer list-none text-[11px] font-medium text-muted [&::-webkit-details-marker]:hidden">

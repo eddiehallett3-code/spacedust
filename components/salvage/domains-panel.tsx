@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { AlertTriangle, ExternalLink, Globe, RefreshCw, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { SponsorAdvanceNote } from "@/components/salvage/sponsor-advance-note";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, SectionTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -289,6 +290,11 @@ export function DomainsPanel() {
               </div>
             </div>
 
+            <SponsorAdvanceNote
+              feeLamports={salvage.estimatedFeeLamports}
+              repaymentLamports={salvage.sponsorRepaymentLamports}
+            />
+
             <p className="text-[11px] leading-relaxed text-subtle">
               {getPublicFeeWallet() === null ? (
                 <>
@@ -356,7 +362,11 @@ export function DomainsPanel() {
               {salvage.summary.reclaimFeeLamports > 0
                 ? `, our ${RECLAIM_RATE} fee ${formatSol(salvage.summary.reclaimFeeLamports)}`
                 : ""}
-              , network fee {formatSol(salvage.summary.feeLamports)}.
+              , network fee {formatSol(salvage.summary.feeLamports)}
+              {salvage.sponsorRepaymentLamports > 0
+                ? ", which Spacedust advanced and took back out of this rent"
+                : ""}
+              .
             </p>
             {salvage.summary.signatures.length > 0 ? (
               <div className="mt-2 flex flex-wrap gap-1.5">

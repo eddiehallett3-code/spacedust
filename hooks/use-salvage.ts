@@ -19,6 +19,7 @@ import { apiFetch } from "@/lib/utils/api";
 import { RECLAIM_FEE_BPS } from "@/lib/utils/constants";
 import { toFriendlyError, type FriendlyError } from "@/lib/utils/errors";
 import { useFeeSponsor } from "@/hooks/use-fee-sponsor";
+import { totalRepaymentLamports } from "@/lib/sponsor/plan";
 import type { ApiInstruction } from "@/types/jupiter";
 import type { PackedTransaction, SimulationOutcome, SweepPhase } from "@/types/sweep";
 import type {
@@ -53,6 +54,7 @@ interface SalvageState {
   domains: SalvageDomain[];
   rentLamports: number;
   reclaimFeeLamports: number;
+  sponsorRepaymentLamports: number;
   netRentLamports: number;
   deleteCount: number;
   estimatedFeeLamports: number;
@@ -71,6 +73,7 @@ const INITIAL: SalvageState = {
   rentLamports: 0,
   reclaimFeeLamports: 0,
   netRentLamports: 0,
+  sponsorRepaymentLamports: 0,
   deleteCount: 0,
   estimatedFeeLamports: 0,
 };
@@ -162,6 +165,7 @@ export function useSalvage() {
           domains,
           rentLamports: result.rentLamports,
           reclaimFeeLamports: result.reclaimFeeLamports,
+          sponsorRepaymentLamports: totalRepaymentLamports(result.sponsor, result.packed.length),
           netRentLamports: result.netRentLamports,
           deleteCount: result.deleteCount,
           estimatedFeeLamports: result.estimatedFeeLamports,
@@ -312,13 +316,18 @@ export function useSalvage() {
         0,
       );
 
+      const sponsorRepaid = totalRepaymentLamports(
+        result.sponsor,
+        submits.filter((submit) => submit.ok).length,
+      );
+
       const summary: DomainDeleteSummary = {
         requested: outcomes.length,
         deletedCount: deletedOnChain.length,
         failedCount: outcomes.length - deletedOnChain.length,
         rentLamports,
         reclaimFeeLamports,
-        netRentLamports: rentLamports - reclaimFeeLamports,
+        netRentLamports: rentLamports - reclaimFeeLamports - sponsorRepaid,
         // Owed for every transaction submitted, whatever its on-chain outcome.
         feeLamports: result.simulations.reduce(
           (sum, simulation) => sum + (simulation.feeLamports ?? 0),

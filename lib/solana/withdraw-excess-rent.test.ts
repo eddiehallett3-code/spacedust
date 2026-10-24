@@ -219,6 +219,15 @@ describe("planExcessRentTx — with a fee sponsor", () => {
     expect(result.estimatedFeeLamports).toBe(
       result.sponsor!.repaymentLamports - SPONSOR_MARGIN_LAMPORTS,
     );
+
+    // And the repayment comes out of the rent, so it is inside "you receive".
+    // The preview used to quote the rent less Spacedust's fee only, which
+    // over-promised by exactly this much.
+    expect(result.netRentLamports).toBe(
+      result.excessLamports -
+        result.reclaimFeeLamports -
+        result.sponsor!.repaymentLamports,
+    );
   });
 
   it("leaves a wallet that can pay its own fee alone", async () => {

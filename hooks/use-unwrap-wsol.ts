@@ -15,6 +15,7 @@ import {
 } from "@/lib/salvage/plan-unwrap";
 import { signTransactions, submitTransactions } from "@/lib/solana/submit";
 import { useFeeSponsor } from "@/hooks/use-fee-sponsor";
+import { totalRepaymentLamports } from "@/lib/sponsor/plan";
 import { isBusyPhase } from "@/lib/sweep/phase";
 import { playFlowSound } from "@/lib/ui/sound";
 import { toFriendlyError, type FriendlyError } from "@/lib/utils/errors";
@@ -38,6 +39,7 @@ interface UnwrapState {
   wrappedLamports: number;
   rentLamports: number;
   reclaimFeeLamports: number;
+  sponsorRepaymentLamports: number;
   netReturnedLamports: number;
   estimatedFeeLamports: number;
 }
@@ -68,6 +70,7 @@ const INITIAL: UnwrapState = {
   rentLamports: 0,
   reclaimFeeLamports: 0,
   netReturnedLamports: 0,
+  sponsorRepaymentLamports: 0,
   estimatedFeeLamports: 0,
 };
 
@@ -104,6 +107,7 @@ export function useUnwrapWrappedSol() {
       wrappedLamports: result.wrappedLamports,
       rentLamports: result.rentLamports,
       reclaimFeeLamports: result.reclaimFeeLamports,
+      sponsorRepaymentLamports: totalRepaymentLamports(result.sponsor, result.packed.length),
       netReturnedLamports: result.netReturnedLamports,
       estimatedFeeLamports: result.estimatedFeeLamports,
     }),
@@ -261,6 +265,11 @@ export function useUnwrapWrappedSol() {
             )
           : 0;
 
+      const sponsorRepaid = totalRepaymentLamports(
+        result.sponsor,
+        successful.length,
+      );
+
       const summary: UnwrapSummary = {
         requested: accounts.length,
         closedCount: landed.size,
@@ -269,7 +278,7 @@ export function useUnwrapWrappedSol() {
         rentLamports,
         reclaimFeeLamports,
         netReturnedLamports:
-          wrappedLamports + rentLamports - reclaimFeeLamports,
+          wrappedLamports + rentLamports - reclaimFeeLamports - sponsorRepaid,
         feeLamports: result.simulations.reduce(
           (sum, simulation) => sum + (simulation.feeLamports ?? 0),
           0,

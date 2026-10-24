@@ -19,6 +19,7 @@ import {
   planPayer,
   sponsorOnlyIfNeeded,
   sponsorRepaymentInstruction,
+  totalRepaymentLamports,
   type FeeSponsorPlan,
 } from "@/lib/sponsor/plan";
 import {
@@ -363,8 +364,12 @@ export async function planEmptyAccountClosesTx(
     closeCount: signedAccounts.size,
     rentLamports,
     reclaimFeeLamports,
-    // What the user actually receives, which is the only number worth showing them.
-    netRentLamports: rentLamports - reclaimFeeLamports,
+    // What the user actually receives: the rent, less Spacedust's fee, less the
+    // fee the sponsor advanced — which is repaid out of this same rent.
+    netRentLamports:
+      rentLamports -
+      reclaimFeeLamports -
+      totalRepaymentLamports(sponsor, packed.length),
     hasFailures: failed.length > 0,
     sponsor,
   };

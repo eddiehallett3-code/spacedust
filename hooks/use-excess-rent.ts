@@ -15,6 +15,7 @@ import {
 } from "@/lib/solana/withdraw-excess-rent";
 import { CloseError } from "@/lib/solana/close-accounts";
 import { useFeeSponsor } from "@/hooks/use-fee-sponsor";
+import { totalRepaymentLamports } from "@/lib/sponsor/plan";
 import { isBusyPhase } from "@/lib/sweep/phase";
 import { toFriendlyError, type FriendlyError } from "@/lib/utils/errors";
 import type {
@@ -35,6 +36,8 @@ import type { ExcessRentAccount } from "@/types/salvage";
 export interface ExcessRentSummary {
   excessLamports: number;
   reclaimFeeLamports: number;
+  /** The network fee Spacedust advanced, repaid from this rent (0 if none). */
+  sponsorRepaymentLamports: number;
   netRentLamports: number;
   feeLamports: number;
   signatures: string[];
@@ -53,6 +56,8 @@ interface ExcessRentState {
   accounts: ExcessRentAccount[];
   excessLamports: number;
   reclaimFeeLamports: number;
+  /** What this run will repay the sponsor, out of the same rent. 0 if none. */
+  sponsorRepaymentLamports: number;
   netRentLamports: number;
   estimatedFeeLamports: number;
   accountCount: number;
@@ -69,6 +74,7 @@ const INITIAL: ExcessRentState = {
   accounts: [],
   excessLamports: 0,
   reclaimFeeLamports: 0,
+  sponsorRepaymentLamports: 0,
   netRentLamports: 0,
   estimatedFeeLamports: 0,
   accountCount: 0,
@@ -106,6 +112,10 @@ export function useExcessRent() {
         warnings: result.warnings,
         excessLamports: result.excessLamports,
         reclaimFeeLamports: result.reclaimFeeLamports,
+        sponsorRepaymentLamports: totalRepaymentLamports(
+          result.sponsor,
+          result.packed.length,
+        ),
         netRentLamports: result.netRentLamports,
         estimatedFeeLamports: result.estimatedFeeLamports,
         accountCount: result.accountCount,
@@ -258,10 +268,17 @@ export function useExcessRent() {
       );
       const failedAccounts = result.accountCount - landedAccounts.size;
 
+      const sponsorRepaymentLamports = totalRepaymentLamports(
+        result.sponsor,
+        landed.length,
+      );
+
       const summary: ExcessRentSummary = {
         excessLamports,
         reclaimFeeLamports,
-        netRentLamports: excessLamports - reclaimFeeLamports,
+        sponsorRepaymentLamports,
+        netRentLamports:
+          excessLamports - reclaimFeeLamports - sponsorRepaymentLamports,
         feeLamports: result.simulations.reduce(
           (sum, simulation) => sum + (simulation.feeLamports ?? 0),
           0,

@@ -10,6 +10,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { SponsorAdvanceNote } from "@/components/salvage/sponsor-advance-note";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, SectionTitle } from "@/components/ui/card";
 import { SweepError } from "@/components/sweep/controls-column";
@@ -249,6 +250,11 @@ export function WrappedSolPanel({
                 </p>
               </div>
             </div>
+
+            <SponsorAdvanceNote
+              feeLamports={unwrap.estimatedFeeLamports}
+              repaymentLamports={unwrap.sponsorRepaymentLamports}
+            />
 
             <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-subtle">
               <ShieldCheck className="mt-px size-3.5 shrink-0 text-success" aria-hidden />

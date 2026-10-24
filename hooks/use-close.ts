@@ -19,6 +19,7 @@ import { RECLAIM_FEE_BPS } from "@/lib/utils/constants";
 import { signTransactions, submitTransactions } from "@/lib/solana/submit";
 import { isBusyPhase } from "@/lib/sweep/phase";
 import { useFeeSponsor } from "@/hooks/use-fee-sponsor";
+import { totalRepaymentLamports } from "@/lib/sponsor/plan";
 import { toFriendlyError, type FriendlyError } from "@/lib/utils/errors";
 import type {
   CloseOutcome,
@@ -64,6 +65,14 @@ interface CloseState {
   reclaimFeeLamports: number;
   /** Rent minus the fee: what the wallet actually receives. */
   netRentLamports: number;
+  /**
+   * What this run repays the sponsor out of the rent, in lamports.
+   *
+   * Zero when the plan was not sponsored. It is already inside `netRentLamports`
+   * — kept separately so the panel can show the deduction rather than silently
+   * applying it.
+   */
+  sponsorRepaymentLamports: number;
   /** Accounts the current preview will close. */
   closeCount: number;
   /** Network fee the current preview will cost. */
@@ -83,6 +92,7 @@ const INITIAL: CloseState = {
   rentLamports: 0,
   reclaimFeeLamports: 0,
   netRentLamports: 0,
+  sponsorRepaymentLamports: 0,
   closeCount: 0,
   estimatedFeeLamports: 0,
 };
@@ -162,6 +172,7 @@ export function useClose() {
           accounts: request.accounts,
           rentLamports: result.rentLamports,
           reclaimFeeLamports: result.reclaimFeeLamports,
+          sponsorRepaymentLamports: totalRepaymentLamports(result.sponsor, result.packed.length),
           netRentLamports: result.netRentLamports,
           closeCount: result.closeCount,
           estimatedFeeLamports: result.estimatedFeeLamports,
@@ -243,6 +254,7 @@ export function useClose() {
           warnings: result.warnings,
           rentLamports: result.rentLamports,
           reclaimFeeLamports: result.reclaimFeeLamports,
+          sponsorRepaymentLamports: totalRepaymentLamports(result.sponsor, result.packed.length),
           netRentLamports: result.netRentLamports,
           closeCount: result.closeCount,
           estimatedFeeLamports: result.estimatedFeeLamports,
@@ -318,13 +330,19 @@ export function useClose() {
         0,
       );
 
+      const sponsorRepaymentLamports = totalRepaymentLamports(
+        result.sponsor,
+        submits.filter((submit) => submit.ok).length,
+      );
+
       const summary: CloseSummary = {
         requested: outcomes.length,
         closedCount: closed.length,
         failedCount: outcomes.length - closed.length,
         rentLamports,
         reclaimFeeLamports,
-        netRentLamports: rentLamports - reclaimFeeLamports,
+        netRentLamports:
+          rentLamports - reclaimFeeLamports - sponsorRepaymentLamports,
         // Owed for every transaction submitted, whatever its on-chain outcome.
         feeLamports: result.simulations.reduce(
           (sum, simulation) => sum + (simulation.feeLamports ?? 0),

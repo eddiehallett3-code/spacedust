@@ -19,6 +19,7 @@ import {
   planPayer,
   sponsorOnlyIfNeeded,
   sponsorRepaymentInstruction,
+  totalRepaymentLamports,
   type FeeSponsorPlan,
 } from "@/lib/sponsor/plan";
 import { CloseError } from "@/lib/solana/close-accounts";
@@ -259,7 +260,10 @@ export async function planPumpAccumulatorCloseTx(
     estimatedFeeLamports: packed.length * feePerTransaction(sponsor, priorityFee),
     rentLamports: lamports,
     reclaimFeeLamports: accountFee,
-    netRentLamports: lamports - accountFee,
+    netRentLamports:
+      lamports -
+      accountFee -
+      totalRepaymentLamports(sponsor, packed.length),
     hasFailures: failed.length > 0,
     sponsor,
   };

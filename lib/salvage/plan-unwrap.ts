@@ -19,6 +19,7 @@ import {
   planPayer,
   sponsorOnlyIfNeeded,
   sponsorRepaymentInstruction,
+  totalRepaymentLamports,
   type FeeSponsorPlan,
 } from "@/lib/sponsor/plan";
 import { isValidSolanaAddress } from "@/lib/utils/sanitize";
@@ -390,7 +391,11 @@ export async function planWrappedSolUnwrapsTx(
     wrappedLamports,
     rentLamports,
     reclaimFeeLamports,
-    netReturnedLamports: wrappedLamports + rentLamports - reclaimFeeLamports,
+    netReturnedLamports:
+      wrappedLamports +
+      rentLamports -
+      reclaimFeeLamports -
+      totalRepaymentLamports(sponsor, packed.length),
     hasFailures: failed.length > 0,
     sponsor,
   };

@@ -17,6 +17,7 @@ import { CloseError } from "@/lib/solana/close-accounts";
 import { isBusyPhase } from "@/lib/sweep/phase";
 import { toFriendlyError, type FriendlyError } from "@/lib/utils/errors";
 import { useFeeSponsor } from "@/hooks/use-fee-sponsor";
+import { totalRepaymentLamports } from "@/lib/sponsor/plan";
 import type {
   PackedTransaction,
   SimulationOutcome,
@@ -37,6 +38,8 @@ export interface PumpAccumulatorCloseSummary {
   rentLamports: number;
   reclaimFeeLamports: number;
   netRentLamports: number;
+  /** The network fee Spacedust advanced, repaid from this rent (0 if none). */
+  sponsorRepaymentLamports: number;
   /** Network and priority fees, owed whatever the outcome. */
   feeLamports: number;
   signature: string | null;
@@ -53,6 +56,7 @@ interface PumpAccumulatorCloseState {
   account: PumpAccumulator | null;
   rentLamports: number;
   reclaimFeeLamports: number;
+  sponsorRepaymentLamports: number;
   netRentLamports: number;
   estimatedFeeLamports: number;
 }
@@ -69,6 +73,7 @@ const INITIAL: PumpAccumulatorCloseState = {
   rentLamports: 0,
   reclaimFeeLamports: 0,
   netRentLamports: 0,
+  sponsorRepaymentLamports: 0,
   estimatedFeeLamports: 0,
 };
 
@@ -104,6 +109,7 @@ export function usePumpAccumulatorClose() {
         warnings: result.warnings,
         rentLamports: result.rentLamports,
         reclaimFeeLamports: result.reclaimFeeLamports,
+        sponsorRepaymentLamports: totalRepaymentLamports(result.sponsor, result.packed.length),
         netRentLamports: result.netRentLamports,
         estimatedFeeLamports: result.estimatedFeeLamports,
       });
@@ -236,6 +242,7 @@ export function usePumpAccumulatorClose() {
       const summary: PumpAccumulatorCloseSummary = {
         rentLamports: result.rentLamports,
         reclaimFeeLamports: result.reclaimFeeLamports,
+        sponsorRepaymentLamports: totalRepaymentLamports(result.sponsor, result.packed.length),
         netRentLamports: result.netRentLamports,
         feeLamports: result.simulations.reduce(
           (sum, simulation) => sum + (simulation.feeLamports ?? 0),

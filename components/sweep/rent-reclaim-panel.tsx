@@ -12,6 +12,7 @@ import { useClose } from "@/hooks/use-close";
 import { solscanTxUrl } from "@/lib/solana/submit";
 import { planEmptyAccountCloses } from "@/lib/sweep/empty-accounts";
 import { feeFromRentLamports } from "@/lib/solana/rent";
+import { SponsorAdvanceNote } from "@/components/salvage/sponsor-advance-note";
 import { RECLAIM_RATE } from "@/lib/config/tools";
 import { getPublicFeeWallet } from "@/lib/config/public-env";
 import { RECLAIM_FEE_BPS } from "@/lib/utils/constants";
@@ -191,6 +192,11 @@ export function RentReclaimPanel({
           </div>
         </div>
 
+        <SponsorAdvanceNote
+          feeLamports={reclaim.estimatedFeeLamports}
+          repaymentLamports={reclaim.sponsorRepaymentLamports}
+        />
+
         {plan.closeable.length > 0 ? (
           <details className="rounded-xl border border-border bg-white/2 px-3 py-2">
             <summary className="cursor-pointer list-none text-[11px] font-medium text-muted [&::-webkit-details-marker]:hidden">
@@ -267,7 +273,11 @@ export function RentReclaimPanel({
               {reclaim.summary.reclaimFeeLamports > 0
                 ? `, our ${RECLAIM_RATE} fee ${formatSol(reclaim.summary.reclaimFeeLamports)}`
                 : ""}
-              , network fee {formatSol(reclaim.summary.feeLamports)}.
+              , network fee {formatSol(reclaim.summary.feeLamports)}
+              {reclaim.sponsorRepaymentLamports > 0
+                ? ", which Spacedust advanced and took back out of this rent"
+                : ""}
+              .
             </p>
             {reclaim.summary.signatures.length > 0 ? (
               <div className="mt-2 flex flex-wrap gap-1.5">

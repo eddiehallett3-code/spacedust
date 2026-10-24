@@ -9,6 +9,7 @@ import {
   SectionTitle,
 } from "@/components/ui/card";
 import { SimulationReport } from "@/components/sweep/simulation-report";
+import { SponsorAdvanceNote } from "@/components/salvage/sponsor-advance-note";
 import { SweepError } from "@/components/sweep/controls-column";
 import { WarningsList } from "@/components/sweep/warnings-list";
 import { usePumpAccumulatorClose } from "@/hooks/use-pump-accumulator-close";
@@ -106,7 +107,11 @@ export function PumpAccumulatorPanel({
               {summary.reclaimFeeLamports > 0
                 ? `, our ${RECLAIM_RATE} fee ${formatSol(summary.reclaimFeeLamports)}`
                 : ""}
-              , network fee {formatSol(summary.feeLamports)}.
+              , network fee {formatSol(summary.feeLamports)}
+              {close.sponsorRepaymentLamports > 0
+                ? ", which Spacedust advanced and took back out of this rent"
+                : ""}
+              .
             </p>
             {summary.signature ? (
               <a
@@ -143,6 +148,11 @@ export function PumpAccumulatorPanel({
             </div>
           </div>
         )}
+
+        <SponsorAdvanceNote
+          feeLamports={close.estimatedFeeLamports}
+          repaymentLamports={close.sponsorRepaymentLamports}
+        />
 
         <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-subtle">
           <Flame className="mt-px size-3.5 shrink-0 text-violet-glow" aria-hidden />

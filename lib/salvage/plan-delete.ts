@@ -20,6 +20,7 @@ import {
   planPayer,
   sponsorOnlyIfNeeded,
   sponsorRepaymentInstruction,
+  totalRepaymentLamports,
   type FeeSponsorPlan,
 } from "@/lib/sponsor/plan";
 import type { ApiInstruction } from "@/types/jupiter";
@@ -351,7 +352,10 @@ export async function planDomainDeletes(
     deleteCount: packedAccounts.size,
     rentLamports,
     reclaimFeeLamports,
-    netRentLamports: rentLamports - reclaimFeeLamports,
+    netRentLamports:
+      rentLamports -
+      reclaimFeeLamports -
+      totalRepaymentLamports(sponsor, packedResult.transactions.length),
     hasFailures: simulations.some((simulation) => !simulation.ok),
     sponsor,
   };

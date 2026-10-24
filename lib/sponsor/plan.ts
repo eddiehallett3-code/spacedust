@@ -110,6 +110,22 @@ export function sponsorRepaymentInstruction(
   });
 }
 
+/**
+ * What a sponsored run pays back in total: one repayment per transaction.
+ *
+ * The repayment is per *transaction*, not per run, and it comes out of the same
+ * rent the user is about to receive — so it belongs in every "you receive"
+ * figure. Kept here so the planners, the hooks and the panels cannot disagree
+ * about a number the user is shown.
+ */
+export function totalRepaymentLamports(
+  sponsor: FeeSponsorPlan | null,
+  transactionCount: number,
+): number {
+  if (!sponsor) return 0;
+  return sponsor.repaymentLamports * Math.max(0, Math.trunc(transactionCount));
+}
+
 /** The network fee of one transaction, which depends on who signs it. */
 export function feePerTransaction(
   sponsor: FeeSponsorPlan | null,

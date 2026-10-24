@@ -16,6 +16,7 @@ import {
   planPayer,
   sponsorOnlyIfNeeded,
   sponsorRepaymentInstruction,
+  totalRepaymentLamports,
   type FeeSponsorPlan,
 } from "@/lib/sponsor/plan";
 import {
@@ -398,7 +399,10 @@ export async function planExcessRentTx(input: {
     estimatedFeeLamports: packed.length * feePerTransaction(sponsor, priorityFee),
     excessLamports: signedExcessLamports,
     reclaimFeeLamports: signedFeeLamports,
-    netRentLamports: signedExcessLamports - signedFeeLamports,
+    netRentLamports:
+      signedExcessLamports -
+      signedFeeLamports -
+      totalRepaymentLamports(sponsor, packed.length),
     accountCount: signedAddresses.size,
     excessByAccount,
     feeByAccount,
