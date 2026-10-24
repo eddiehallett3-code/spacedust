@@ -191,7 +191,13 @@ export default async function RootLayout({
             Skip to main content
           </a>
           <Navbar />
-          <main id="main" className="relative z-10">
+          {/* Bottom padding clears the storage notice on a phone: at `bottom-3`
+              it sat over this area, and "Done" on a finished swap was underneath
+              it and unclickable. */}
+          <main
+            id="main"
+            className="relative z-10 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:pb-8"
+          >
             {children}
           </main>
           <Footer />

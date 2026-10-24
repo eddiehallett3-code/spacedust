@@ -44,6 +44,7 @@ export function RentReclaimPanel({
   scanError,
   onReclaimed,
   onRescan,
+  isScanning = false,
   whenEmpty = "hide",
 }: {
   accounts: EmptyTokenAccount[];
@@ -53,6 +54,15 @@ export function RentReclaimPanel({
   onReclaimed: () => void;
   /** Optional: a rescan affordance, offered in the empty state. */
   onRescan?: () => void;
+  /**
+   * Whether a scan is already running.
+   *
+   * The rescan button used to give nothing back: a second read of a wallet that
+   * was genuinely empty returned the same empty list, so the screen was
+   * identical before and after and the button looked broken. It now shows that
+   * it is working and stops accepting a second press.
+   */
+  isScanning?: boolean;
   /**
    * What to render when there is nothing to close.
    *
@@ -132,9 +142,21 @@ export function RentReclaimPanel({
           </p>
           {onRescan ? (
             <div>
-              <Button variant="outline" size="sm" onClick={onRescan}>
-                <RefreshCw className="mr-1.5 size-3.5" aria-hidden />
-                Rescan the wallet
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onRescan}
+                disabled={isScanning}
+              >
+                <RefreshCw
+                  className={
+                    isScanning
+                      ? "mr-1.5 size-3.5 animate-spin"
+                      : "mr-1.5 size-3.5"
+                  }
+                  aria-hidden
+                />
+                {isScanning ? "Rescanning…" : "Rescan the wallet"}
               </Button>
             </div>
           ) : null}

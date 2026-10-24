@@ -15,6 +15,14 @@ import { STORAGE_KEYS } from "@/lib/utils/constants";
  *
  * It renders nothing during SSR and decides after hydration, so a visitor who
  * dismissed it does not see it flash on every navigation.
+ *
+ * POSITION. On a phone this used to sit at `bottom-3`, which is precisely where
+ * the browser's own toolbar lives — iOS Safari's bar and Android's navigation
+ * buttons covered the "Got it" button, so the notice could never be dismissed
+ * and never went away. It now clears that chrome by a fixed margin plus the safe
+ * area inset, and sits above the app's own sticky header in the stacking order.
+ * `main` carries matching bottom padding, so nothing actionable ends up beneath
+ * it either.
  */
 export function CookieNotice() {
   const [visible, setVisible] = useState(false);
@@ -43,7 +51,7 @@ export function CookieNotice() {
     <div
       role="region"
       aria-label="Browser storage notice"
-      className="fixed inset-x-3 bottom-3 z-50 mx-auto flex max-w-2xl items-center gap-3 rounded-full border border-border/70 bg-space-850/95 px-3 py-2 shadow-xl backdrop-blur-xl sm:inset-x-6 sm:bottom-5 sm:px-4"
+      className="fixed inset-x-3 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-[60] mx-auto flex max-w-2xl items-center gap-3 rounded-full border border-border/70 bg-space-850/95 px-3 py-2 shadow-xl backdrop-blur-xl sm:inset-x-6 sm:bottom-5 sm:px-4"
     >
       <p className="min-w-0 flex-1 text-[11px] leading-snug text-muted">
         Essential storage only. No tracking.{" "}

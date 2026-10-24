@@ -52,6 +52,7 @@ export function SalvageApp() {
         scanError={scan.scan?.emptyAccountsError ?? null}
         onReclaimed={() => void scan.rescan()}
         onRescan={() => void scan.rescan()}
+        isScanning={scan.isScanning}
         whenEmpty="explain"
       />
 
