@@ -34,7 +34,8 @@ export type LimitedRoute =
   | "asset-proof"
   | "domains"
   | "wrapped-sol"
-  | "health";
+  | "health"
+  | "sponsor";
 
 /**
  * Requests per minute for a single client, sized against what the app itself does
@@ -61,6 +62,11 @@ const BUDGETS: Record<LimitedRoute, number> = {
   domains: 30,
   "wrapped-sol": 30,
   health: 12,
+  // The sponsor pays real lamports, so this is the tightest budget in the app.
+  // One run needs one call, occasionally two after a blockhash refresh; 20/min
+  // passes a user retrying a stubborn close and caps a script at a rate the
+  // balance floor will notice long before the network does.
+  sponsor: 20,
 };
 
 const WINDOW_MS = 60_000;

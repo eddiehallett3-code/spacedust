@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerRpcUrl, MissingEnvError } from "@/lib/config/env";
 import { ALLOWED_METHODS } from "@/lib/config/rpc-methods";
 import { allowRequest } from "@/lib/api/rate-limit";
+import { crossOriginRefusal } from "@/lib/api/same-origin";
 
 /**
  * Same-origin JSON-RPC proxy.
@@ -40,36 +41,9 @@ function rpcError(id: string | number | null, code: number, message: string) {
   );
 }
 
-/**
- * Refuse a request that another site made, in a visitor's browser.
- *
- * The method allow-list stops this becoming an open relay for arbitrary calls,
- * but on its own it does not stop another origin from making the *allowed* ones
- * against this deployment: `sendTransaction` and `simulateTransaction` are both
- * on it, so any page could spend this key's Helius credits and push transactions
- * through this server. A browser stamps every cross-origin POST with `Origin` and
- * every request with `Sec-Fetch-Site`, so both are checked when present. A
- * request carrying neither did not come from a browser, and the per-client budget
- * is what governs it.
- */
-function crossOriginRefusal(request: Request): string | null {
-  const site = request.headers.get("sec-fetch-site")?.trim().toLowerCase();
-  if (site && site !== "same-origin" && site !== "none") {
-    return "Cross-site requests are not served by this proxy.";
-  }
+// The cross-origin refusal itself lives in `lib/api/same-origin`, because
+// `/api/sponsor` has to make the identical decision about who may spend money.
 
-  const origin = request.headers.get("origin");
-  if (!origin) return null;
-
-  try {
-    if (new URL(origin).host !== new URL(request.url).host) {
-      return "Cross-origin requests are not served by this proxy.";
-    }
-  } catch {
-    return "The Origin header could not be read.";
-  }
-  return null;
-}
 
 export async function POST(request: Request) {
   // Before parsing, not after: a flood should cost a Map lookup, not JSON work.

@@ -7,6 +7,7 @@
 | Variable | Scope | Used for | Browser exposure |
 |---|---|---|---|
 | `HELIUS_API_KEY` | Server-only | Helius RPC/DAS, including the `/api/rpc` proxy | **Not exposed.** Read only in `lib/config/env.ts`; used by API routes and `*.server.ts` modules. |
+| `FEE_SPONSOR_SECRET_KEY` | Server-only | The fee sponsor: a hot wallet that pays a user's network fee and is repaid from the rent in the same transaction | **Not exposed.** Read only in `lib/sponsor/config.ts`, which imports `server-only`; never logged, and only the public address is ever returned (`/api/sponsor` GET). Leave unset to disable. |
 | `JUPITER_API_KEY` | Server-only | Price, quote and swap-build APIs in `lib/jupiter/server.ts` | **Not exposed.** Attached server-side. |
 | `RATE_LIMIT_REDIS_URL` / `RATE_LIMIT_REDIS_TOKEN` | Server-only | Optional shared rate-limit counters (Upstash-compatible) | **Not exposed.** Only `lib/api/rate-limit-store.ts` reads them. |
 | `RATE_LIMIT_REDIS_KV_REST_API_URL` / `..._TOKEN` | Server-only | Vercel Upstash integration aliases | **Not exposed.** |
