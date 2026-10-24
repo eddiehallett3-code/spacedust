@@ -391,6 +391,24 @@ export async function signTransactions(
 }
 
 /**
+ * Will this wallet be asked once per transaction?
+ *
+ * The same condition `signTransactions` uses, exposed because the answer decides
+ * whether a batch can be signed up front (one approval, the window is spent on a
+ * single prompt) or has to be signed and sent one at a time (the prompts *are*
+ * the window). Kept beside the signing code so the two cannot drift.
+ */
+export function walletSignsSequentially(wallet: SigningCapableWallet): boolean {
+  const single = wallet.signTransaction;
+  const batch = wallet.signAllTransactions;
+  if (!batch || !single) return true;
+  return (
+    !PHANTOM_USES_BATCH &&
+    wallet.walletName?.toLowerCase().includes("phantom") === true
+  );
+}
+
+/**
  * Add the fee sponsor's signature, one transaction at a time.
  *
  * The wallet is the authority on what it signed; the sponsor is the authority on

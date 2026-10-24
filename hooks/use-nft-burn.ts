@@ -6,8 +6,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useSolanaConnection } from "@/lib/solana/connection";
 import { isBlockhashExpired, BLOCKHASH_PROMPT_MARGIN_SLOTS } from "@/lib/solana/blockhash";
-import { planNftBurn, type PlanNftBurnResult } from "@/lib/sweep/plan-nft-burn";
-import { signTransactions, submitTransactions } from "@/lib/solana/submit";
+import {
+  planNftBurn,
+  refreshNftBurnBlockhash,
+  type PlanNftBurnResult,
+} from "@/lib/sweep/plan-nft-burn";
+import {
+  signTransactions,
+  submitTransactions,
+  walletSignsSequentially,
+  type SubmitResult,
+} from "@/lib/solana/submit";
+import { signAndSubmitSequentially } from "@/lib/solana/sequential-submit";
 import {
   buildCnftLookupTableClose,
   buildCnftLookupTableDeactivation,
@@ -860,30 +870,69 @@ export function useNftBurn() {
 
       patch({ phase: "awaiting-signature", error: null });
 
-      const signed = await signTransactions(
-        {
-          signTransaction,
-          signAllTransactions,
-          walletName: wallet?.adapter.name,
-        },
-        result.packed,
-      );
+      const signer = {
+        signTransaction,
+        signAllTransactions,
+        walletName: wallet?.adapter.name,
+      };
 
-      patch({
-        phase: "submitting",
-        progress: { completed: 0, total: signed.length },
-      });
+      // A wallet that prompts once per transaction spends the blockhash window
+      // on the prompts: four approvals is a minute of wall clock. This used to
+      // sign the whole batch first and send afterwards, so four cNFT burns were
+      // all sent on an expired window and all four failed. Those wallets now
+      // sign one, send it, and refresh before the next approval; a batch wallet
+      // still gets a single approval for the lot.
+      let submits: SubmitResult[];
+      if (walletSignsSequentially(signer)) {
+        const sequential = await signAndSubmitSequentially({
+          batch: result,
+          refresh: () => refreshNftBurnBlockhash(connection, result),
+          nearExpiry: (batch) =>
+            isBlockhashExpired(
+              connection,
+              batch.lastValidBlockHeight,
+              BLOCKHASH_PROMPT_MARGIN_SLOTS,
+            ),
+          signOne: async (meta) => {
+            const [signedTransaction] = await signTransactions(signer, [meta]);
+            if (!signedTransaction) {
+              throw new Error("The wallet returned no signed transaction.");
+            }
+            return signedTransaction;
+          },
+          submitOne: (signedTransaction, meta, window) =>
+            submitTransactions(
+              connection,
+              [signedTransaction],
+              [meta],
+              {
+                blockhash: window.blockhash,
+                lastValidBlockHeight: window.lastValidBlockHeight,
+              },
+            ),
+          onProgress: (completed, total) =>
+            patch({ phase: "submitting", progress: { completed, total } }),
+        });
+        submits = sequential.submits;
+      } else {
+        const signed = await signTransactions(signer, result.packed);
 
-      const submits = await submitTransactions(
-        connection,
-        signed,
-        result.packed,
-        {
-          blockhash: result.blockhash,
-          lastValidBlockHeight: result.lastValidBlockHeight,
-        },
-        (completed, total) => patch({ progress: { completed, total } }),
-      );
+        patch({
+          phase: "submitting",
+          progress: { completed: 0, total: signed.length },
+        });
+
+        submits = await submitTransactions(
+          connection,
+          signed,
+          result.packed,
+          {
+            blockhash: result.blockhash,
+            lastValidBlockHeight: result.lastValidBlockHeight,
+          },
+          (completed, total) => patch({ progress: { completed, total } }),
+        );
+      }
 
       patch({ phase: "confirming" });
 
@@ -971,7 +1020,7 @@ export function useNftBurn() {
         phase: "success",
         outcomes,
         summary,
-        progress: { completed: signed.length, total: signed.length },
+        progress: { completed: result.packed.length, total: result.packed.length },
       });
       // Nothing here is signable twice: a burned asset has no account left.
       preparedRef.current = null;

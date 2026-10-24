@@ -276,6 +276,21 @@ export interface PlanNftBurnResult {
    * for it to become usable, then re-plans these assets with `lookupTables`.
    */
   lookupTableAssets: NonFungibleAsset[];
+  /**
+   * What this batch was packed from, kept so a single transaction can be rebuilt
+   * against a fresh blockhash in the middle of a run.
+   *
+   * A wallet that prompts once per transaction spends the blockhash window on the
+   * prompts; re-packing is how each approval starts with a fresh minute without
+   * re-fetching proofs the user has already approved. See
+   * `refreshNftBurnBlockhash` and `signAndSubmitSequentially`.
+   */
+  repackInput: {
+    units: PackUnit[];
+    prologue: TransactionInstruction[];
+    payer: PublicKey;
+    lookupTables: AddressLookupTableAccount[];
+  };
 }
 
 export async function planNftBurn(input: {
@@ -821,6 +836,50 @@ export async function planNftBurn(input: {
     skipped,
     hasFailures,
     lookupTableAssets: [...lookupTableAssets.values()],
+    repackInput: {
+      units,
+      prologue,
+      payer: owner,
+      lookupTables,
+    },
+  };
+}
+
+/**
+ * The same burns, packed against a fresh blockhash.
+ *
+ * Not a re-plan: the instructions — and so the merkle proofs they carry — are
+ * unchanged, which matters because re-planning mid-run would change what the
+ * user approved. It exists so each approval can start with a live window when
+ * the wallet asks once per transaction.
+ */
+export async function refreshNftBurnBlockhash(
+  connection: Connection,
+  result: PlanNftBurnResult,
+): Promise<{
+  packed: PackedTransaction[];
+  blockhash: string;
+  lastValidBlockHeight: number;
+}> {
+  const blockhashInfo = await connection.getLatestBlockhash("confirmed");
+
+  const repacked = packTransactions({
+    ...result.repackInput,
+    blockhash: blockhashInfo.blockhash,
+  });
+
+  if (repacked.transactions.length === 0) {
+    throw new VoidError(
+      "The burns could not be rebuilt against a fresh blockhash.",
+      "Nothing further was sent. Run the preview again.",
+      [],
+    );
+  }
+
+  return {
+    packed: repacked.transactions,
+    blockhash: blockhashInfo.blockhash,
+    lastValidBlockHeight: blockhashInfo.lastValidBlockHeight,
   };
 }
 
