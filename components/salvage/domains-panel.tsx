@@ -135,6 +135,18 @@ export function DomainsPanel() {
 
   const prepared = salvage.packed.length > 0;
 
+  /**
+   * Whether the network fee is the user's to pay, or Spacedust's to advance.
+   *
+   * The footnote used to say "Network fees are paid on top" unconditionally,
+   * which is false for a sponsored delete: there the fee is advanced and taken
+   * back out of the same rent the sentence is about.
+   */
+  const networkClause =
+    salvage.sponsorRepaymentLamports > 0
+      ? "Spacedust advances the network fee and takes it back out of the rent"
+      : "Network fees are paid on top";
+
   if (!connected) return null;
 
   return (
@@ -299,14 +311,14 @@ export function DomainsPanel() {
               {getPublicFeeWallet() === null ? (
                 <>
                   No fee is taken — the rent these deletes return comes back to you
-                  in full. Network fees are paid on top, and the registration price
+                  in full. {networkClause}, and the registration price
                   of a name is never recoverable — only the rent its account holds.
                 </>
               ) : (
                 <>
                   Spacedust takes {RECLAIM_RATE} of the rent these deletes return,
-                  the same rate as closing an empty account. Network fees are paid
-                  on top, and the registration price of a name is never recoverable
+                  the same rate as closing an empty account. {networkClause}, and
+                  the registration price of a name is never recoverable
                   — only the rent its account holds.
                 </>
               )}

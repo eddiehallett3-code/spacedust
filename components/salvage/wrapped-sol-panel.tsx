@@ -93,6 +93,18 @@ export function WrappedSolPanel({
   );
 
   const hasPreview = unwrap.packed.length > 0;
+
+  /**
+   * The last sentence of the footnote, which has to be true in both worlds.
+   *
+   * "Paid on top" is right for an ordinary unwrap and wrong for a sponsored one:
+   * there, Spacedust pays the fee and takes it back out of the wrapped account's
+   * rent, which is the very money the sentence is describing.
+   */
+  const networkClause =
+    unwrap.sponsorRepaymentLamports > 0
+      ? "the network fee is advanced by Spacedust and repaid out of that rent"
+      : "the network fee is paid on top";
   const chosen = plan.closeable;
   const estimatedFee =
     getPublicFeeWallet() === null
@@ -260,8 +272,8 @@ export function WrappedSolPanel({
               <ShieldCheck className="mt-px size-3.5 shrink-0 text-success" aria-hidden />
               <span>
                 {getPublicFeeWallet() === null
-                  ? "No fee is taken. The wrapped SOL and its rent are returned to you in full; the network fee is paid on top."
-                  : `Spacedust takes ${RECLAIM_RATE} of the rent only. The wrapped SOL itself is returned in full; the network fee is paid on top.`}
+                  ? `No fee is taken. The wrapped SOL and its rent are returned to you in full; ${networkClause}.`
+                  : `Spacedust takes ${RECLAIM_RATE} of the rent only. The wrapped SOL itself is returned in full; ${networkClause}.`}
               </span>
             </p>
 
@@ -313,7 +325,11 @@ export function WrappedSolPanel({
               {formatSol(unwrap.summary.wrappedLamports)} unwrapped,{" "}
               {formatSol(unwrap.summary.rentLamports)} rent freed, our fee{" "}
               {formatSol(unwrap.summary.reclaimFeeLamports)}, network fee{" "}
-              {formatSol(unwrap.summary.feeLamports)}.
+              {formatSol(unwrap.summary.feeLamports)}
+              {unwrap.sponsorRepaymentLamports > 0
+                ? ", which Spacedust advanced and took back out of this rent"
+                : ""}
+              .
             </p>
             {unwrap.summary.signatures.length > 0 ? (
               <div className="mt-2 flex flex-wrap gap-1.5">
