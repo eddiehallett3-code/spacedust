@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { SigningTimeoutError } from "@/lib/solana/submit";
 import {
   assessFeeShortfall,
+  EmptyWalletError,
   FeeShortfallError,
 } from "@/lib/solana/fee-shortfall";
 import { toFriendlyError } from "./errors";
@@ -103,3 +104,22 @@ describe("toFriendlyError — a wallet with no SOL for the fee", () => {
     expect(friendly.hint).not.toMatch(/Top up ~0\.01 SOL/);
   });
 });
+
+/**
+ * The wallet that does not exist on chain.
+ *
+ * This is the copy that replaces "a token account no longer exists" for a wallet
+ * with zero lamports — measured on a real 0-SOL wallet trying to swap 20¢.
+ */
+describe("toFriendlyError — a wallet with no SOL at all", () => {
+  it("returns the empty-wallet copy instead of blaming a token account", () => {
+    const friendly = toFriendlyError(
+      new EmptyWalletError("AiuhH6fDqsuxVMiCw8c1ypEykfV8gg2aWvJ7Q4dLZ43u"),
+    );
+
+    expect(friendly.title).toBe("This wallet has no SOL");
+    expect(friendly.message).toMatch(/no lamports at all/i);
+    expect(friendly.hint).toMatch(/Salvage/i);
+  });
+});
+

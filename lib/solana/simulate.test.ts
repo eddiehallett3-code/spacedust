@@ -9,7 +9,9 @@ import { createComputeBudgetInstructions } from "@/lib/solana/instructions";
 import { bytesToBase64 } from "@/lib/utils/base64";
 import type { PackedTransaction } from "@/types/sweep";
 import { simulateAll, simulateTransaction } from "./simulate";
-import { FeeShortfallError } from "./fee-shortfall";
+import { EmptyWalletError, FeeShortfallError } from "./fee-shortfall";
+import { createAssociatedTokenAccountInstruction } from "@solana/spl-token";
+import { TOKEN_ACCOUNT_RENT_LAMPORTS } from "@/lib/utils/constants";
 
 /**
  * `MaxLoadedAccountsDataSizeExceeded` is the one simulation error whose cause is
@@ -100,8 +102,10 @@ function connectionWith(err: unknown, balanceLamports: number): Connection {
 
 describe("simulateAll — a wallet that cannot pay the fee", () => {
   it("throws the exact shortfall instead of the generic simulation failure", async () => {
+    // A wallet that exists but cannot cover the fee. (Zero lamports is a
+    // different answer — see the empty-wallet test below.)
     await expect(
-      simulateAll(connectionWith("InsufficientFundsForFee", 0), [
+      simulateAll(connectionWith("InsufficientFundsForFee", 1_000), [
         packedWithLimit(),
       ]),
     ).rejects.toBeInstanceOf(FeeShortfallError);
@@ -109,10 +113,10 @@ describe("simulateAll — a wallet that cannot pay the fee", () => {
 
   it("names the payer, the fee, and an amount that can actually be sent", async () => {
     try {
-      await simulateAll(connectionWith("InsufficientFundsForFee", 0), [
+      await simulateAll(connectionWith("InsufficientFundsForFee", 1_000), [
         packedWithLimit(),
       ]);
-      expect.unreachable("a zero balance cannot pay a 5,000 lamport fee");
+      expect.unreachable("a 1,000 lamport balance cannot pay a 7,000 fee");
     } catch (caught) {
       expect(caught).toBeInstanceOf(FeeShortfallError);
       const { shortfall } = caught as FeeShortfallError;
@@ -136,9 +140,9 @@ describe("simulateAll — a wallet that cannot pay the fee", () => {
     expect(outcomes[0]?.ok).toBe(false);
   });
 
-  it("stays out of the way for every other failure, even with an empty wallet", async () => {
+  it("leaves a non-fee failure alone when the wallet can pay", async () => {
     const outcomes = await simulateAll(
-      connectionWith("MaxLoadedAccountsDataSizeExceeded", 0),
+      connectionWith("MaxLoadedAccountsDataSizeExceeded", 1_000_000),
       [packedWithLimit()],
     );
 
@@ -148,9 +152,65 @@ describe("simulateAll — a wallet that cannot pay the fee", () => {
 
   it("also recognises the raw fee error the RPC returns", async () => {
     await expect(
-      simulateAll(connectionWith({ InstructionError: [1, "InsufficientFundsForFee"] }, 0), [
+      simulateAll(connectionWith({ InstructionError: [1, "InsufficientFundsForFee"] }, 1_000), [
         packedWithLimit(),
       ]),
     ).rejects.toBeInstanceOf(FeeShortfallError);
+  });
+
+  it("names a wallet with no lamports as empty, not as a missing token account", async () => {
+    // The real report: a wallet with 0 SOL swapping 20¢ of USDC was told "a token
+    // account no longer exists, rescan". `AccountNotFound` was the *wallet*, and a
+    // zero-lamport account does not exist on chain at all.
+    try {
+      await simulateAll(connectionWith("AccountNotFound", 0), [packedWithLimit()]);
+      expect.unreachable("an account with no lamports cannot pay anything");
+    } catch (caught) {
+      expect(caught).toBeInstanceOf(EmptyWalletError);
+      expect((caught as EmptyWalletError).payer).toBe(
+        PublicKey.default.toBase58(),
+      );
+      expect((caught as Error).message).toMatch(/no lamports at all/i);
+    }
+  });
+
+  it("quotes the output account's rent as well as the fee when the swap opens one", async () => {
+    // A packed transaction that creates an associated token account, as a sweep
+    // into an empty wallet does. The deposit is not a fee, but it has to be there
+    // before the transaction runs.
+    const message = new TransactionMessage({
+      payerKey: PublicKey.default,
+      recentBlockhash: "11111111111111111111111111111111",
+      instructions: [
+        ...createComputeBudgetInstructions(800_000, 0),
+        createAssociatedTokenAccountInstruction(
+          PublicKey.default,
+          PublicKey.default,
+          PublicKey.default,
+          PublicKey.default,
+        ),
+      ],
+    }).compileToV0Message();
+    const packed: PackedTransaction = {
+      index: 0,
+      base64: bytesToBase64(new VersionedTransaction(message).serialize()),
+      mints: [],
+      sizeBytes: 0,
+      instructionCount: 2,
+      includesRentReclaim: false,
+      rentReclaimMints: [],
+    };
+
+    try {
+      await simulateAll(connectionWith("InsufficientFundsForFee", 1_000), [packed]);
+      expect.unreachable("1,000 lamports cannot cover a fee plus an account");
+    } catch (caught) {
+      expect(caught).toBeInstanceOf(FeeShortfallError);
+      const { shortfall } = caught as FeeShortfallError;
+      expect(shortfall.rentLamports).toBe(TOKEN_ACCOUNT_RENT_LAMPORTS);
+      expect(shortfall.shortfallLamports).toBeGreaterThan(
+        shortfall.firstFeeLamports,
+      );
+    }
   });
 });

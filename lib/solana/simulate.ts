@@ -2,14 +2,17 @@ import { VersionedTransaction, type Connection, type PublicKey } from "@solana/w
 import bs58 from "bs58";
 import { base64ToBytes } from "@/lib/utils/base64";
 import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
   BASE_FEE_LAMPORTS,
   COMPUTE_BUDGET_PROGRAM_ID,
   PRIORITY_FEE_MICRO_LAMPORTS,
   TOKEN_2022_PROGRAM_ID,
+  TOKEN_ACCOUNT_RENT_LAMPORTS,
   TOKEN_PROGRAM_ID,
 } from "@/lib/utils/constants";
 import {
   assessFeeShortfall,
+  EmptyWalletError,
   FeeShortfallError,
 } from "@/lib/solana/fee-shortfall";
 import type { PackedTransaction, SimulationOutcome } from "@/types/sweep";
@@ -175,11 +178,12 @@ const INSUFFICIENT_FUNDS_PATTERN =
  * shortfall stated exactly: how much SOL, to which address, and that it must
  * come from another wallet — the app holds no key and advances nothing.
  *
- * Guarded three ways, because a diagnostic must never make a working flow fail:
- * only the *first* transaction is judged (rent returned later in the batch can
- * only fund later transactions, so this is the real barrier); only when its
- * failure is a fee failure; and only when the balance could actually be read.
- * Any doubt returns quietly and leaves the existing, honest failure in place.
+ * Guarded, because a diagnostic must never make a working flow fail: only the
+ * *first* transaction is judged (rent returned later in the batch can only fund
+ * later transactions, so this is the real barrier); a zero balance is reported on
+ * its own, whatever the simulation blamed; the exact shortfall is quoted only when
+ * the failure is a fee failure; and nothing is said at all when the balance could
+ * not be read.
  *
  * Read-only. Nothing here signs, and no fee is paid by anyone but the wallet.
  */
@@ -191,10 +195,10 @@ async function assertFeePayerCanStart(
   const first = packed[0];
   const firstOutcome = outcomes[0];
   if (!first || !firstOutcome || firstOutcome.ok) return;
-  if (!INSUFFICIENT_FUNDS_PATTERN.test(firstOutcome.error ?? "")) return;
 
   let fees: number[];
   let payer: PublicKey;
+  let opensTokenAccount = false;
   try {
     const transactions = packed.map((item) =>
       VersionedTransaction.deserialize(base64ToBytes(item.base64)),
@@ -210,6 +214,7 @@ async function assertFeePayerCanStart(
     if (!firstKey) return;
     payer = firstKey;
     fees = transactions.map((transaction) => estimateFeeLamports(transaction));
+    opensTokenAccount = createsAssociatedTokenAccount(firstTransaction);
   } catch {
     return;
   }
@@ -221,15 +226,52 @@ async function assertFeePayerCanStart(
     return;
   }
 
+  // Zero lamports means no account at all: the cluster has nothing to charge, so
+  // nothing can land from this wallet whatever the simulation blamed. That used
+  // to surface as "a token account no longer exists" — the missing account is the
+  // wallet itself. `AccountNotFound` is what the RPC returns in that case.
+  if (availableLamports === 0) {
+    throw new EmptyWalletError(payer.toBase58());
+  }
+
+  // Only a fee failure gets the exact-shortfall treatment. Anything else keeps
+  // its own, more specific diagnosis.
+  if (!INSUFFICIENT_FUNDS_PATTERN.test(firstOutcome.error ?? "")) return;
+
   const shortfall = assessFeeShortfall({
     payer: payer.toBase58(),
     availableLamports,
     firstFeeLamports: fees[0] ?? 0,
+    // A swap opens the account it sends into, and the fee payer deposits that
+    // account's rent before anything runs. Quoting the fee alone would send
+    // someone away with half of what they need.
+    rentLamports: opensTokenAccount ? TOKEN_ACCOUNT_RENT_LAMPORTS : 0,
     totalFeeLamports: fees.reduce((sum, fee) => sum + fee, 0),
     transactionCount: packed.length,
   });
 
   if (shortfall) throw new FeeShortfallError(shortfall);
+}
+
+/**
+ * Does this transaction open a token account?
+ *
+ * A swap that sends into an account the wallet does not hold yet creates it
+ * first, and the fee payer deposits its rent. That deposit is not a fee and comes
+ * back when the account closes at the end of the same transaction — but it has to
+ * be there before anything runs, so it belongs in the figure the user is asked to
+ * send.
+ */
+function createsAssociatedTokenAccount(
+  transaction: VersionedTransaction,
+): boolean {
+  const message = transaction.message;
+  if (!("compiledInstructions" in message)) return false;
+  return message.compiledInstructions.some(
+    (instruction) =>
+      message.staticAccountKeys[instruction.programIdIndex]?.toBase58() ===
+      ASSOCIATED_TOKEN_PROGRAM_ID,
+  );
 }
 
 

@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   assessFeeShortfall,
+  describeEmptyWallet,
   describeFeeShortfall,
+  EmptyWalletError,
   FeeShortfallError,
   suggestedTopUpLamports,
 } from "./fee-shortfall";
+import { TOKEN_ACCOUNT_RENT_LAMPORTS } from "@/lib/utils/constants";
 
 /**
  * A wallet that cannot pay the fee is the one failure the user can fix, so the
@@ -125,3 +128,67 @@ describe("FeeShortfallError", () => {
     expect(error.message).toBe(describeFeeShortfall(shortfall).message);
   });
 });
+
+/**
+ * A swap needs more than a fee: it opens the account it sends into, and the fee
+ * payer deposits that account's rent before anything runs. Quoting the fee alone
+ * sent a real user away with a quarter of what they needed.
+ */
+describe("a transaction that opens an account", () => {
+  it("counts the deposit, and says in the copy what it is", () => {
+    const shortfall = assessFeeShortfall(
+      input({
+        availableLamports: 0,
+        rentLamports: TOKEN_ACCOUNT_RENT_LAMPORTS,
+      }),
+    )!;
+
+    expect(shortfall.rentLamports).toBe(TOKEN_ACCOUNT_RENT_LAMPORTS);
+    expect(shortfall.shortfallLamports).toBe(
+      FIRST_FEE + TOKEN_ACCOUNT_RENT_LAMPORTS,
+    );
+
+    const copy = describeFeeShortfall(shortfall);
+    expect(copy.title).toBe("Not enough SOL to send this");
+    expect(copy.message).toMatch(/for the account it opens/i);
+    expect(copy.hint).toMatch(/deposit/i);
+  });
+
+  it("is no shortfall once the balance covers fee and deposit", () => {
+    expect(
+      assessFeeShortfall(
+        input({
+          availableLamports: FIRST_FEE + TOKEN_ACCOUNT_RENT_LAMPORTS,
+          rentLamports: TOKEN_ACCOUNT_RENT_LAMPORTS,
+        }),
+      ),
+    ).toBeNull();
+  });
+});
+
+/**
+ * The wallet that does not exist.
+ *
+ * Zero lamports is not "a bit short": the cluster has no account to charge, so
+ * the RPC answers `AccountNotFound` and the app used to blame a token account.
+ * The copy has to say the true thing, and point at the one path that costs
+ * nothing — a sponsored close in Salvage.
+ */
+describe("a wallet with no lamports", () => {
+  it("names the wallet, not a token account, and points at Salvage", () => {
+    const copy = describeEmptyWallet(PAYER);
+
+    expect(copy.title).toBe("This wallet has no SOL");
+    expect(copy.message).toMatch(/no lamports at all/i);
+    expect(copy.message).not.toMatch(/token account/i);
+    expect(copy.hint).toContain(PAYER);
+    expect(copy.hint).toMatch(/Salvage/i);
+  });
+
+  it("carries the payer on the error", () => {
+    const error = new EmptyWalletError(PAYER);
+    expect(error.payer).toBe(PAYER);
+    expect(error.message).toBe(describeEmptyWallet(PAYER).message);
+  });
+});
+

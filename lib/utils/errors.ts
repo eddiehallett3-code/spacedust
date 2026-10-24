@@ -7,7 +7,9 @@
  */
 
 import {
+  describeEmptyWallet,
   describeFeeShortfall,
+  EmptyWalletError,
   FeeShortfallError,
 } from "@/lib/solana/fee-shortfall";
 
@@ -246,9 +248,12 @@ export function toFriendlyError(error: unknown): FriendlyError {
             }
           })();
 
-  // Checked before the rules: a shortfall already knows its own numbers — how
+  // Checked before the rules: these two already know their own numbers — how
   // much is missing, and the address to send it to — and the generic
   // "top up ~0.01 SOL" rule below would throw all of that away.
+  if (error instanceof EmptyWalletError) {
+    return describeEmptyWallet(error.payer);
+  }
   if (error instanceof FeeShortfallError) {
     return describeFeeShortfall(error.shortfall);
   }
