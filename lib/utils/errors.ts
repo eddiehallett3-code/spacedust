@@ -68,6 +68,24 @@ const RULES: Rule[] = [
     }),
   },
   {
+    // Phantom's words for "this site is no longer authorised", which is what a
+    // user gets after restarting the extension or clearing site permissions: the
+    // page still believes it is connected, the wallet has forgotten the approval,
+    // and the request is refused before anything is shown or signed.
+    //
+    // Named exactly, because the generic fallback ("Something went wrong") tells
+    // the user nothing and invites a retry that cannot possibly work — and because
+    // Phantom support's own advice after a domain review is to restart the app,
+    // which is precisely what puts users in this state.
+    test: /requested method and\/or account has not been authorized|has not been authorized by the user/i,
+    map: () => ({
+      title: "Reconnect your wallet",
+      message:
+        "Your wallet no longer has Spacedust authorised — this happens after the extension restarts or site permissions are cleared. Nothing was signed or sent.",
+      hint: "Disconnect and connect again (or reload the page), then run the preview and sign in one go.",
+    }),
+  },
+  {
     // The mobile wallet adapter keeps its authorization in memory, so a page
     // that was reloaded (or a session that expired) can look connected in the
     // app while the wallet no longer holds a session. The fix is to reconnect,

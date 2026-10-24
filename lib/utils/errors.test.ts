@@ -47,6 +47,22 @@ describe("toFriendlyError — a wallet that never answered", () => {
     expect(friendly.hint).toMatch(/disconnect and connect again/i);
   });
 
+  it("tells the user to reconnect when the wallet has forgotten the approval", () => {
+    // Phantom's exact wording, seen after restarting the extension — which is
+    // what Phantom support tells users to do. The page still looks connected, so
+    // without this the app says "Something went wrong" and invites a retry that
+    // cannot work.
+    const friendly = toFriendlyError(
+      new Error(
+        "The requested method and/or account has not been authorized by the user.",
+      ),
+    );
+
+    expect(friendly.title).toBe("Reconnect your wallet");
+    expect(friendly.message).toMatch(/nothing was signed or sent/i);
+    expect(friendly.hint).toMatch(/disconnect and connect again/i);
+  });
+
   it("still passes an unrecognised error through untouched", () => {
     const friendly = toFriendlyError(new Error("some brand new upstream failure"));
 
