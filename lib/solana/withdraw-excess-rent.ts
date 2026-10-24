@@ -14,7 +14,7 @@ import { CloseError } from "@/lib/solana/close-accounts";
 import {
   feePerTransaction,
   planPayer,
-  sponsorPlanFor,
+  sponsorOnlyIfNeeded,
   sponsorRepaymentInstruction,
   type FeeSponsorPlan,
 } from "@/lib/sponsor/plan";
@@ -275,7 +275,12 @@ export async function planExcessRentTx(input: {
     (sum, value) => sum + value,
     0,
   );
-  const candidate = sponsorPlanFor(input.feeSponsor, CLOSE_COMPUTE_UNIT_LIMIT);
+  const candidate = await sponsorOnlyIfNeeded({
+    connection,
+    owner,
+    feeSponsor: input.feeSponsor,
+    computeUnitLimit: CLOSE_COMPUTE_UNIT_LIMIT,
+  });
   const sponsor =
     candidate &&
     totalExcessLamports - totalFeeLamports > candidate.repaymentLamports

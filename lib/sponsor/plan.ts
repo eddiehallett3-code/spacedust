@@ -1,9 +1,13 @@
 import {
   PublicKey,
   SystemProgram,
+  type Connection,
   type TransactionInstruction,
 } from "@solana/web3.js";
-import { BASE_FEE_LAMPORTS } from "@/lib/utils/constants";
+import {
+  BASE_FEE_LAMPORTS,
+  PRIORITY_FEE_MICRO_LAMPORTS,
+} from "@/lib/utils/constants";
 import { sponsoredRepaymentLamports } from "./policy";
 
 /**
@@ -46,6 +50,45 @@ export function planPayer(
   sponsor: FeeSponsorPlan | null,
 ): PublicKey {
   return sponsor ? new PublicKey(sponsor.address) : owner;
+}
+
+/**
+ * Is this wallet actually unable to pay for one transaction?
+ *
+ * The sponsor exists for the wallet that has rent to reclaim and no SOL to
+ * reclaim it with — not as a convenience for wallets that can pay. Two reasons
+ * this is a check rather than a default:
+ *
+ *  - It keeps the promise the page makes ("If the wallet cannot cover that fee,
+ *    Spacedust advances it") literally true.
+ *  - It confines the one unresolved risk — a wallet that refuses to sign a
+ *    transaction whose fee payer is somebody else — to the users who would
+ *    otherwise be unable to act at all. Everyone else keeps the ordinary path.
+ *
+ * The comparison is against the fee the wallet would pay *without* sponsorship
+ * (one signature), because that is the cost of doing nothing. A read failure
+ * means `null`: never spend the sponsor's lamports on a guess.
+ */
+export async function sponsorOnlyIfNeeded(input: {
+  connection: Connection;
+  owner: PublicKey;
+  feeSponsor?: string | null;
+  computeUnitLimit: number;
+}): Promise<FeeSponsorPlan | null> {
+  const candidate = sponsorPlanFor(input.feeSponsor, input.computeUnitLimit);
+  if (!candidate) return null;
+
+  try {
+    const balance = await input.connection.getBalance(input.owner, "confirmed");
+    const unsponsoredFee =
+      BASE_FEE_LAMPORTS +
+      Math.ceil(
+        (input.computeUnitLimit * PRIORITY_FEE_MICRO_LAMPORTS) / 1_000_000,
+      );
+    return balance < unsponsoredFee ? candidate : null;
+  } catch {
+    return null;
+  }
 }
 
 /**

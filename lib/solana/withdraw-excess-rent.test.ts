@@ -28,8 +28,12 @@ const OWNER = "G4ucVPdGWwbPxJdox4acDpcN8tFXU2VP35Dg9wbEmG95";
 const ACCOUNT = "A2xKwTtehdNF9KzkMbEwwj14yBbKqARf2Rbk8o4ezaK";
 const MINT = "9n3YAi3WWGUjQCJrNKSa2vxX5FGjWgBHxD38HoGK2zaf";
 
-function fakeConnection(lamports = 1_912_566): Connection {
+function fakeConnection(
+  lamports = 1_912_566,
+  walletLamports = 0,
+): Connection {
   return {
+    getBalance: vi.fn(async () => walletLamports),
     getParsedTokenAccountsByOwner: vi.fn(async () => ({
       context: { slot: 1 },
       value: [
@@ -215,6 +219,25 @@ describe("planExcessRentTx — with a fee sponsor", () => {
     expect(result.estimatedFeeLamports).toBe(
       result.sponsor!.repaymentLamports - SPONSOR_MARGIN_LAMPORTS,
     );
+  });
+
+  it("leaves a wallet that can pay its own fee alone", async () => {
+    // 2,000,000 lamports is far more than a one-signature fee, so there is
+    // nothing to advance and the wallet stays the fee payer.
+    const result = await planExcessRentTx({
+      connection: fakeConnection(1_912_566, 2_000_000),
+      owner: new PublicKey(OWNER),
+      accounts: [selected],
+      feeSponsor: SPONSOR,
+    });
+
+    expect(result.sponsor).toBeNull();
+    const transaction = VersionedTransaction.deserialize(
+      base64ToBytes(result.packed[0]!.base64),
+    );
+    expect(
+      transaction.message.staticAccountKeys[0]!.toBase58(),
+    ).toBe(OWNER);
   });
 
   it("declines the sponsor when the refund cannot cover the advance", async () => {

@@ -18,7 +18,7 @@ import { auditPlanBeforeSigning } from "@/lib/security/audit-plan";
 import {
   feePerTransaction,
   planPayer,
-  sponsorPlanFor,
+  sponsorOnlyIfNeeded,
   sponsorRepaymentInstruction,
   type FeeSponsorPlan,
 } from "@/lib/sponsor/plan";
@@ -234,7 +234,12 @@ export async function planDomainDeletes(
         0,
       )
     : 0;
-  const candidate = sponsorPlanFor(input.feeSponsor, computeUnitLimit);
+  const candidate = await sponsorOnlyIfNeeded({
+    connection,
+    owner,
+    feeSponsor: input.feeSponsor,
+    computeUnitLimit,
+  });
   const sponsor =
     candidate &&
     candidateRentLamports - candidateFeeLamports > candidate.repaymentLamports

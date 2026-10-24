@@ -17,7 +17,7 @@ import { auditPlanBeforeSigning } from "@/lib/security/audit-plan";
 import {
   feePerTransaction,
   planPayer,
-  sponsorPlanFor,
+  sponsorOnlyIfNeeded,
   sponsorRepaymentInstruction,
   type FeeSponsorPlan,
 } from "@/lib/sponsor/plan";
@@ -217,7 +217,12 @@ export async function planEmptyAccountClosesTx(
         0,
       )
     : 0;
-  const candidate = sponsorPlanFor(input.feeSponsor, CLOSE_COMPUTE_UNIT_LIMIT);
+  const candidate = await sponsorOnlyIfNeeded({
+    connection,
+    owner,
+    feeSponsor: input.feeSponsor,
+    computeUnitLimit: CLOSE_COMPUTE_UNIT_LIMIT,
+  });
   const sponsor =
     candidate &&
     totalRentLamports - totalFeeLamports > candidate.repaymentLamports

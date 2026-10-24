@@ -17,7 +17,7 @@ import { auditPlanBeforeSigning } from "@/lib/security/audit-plan";
 import {
   feePerTransaction,
   planPayer,
-  sponsorPlanFor,
+  sponsorOnlyIfNeeded,
   sponsorRepaymentInstruction,
   type FeeSponsorPlan,
 } from "@/lib/sponsor/plan";
@@ -158,7 +158,12 @@ export async function planPumpAccumulatorCloseTx(
   ];
 
   // The sponsor pays the fee only when the account's own rent can repay it.
-  const candidate = sponsorPlanFor(input.feeSponsor, CLOSE_COMPUTE_UNIT_LIMIT);
+  const candidate = await sponsorOnlyIfNeeded({
+    connection,
+    owner,
+    feeSponsor: input.feeSponsor,
+    computeUnitLimit: CLOSE_COMPUTE_UNIT_LIMIT,
+  });
   const sponsor =
     candidate && lamports - accountFee > candidate.repaymentLamports
       ? candidate
