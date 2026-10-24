@@ -32,11 +32,20 @@ Icon, unchanged and already in use: https://spacedust.cc/dapp-icon-v3-512.png
   540×960 phone viewport with `--force-device-scale-factor=2`, so each is
   1080×1920 with real text rendering, then converted to JPEG (quality 86,
   4:4:4, no chroma loss on UI text). Dark UI, mean luminance 14–24/255.
+- **Software WebGL is required, or the saucer vanishes without a word.**
+  `--use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader` — and
+  *not* `--disable-gpu`. `components/landing/ufo-model.tsx` treats a failed
+  `WebGLRenderer` constructor as "this visitor cannot have the model" and stays
+  quiet by design, so a capture without WebGL silently produces a hero with the
+  glow and orbit rings but no ship. That was the first version of these files.
 - **No wallet was connected** for any capture. That is deliberate: no balance,
   address or holding of any real wallet appears in a public listing, and the
   states shown are the ones a first-time visitor sees.
-- **Banner:** flat vector gradient plus the real wordmark from
-  `public/logo-mark.png`, so it stays sharp at any size a store scales it to.
+- **Banner:** flat vector gradient plus two real assets — the saucer
+  (`public/logo-mark.png`) above the wordmark (`public/logo-text-transp.png`,
+  the same file the site header renders). `logo-mark.png` is *only* the saucer;
+  the first version of this banner used it alone and carried the ship with no
+  name on it.
 - Verified after generation: every screenshot is 1080×1920 and carries
   0.5–1.0% bright text pixels (i.e. rendered, not blank), and the banner's
   text strip is non-empty.
@@ -46,10 +55,15 @@ Icon, unchanged and already in use: https://spacedust.cc/dapp-icon-v3-512.png
 ```sh
 # screenshots: fresh captures from production
 CHROME='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-"$CHROME" --headless=new --disable-gpu --hide-scrollbars \
+"$CHROME" --headless=new --hide-scrollbars \
+  --use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader \
   --force-device-scale-factor=2 --window-size=540,960 \
-  --virtual-time-budget=12000 --screenshot=/tmp/shot.png https://spacedust.cc/scan
+  --virtual-time-budget=25000 --screenshot=/tmp/shot.png https://spacedust.cc/
 ```
+
+The 25 s budget is for the landing page specifically: three.js is imported
+inside an effect and the saucer is a ~1.8 MB GLB, so a shorter budget captures
+the empty stage. Every other screen settles in a few seconds.
 
 Re-run whenever a tool's first screen changes — a listing that shows a screen
 the app no longer has is worse than one with fewer screenshots.
