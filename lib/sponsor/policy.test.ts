@@ -15,6 +15,7 @@ import {
 import { createCloseAccountInstruction, createComputeBudgetInstructions } from "@/lib/solana/instructions";
 import {
   MAX_SPONSORED_PRIORITY_MICRO_LAMPORTS,
+  MIN_SPONSOR_BALANCE_LAMPORTS,
   SPONSOR_MARGIN_LAMPORTS,
   feeLamportsForMessage,
   sponsoredRepaymentLamports,
@@ -134,6 +135,25 @@ describe("sponsoredRepaymentLamports", () => {
     expect(sponsoredRepaymentLamports(CLOSE_COMPUTE_UNIT_LIMIT)).toBe(
       FEE + SPONSOR_MARGIN_LAMPORTS,
     );
+  });
+});
+
+/**
+ * The floor and the float, pinned against each other.
+ *
+ * These two numbers are set by different people at different times: the float by
+ * whoever funds the wallet, the floor in code. A floor above the intended float
+ * does not fail loudly — the sponsor simply reports itself disabled and every
+ * wallet without SOL falls back to the exact-amount message. That is exactly the
+ * kind of quiet regression this test exists to stop.
+ */
+describe("the balance floor", () => {
+  it("is below the float the sponsor is intended to hold", () => {
+    expect(MIN_SPONSOR_BALANCE_LAMPORTS).toBeLessThan(5_000_000); // 0.005 SOL
+  });
+
+  it("still leaves enough to pay for the transaction it is signing", () => {
+    expect(MIN_SPONSOR_BALANCE_LAMPORTS).toBeGreaterThan(FEE);
   });
 });
 

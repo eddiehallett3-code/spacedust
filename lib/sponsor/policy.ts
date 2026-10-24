@@ -44,8 +44,17 @@ export const SPONSOR_MARGIN_LAMPORTS = 2_000;
  * The hard backstop: whatever a bug or an abuser does, the most that can leave
  * this wallet is what was put in it. Treat the float as money that is already
  * spent, not as a balance to manage.
+ *
+ * Sizing it against a small float, because that is the point of this wallet:
+ * one sponsored transaction costs about 10,050 lamports and is repaid with
+ * 2,000 lamports of margin on top, so a healthy run *grows* the float. The only
+ * thing that drains it is a transaction that lands and fails — one fee, no
+ * repayment — which the server-side simulation is there to keep rare. 0.001 SOL
+ * (1,000,000 lamports) therefore leaves room for roughly eighty failures before
+ * the sponsor stops, while letting a wallet funded with 0.005 SOL run from the
+ * first transaction.
  */
-export const MIN_SPONSOR_BALANCE_LAMPORTS = 10_000_000;
+export const MIN_SPONSOR_BALANCE_LAMPORTS = 1_000_000;
 
 /** The highest priority fee the sponsor will agree to pay, per compute unit. */
 export const MAX_SPONSORED_PRIORITY_MICRO_LAMPORTS =
