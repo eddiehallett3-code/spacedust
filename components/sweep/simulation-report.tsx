@@ -80,6 +80,19 @@ export function SimulationReport({
           );
         })}
       </ul>
+
+      {packed.length > 1 ? (
+        // Stated before signing, not discovered at the wallet. Phantom shows its
+        // transaction warning on the second of two approval requests while the
+        // identical sweep in one transaction passes without one, and a user who
+        // meets that unannounced reasonably concludes something is wrong.
+        <p className="border-t border-border/40 px-3 py-2 text-[11px] leading-relaxed text-subtle">
+          {packed.length} transactions, so your wallet will ask you to approve
+          each one separately. They carry the same instructions as a
+          single-transaction sweep — a wallet that warns on the second approval is
+          flagging the repetition, not the contents.
+        </p>
+      ) : null}
     </div>
   );
 }
