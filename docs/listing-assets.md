@@ -7,7 +7,8 @@ attachment.
 | File | Size | Format | Use |
 |---|---|---|---|
 | [`banner-1200x600.png`](https://spacedust.cc/press/banner-1200x600.png) | 1200×600 | PNG | Solana dApp Store banner; Phantom/Solflare headers |
-| [`screenshot-1-landing.jpg`](https://spacedust.cc/press/screenshot-1-landing.jpg) | 1080×1920 | JPEG | Landing page |
+| [`screenshot-1-landing.jpg`](https://spacedust.cc/press/screenshot-1-landing.jpg) | 1080×3120 | JPEG | Hero **and** the wallet scan entry point below it |
+| [`screenshot-1b-landing-9x16.jpg`](https://spacedust.cc/press/screenshot-1b-landing-9x16.jpg) | 1080×1920 | JPEG | The same hero at 9:16, for stores that insist on it |
 | [`screenshot-2-scan.jpg`](https://spacedust.cc/press/screenshot-2-scan.jpg) | 1080×1920 | JPEG | Read-only scan |
 | [`screenshot-3-salvage.jpg`](https://spacedust.cc/press/screenshot-3-salvage.jpg) | 1080×1920 | JPEG | Salvage tools before connecting |
 | [`screenshot-4-slingshot.jpg`](https://spacedust.cc/press/screenshot-4-slingshot.jpg) | 1080×1920 | JPEG | Batch swap |
@@ -28,16 +29,24 @@ Icon, unchanged and already in use: https://spacedust.cc/dapp-icon-v3-512.png
 
 ## How they were produced
 
-- **Screenshots:** headless Chrome against the production deployment at a
-  540×960 phone viewport with `--force-device-scale-factor=2`, so each is
-  1080×1920 with real text rendering, then converted to JPEG (quality 86,
-  4:4:4, no chroma loss on UI text). Dark UI, mean luminance 14–24/255.
-- **Software WebGL is required, or the saucer vanishes without a word.**
-  `--use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader` — and
-  *not* `--disable-gpu`. `components/landing/ufo-model.tsx` treats a failed
+- **Screenshots:** `node scripts/capture-store-shots.mjs` against the production
+  deployment. It drives Chrome over the DevTools Protocol — mobile emulation at
+  540×960 with `deviceScaleFactor: 2`, ANGLE **Metal** for the real GPU, a clip
+  so each file is 1080 wide with no post-processing, and a wait on the app's own
+  readiness signal rather than a stopwatch. Dark UI, mean luminance 14–24/255.
+- **The saucer's textures had never loaded in production.** The GLB carries four
+  WebP textures, and three's GLTFLoader hands embedded images to
+  ImageBitmapLoader through a `blob:` URL — which `connect-src` blocked. The
+  console said `THREE.GLTFLoader: Couldn't load texture blob:…` and the model
+  still drew, untextured, so nothing looked broken enough to investigate. Fixed
+  by allowing `blob:` in `connect-src` (`lib/security/csp.ts`, pinned by
+  `csp.test.ts`). Before the fix the saucer's bounding box measured 0.0% bright
+  pixels and 198 distinct colours; after, 6.2% and 1,611.
+- **Software WebGL is not good enough.** `--use-gl=angle --use-angle=swiftshader`
+  renders this model flat even with the textures loading, and `--disable-gpu`
+  removes the scene entirely: `components/landing/ufo-model.tsx` treats a failed
   `WebGLRenderer` constructor as "this visitor cannot have the model" and stays
-  quiet by design, so a capture without WebGL silently produces a hero with the
-  glow and orbit rings but no ship. That was the first version of these files.
+  quiet by design. That is how the first version of these files was made.
 - **No wallet was connected** for any capture. That is deliberate: no balance,
   address or holding of any real wallet appears in a public listing, and the
   states shown are the ones a first-time visitor sees.
@@ -56,20 +65,31 @@ Icon, unchanged and already in use: https://spacedust.cc/dapp-icon-v3-512.png
     twice.
   - **No meteor,** though the app draws them: a meteor is a motion cue, and
     frozen in a still it reads as a scratch on the artwork.
-- Verified after generation: every screenshot is 1080×1920 and carries
-  0.5–1.0% bright text pixels (i.e. rendered, not blank), and the banner's
-  text strip is non-empty.
+- Verified after generation: the clip is 540×960 or 540×1560 CSS at 2×, so every
+  file is 1080 wide and nothing is upscaled; the saucer's box carries 5.4%
+  bright pixels (textures decoded) and the scan card below the hero carries ink
+  of its own rather than an empty band; and the banner's three text blocks all
+  measure centred on x=600.
 
 ## Regenerating
 
 ```sh
-# screenshots: fresh captures from production
-CHROME='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-"$CHROME" --headless=new --hide-scrollbars \
-  --use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader \
-  --force-device-scale-factor=2 --window-size=540,960 \
-  --virtual-time-budget=25000 --screenshot=/tmp/shot.png https://spacedust.cc/
+# screenshots: fresh captures from production, straight into public/press/
+node scripts/capture-store-shots.mjs
+
+# point it somewhere else (a preview build), or at another Chrome
+node scripts/capture-store-shots.mjs http://localhost:3000
+CHROME_PATH=/path/to/chrome node scripts/capture-store-shots.mjs
 ```
+
+The script reports the page's own console errors next to each file. Treat any
+line starting `!` as a failed capture and investigate before publishing it —
+that is how the missing textures were found.
+
+The banner is not scripted in this repository; its recipe is the "Banner"
+bullet above: `space-950` base, the two body washes, the hero glow, the same
+starfield distribution, the wordmark at 780px wide centred on x=600 at y=168,
+the tagline at 32px all-caps on y=352, and the fee line at 20px on y=400.
 
 The 25 s budget is for the landing page specifically: three.js is imported
 inside an effect and the saucer is a ~1.8 MB GLB, so a shorter budget captures
