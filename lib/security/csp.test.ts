@@ -68,6 +68,28 @@ describe("buildCsp", () => {
     expect(connect).not.toContain("https:");
     expect(connect).not.toContain("*");
   });
+
+  it("lets the model loader read the blob URLs it creates, and nothing else", () => {
+    // The saucer's textures live inside `ufo-v1.glb`, and GLTFLoader hands them
+    // to ImageBitmapLoader through object URLs — `fetch` on `blob:` is
+    // `connect-src`'s business. Without this entry the ship renders untextured on
+    // every browser, silently: the loader logs to the console and the model still
+    // draws. Pinned so it cannot be tidied away as an unnecessary widening.
+    const connect = directives(buildCsp(NONCE)).get("connect-src") ?? [];
+
+    expect(connect).toContain("blob:");
+    expect(connect.filter((value) => value.includes("://"))).toEqual([
+      "https://rpc.walletconnect.org",
+      "https://api.web3modal.org",
+      "https://verify.walletconnect.com",
+      "https://verify.walletconnect.org",
+      "https://echo.walletconnect.com",
+      "https://pulse.walletconnect.org",
+      "https://secure.walletconnect.org",
+      "https://secure-mobile.walletconnect.org",
+      "wss://relay.walletconnect.org",
+    ]);
+  });
 });
 
 describe("logoOrigins", () => {

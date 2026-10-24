@@ -157,9 +157,24 @@ export function buildCsp(nonce: string): string {
       ["'self'", "data:", "https://fonts.reown.com"],
     ],
     [
+      // `blob:` is here for the saucer, not for the network.
+      //
+      // `ufo-v1.glb` carries its four WebP textures inside the binary, and
+      // three's GLTFLoader feeds embedded images to ImageBitmapLoader through an
+      // object URL. `fetch` on a `blob:` URL is governed by `connect-src`, so
+      // without this entry every texture fails with "Couldn't load texture
+      // blob:https://spacedust.cc/…" — the model still draws, untextured, and
+      // nothing in the UI says why. That is exactly how it shipped, and it took
+      // a screenshot to notice.
+      //
+      // This does not widen the exfiltration surface the directive exists to
+      // close: a blob URL is minted by our own script and cannot address a host.
+      // `img-src` and `worker-src` already allow `blob:` for the same class of
+      // reason, and every remote host below stays enumerated.
       "connect-src",
       [
         "'self'",
+        "blob:",
         ...(development ? ["ws:"] : []),
         ...WALLET_ORIGINS,
         ...WALLET_SOCKETS,
