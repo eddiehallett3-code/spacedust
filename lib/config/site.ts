@@ -35,23 +35,33 @@ export const DAPP_DESCRIPTION =
  *
  * Generated from `Logo/logo-.png`, the master square logo: the full planet and
  * the full speed trails, contained with the source's own padding. The earlier
- * `/dapp-icon-512.png` zoomed in on the craft and shortened the trails, which
- * made the mark look cropped in a search tile. These `v2` filenames force both
- * browser and wallet caches to fetch the corrected composition.
- *
  * `/logo-512.png` remains as the legacy filename, so an old bookmark or a
  * cached metadata entry can still resolve.
+ *
+ * v3 — WHY THE TILE IS NO LONGER BLACK. The v2 set flattened the wordmark onto
+ * pure black. Measured at 512px that is a black square carrying a pale band
+ * across 26% of its height: mean luminance 8/255, with 4% of pixels above
+ * mid-grey. A wallet renders it at 32-64px in a list beside a dozen coloured
+ * icons, where it reads as an empty tile — which is exactly what "Spacedust has
+ * no logo" looks like from the outside. The artwork did not change; the tile
+ * did. Same wordmark, on the violet-to-cyan the site already glows in: 92/255
+ * mean luminance, 96% of the square visible against black.
+ *
+ * New filenames again, for the same reason as v2: a wallet holding the blank
+ * tile cached must be forced to refetch.
  */
-export const DAPP_ICON_PATH = "/dapp-icon-v2-512.png";
-export const DAPP_ICON_192_PATH = "/dapp-icon-v2-192.png";
-export const DAPP_ICON_180_PATH = "/dapp-icon-v2-180.png";
-export const DAPP_MASKABLE_ICON_PATH = "/dapp-icon-v2-512-maskable.png";
+export const DAPP_ICON_PATH = "/dapp-icon-v3-512.png";
+export const DAPP_ICON_192_PATH = "/dapp-icon-v3-192.png";
+export const DAPP_ICON_180_PATH = "/dapp-icon-v3-180.png";
+export const DAPP_MASKABLE_ICON_PATH = "/dapp-icon-v3-512-maskable.png";
+/** Small PNG for icon loaders that ask for a tab-sized image. */
+export const DAPP_FAVICON_32_PATH = "/favicon-32.png";
 
 /**
  * The metadata a wallet needs to identify this dApp.
  *
  * Every image URL is absolute. A wallet's dApp browser may read this object
- * outside the document, so a relative `/dapp-icon-v2-512.png` would resolve
+ * outside the document, so a relative `/dapp-icon-v3-512.png` would resolve
  * against the wallet's own origin and show nothing. The same rule applies to
  * the document icons and the manifest below.
  */

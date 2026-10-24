@@ -46,7 +46,7 @@ export default function manifest(): MetadataRoute.Manifest {
     // loader, so the manifest does not advertise one.
     //
     // Absolute URLs on purpose. A dApp browser may read the manifest outside the
-    // document; a relative `/dapp-icon-v2-512.png` would then resolve against the
+    // document; a relative `/dapp-icon-v3-512.png` would then resolve against the
     // wallet's origin instead of ours.
     icons: [
       {

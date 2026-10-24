@@ -11,6 +11,7 @@ import {
   DAPP_ICON_180_PATH,
   DAPP_ICON_192_PATH,
   DAPP_ICON_PATH,
+  DAPP_FAVICON_32_PATH,
   getAppName,
   getSiteUrl,
 } from "@/lib/config/site";
@@ -63,7 +64,7 @@ export const metadata: Metadata = {
   description: APP_DESCRIPTION,
   applicationName: APP_NAME,
   // Absolute, not root-relative. A dApp browser can read these from outside the
-  // document, where `/dapp-icon-v2-512.png` would resolve against the wallet's
+  // document, where `/dapp-icon-v3-512.png` would resolve against the wallet's
   // own origin and render a blank tile. The same reason drives the manifest icons.
   manifest: `${SITE_URL}/manifest.webmanifest`,
   keywords: [
@@ -81,10 +82,15 @@ export const metadata: Metadata = {
   icons: {
     // PNG first. Several in-wallet browsers render `<link rel="icon">` with an
     // image loader that cannot display SVG, and `/favicon.ico` alone leaves them
-    // with a 16px bitmap. The new dApp icon is a larger-in-frame 512 crop of the
-    // brand mark, published under fresh filenames so a wallet that cached the old
-    // blank tile is forced to refetch.
+    // with a 16px bitmap. The v3 tile carries its own colour — see
+    // `lib/config/site.ts` for why the black version read as "no logo" — and the
+    // fresh filenames force a wallet holding the old blank tile to refetch.
     icon: [
+      {
+        url: `${SITE_URL}${DAPP_FAVICON_32_PATH}`,
+        sizes: "32x32",
+        type: "image/png",
+      },
       {
         url: `${SITE_URL}${DAPP_ICON_192_PATH}`,
         sizes: "192x192",

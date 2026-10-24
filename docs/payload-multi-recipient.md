@@ -264,8 +264,8 @@ the hard part.
 ## Logo follow-up (resolved)
 
 The master is `Logo/logo-.png`. The dApp icon set in
-`public/dapp-icon-v2-512.png`, `public/dapp-icon-v2-192.png`,
-`public/dapp-icon-v2-180.png`, and `public/dapp-icon-v2-512-maskable.png`
+`public/dapp-icon-v3-512.png`, `public/dapp-icon-v3-192.png`,
+`public/dapp-icon-v3-180.png`, and `public/dapp-icon-v3-512-maskable.png`
 is generated from that file with the full planet and full trails. The older
 `/logo-512.png` and `/dapp-icon-512.png` filenames remain as legacy URLs; the
 metadata and manifest now point at the `v2` files.
