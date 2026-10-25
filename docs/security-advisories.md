@@ -43,6 +43,20 @@ A version mismatch there does not fail loudly; it fails during a signature. That
 trade is not worth taking for a denial-of-service advisory whose precondition
 (an unbounded array schema) is not present in any schema this app controls.
 
+**This was attempted, not assumed.** The relevant schema code in
+`@reown/appkit-wallet` was inspected first: it uses `z.object` and the
+two-argument `z.record(key, value)` form, both valid in zod 4, and none of the
+helpers zod 4 removed. Then the overrides were added and npm was run clean:
+
+```
+npm error Cannot read properties of null (reading 'edgesOut')
+```
+
+npm's resolver crashes when a major-version override crosses a dedupe boundary
+here, so the pin could not even be installed consistently — and a package.json
+that declares an override the lockfile does not contain is worse than the
+advisory, because `npm ci` silently ignores it and the next `npm install` crashes.
+
 ## bigint-buffer — accepted, with the reason
 
 `toBigIntLE()` overflows on a crafted buffer and crashes the process. There is no
