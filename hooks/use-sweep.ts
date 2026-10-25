@@ -13,6 +13,8 @@ import { OUTPUT_ASSETS } from "@/lib/utils/constants";
 import { planSweep, PlanError, refreshBlockhash, type PlanSweepResult } from "@/lib/sweep/plan-sweep";
 import type { AuditResult } from "@/lib/security/instruction-audit";
 import { buildSummary } from "@/lib/sweep/summary";
+import { readSettledSweep } from "@/lib/sweep/settled";
+import { getPublicFeeWallet } from "@/lib/config/public-env";
 import { resolveAmount } from "@/lib/sweep/amounts";
 import { isBusyPhase } from "@/lib/sweep/phase";
 import {
@@ -395,6 +397,34 @@ export function useSweep() {
 
       const outcomes = buildTokenOutcomes(submits, meta, config.decimals);
 
+      // ── 4. Read back what the chain actually charged and delivered ─────────
+      // The simulation's fee is what *we* asked for, not what the wallet paid:
+      // Solflare adds its own priority fee, and the difference was 12x. And the
+      // quoted out-amounts are what each route promised, not what filled. One
+      // extra read per confirmed transaction replaces both figures with measured
+      // ones. Failure is silent by design — the summary falls back to the quote,
+      // which is what it always used.
+      const settledSignatures = Array.from(
+        new Set(
+          outcomes
+            .map((outcome) => outcome.signature)
+            .filter((signature): signature is string => Boolean(signature)),
+        ),
+      );
+
+      let settled = null;
+      try {
+        settled = await readSettledSweep({
+          connection,
+          signatures: settledSignatures,
+          owner: publicKey.toBase58(),
+          outputAsset: request.outputAsset,
+          feeWallet: getPublicFeeWallet(),
+        });
+      } catch {
+        settled = null;
+      }
+
       const summary = buildSummary({
         plan: result.plan,
         packed: result.packed,
@@ -404,6 +434,7 @@ export function useSweep() {
         estimatedFeeLamports: result.estimatedFeeLamports,
         rentByMint: result.rentByMint,
         feeByMint: result.feeByMint,
+        settled,
         dryRun: false,
       });
 

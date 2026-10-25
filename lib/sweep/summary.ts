@@ -1,6 +1,7 @@
 import { OUTPUT_ASSETS } from "@/lib/utils/constants";
 import { totalOutputRaw } from "@/lib/solana/compose";
 import { sumForMints } from "@/lib/sweep/totals";
+import type { SettledSweep } from "@/lib/sweep/settled";
 import type {
   OutputAsset,
   PackedTransaction,
@@ -36,6 +37,14 @@ export function buildSummary(params: {
   rentByMint: ReadonlyMap<string, number>;
   /** The Spacedust fee charged on each of those deposits, per mint. */
   feeByMint: ReadonlyMap<string, number>;
+  /**
+   * What the confirmed transactions say actually happened — real network fees
+   * and real delivery, read back from the chain by `readSettledSweep`.
+   *
+   * `null` when it could not be read. Absent for a dry run, where the quote is
+   * the honest answer because nothing happened.
+   */
+  settled?: SettledSweep | null;
   dryRun: boolean;
 }): SweepSummary {
   const {
@@ -47,6 +56,7 @@ export function buildSummary(params: {
     estimatedFeeLamports,
     rentByMint,
     feeByMint,
+    settled,
     dryRun,
   } = params;
 
@@ -81,13 +91,21 @@ export function buildSummary(params: {
   const successCount = landedOutcomes.length;
   const failedCount = outcomes.filter((o) => o.status === "failed").length;
 
-  // Prefer the fee the simulation actually reported; fall back to the estimate
-  // when the user only ran a Dry Run.
+  // Prefer what the chain charged. A wallet is free to add its own priority fee,
+  // and one did: Solflare spent 87,000 lamports where this simulation-based
+  // estimate said 7,000. Falling back to the simulation keeps a dry run useful;
+  // falling back to the flat estimate keeps a run whose transactions could not be
+  // read honest about being an estimate.
   const simulatedFee = simulations.reduce(
     (sum, simulation) => sum + (simulation.feeLamports ?? 0),
     0,
   );
-  const feeLamports = simulatedFee > 0 ? simulatedFee : estimatedFeeLamports;
+  const feeLamports =
+    !dryRun && settled
+      ? settled.feeLamports
+      : simulatedFee > 0
+        ? simulatedFee
+        : estimatedFeeLamports;
 
   // ── What landed, not what was quoted ──────────────────────────────────────
   // A real run reports only the outcomes that succeeded. The quote describes
@@ -96,12 +114,19 @@ export function buildSummary(params: {
   // with the "N failed" line beside it, and wrote the overstated figure into the
   // local history. A dry run has no outcomes, so the plan's own intended totals
   // are exactly what "You would receive" means.
+  //
+  // And even summing the landed outcomes is not the same as measuring delivery:
+  // each of those figures is what its route was *quoted* to produce. When the
+  // confirmed transactions could be read, their balance deltas win — a fill 459
+  // lamports below the quote was what made this difference visible.
   const totalOutput = dryRun
     ? Number(totalOutputRaw(plan.builds)) / divisor
-    : landedOutcomes.reduce(
-        (sum, outcome) => sum + (outcome.outputAmountFormatted ?? 0),
-        0,
-      );
+    : settled
+      ? settled.received
+      : landedOutcomes.reduce(
+          (sum, outcome) => sum + (outcome.outputAmountFormatted ?? 0),
+          0,
+        );
 
   // For a real sweep, value is measured from what landed, not from the quote.
   // The same rule as the output figure above: a failed swap recovered nothing.

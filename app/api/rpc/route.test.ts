@@ -78,6 +78,10 @@ const RPC_METHOD_FOR: Record<string, string> = {
   // Read directly by Payload to prove a test transfer reached its destination:
   // the recipient's balance before and after, from the transaction that moved it.
   getTransaction: "getTransaction",
+  // Reading back what a sweep actually cost and delivered. A parsed read is
+  // `getTransaction` with `encoding: "jsonParsed"`, so nothing new is allowed on
+  // the wire — recorded here because the client names it differently.
+  getParsedTransaction: "getTransaction",
   sendRawTransaction: "sendTransaction",
   simulateTransaction: "simulateTransaction",
 };
