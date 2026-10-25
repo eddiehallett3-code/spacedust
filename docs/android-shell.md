@@ -55,15 +55,37 @@ first.
 ## Rebuilding
 
 ```sh
-cd ~/spacedust-apk/spacedust
+cd ~/spacedust-apk
 export JAVA_HOME=$HOME/.jdks/jdk-17.0.21+9/Contents/Home
 export ANDROID_HOME=/opt/homebrew/share/android-commandlinetools
-export SOLANA_MOBILE_KEYSTORE_PASSWORD=$(cat ~/.spacedust-signing/keystore-password.txt)
+printf 'Keystore password (from KeePassXC): '
+read -rs SOLANA_MOBILE_KEYSTORE_PASSWORD; echo
+export SOLANA_MOBILE_KEYSTORE_PASSWORD
 export SOLANA_MOBILE_KEY_PASSWORD=$SOLANA_MOBILE_KEYSTORE_PASSWORD
 npx solana-mobile@latest webshell build spacedust
 ```
 
+`read -rs` keeps the password off the screen, out of shell history and off
+disk: nothing on this machine stores it, and each new shell asks again. That is
+deliberate — the only copy is the attachment in the KeePassXC entry.
+
+The prompt is a separate `printf` rather than `read -p`, because in zsh `-p`
+means *coprocess*, not *prompt*: `read -rsp` fails there with `-p: no
+coprocess` and leaves the variable empty, and zsh is the default shell on
+macOS. Verified in both zsh and bash — the piped-input form reads all seven
+characters of a test string in each, and echoes nothing.
+
 Output: `app/build/outputs/apk/release/app-release.apk`.
+
+`build spacedust` takes a directory relative to the current one, so run it from
+`~/spacedust-apk`. From inside the project it resolves to
+`spacedust/spacedust` and stops with `no twa-manifest.json found`.
+
+A rebuild with no source changes leaves the existing APK alone — Gradle reports
+`Built` but never repackages, so nothing is re-signed. Delete the APK to force
+one. Doing that produced a file with an identical certificate digest and an
+identical size, which is the property that matters: the same key signs every
+version, so each one installs as an update.
 
 `gradle.properties` holds the identity of the shell, and is the only file that
 needs editing for an update:
@@ -79,9 +101,10 @@ SOLANA_MOBILE_VERSION_NAME=1.0.0
 application id must never change: it is what makes the new file an update of
 the listed app rather than a second app.
 
-The build is reproducible from this document plus the keystore. Neither the
-keystore nor its password is in this repository; both are in a KeePassXC entry
-titled `Spacedust signing key`.
+The build is reproducible from this document plus the keystore. The keystore
+file lives in the generated project, outside this repository, because builds
+read it; the password exists only as an attachment in the KeePassXC entry
+titled `Spacedust signing key`. Nothing on disk holds it in plaintext.
 
 ## Custody of the signing key
 
@@ -90,8 +113,11 @@ The certificate cannot be regenerated and the application id cannot be
 re-registered under a new one.
 
 - The keystore is PKCS12, one entry, alias `spacedust`.
-- Back up to two places: the password manager and an offline copy. A vault whose
+- Two copies, two media: the vault on this machine and an offline copy on
+  removable media, both opened and checked rather than assumed. A vault whose
   master password is forgotten is a locked box.
+- The offline copy goes stale silently — re-copy it after any change to the
+  vault.
 - A dApp Store key must differ from any Google Play key, if the app is ever
   listed in both.
 - After signing, check the certificate digest against the value above before
