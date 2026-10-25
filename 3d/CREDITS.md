@@ -7,12 +7,13 @@ The landing-page saucer is:
 - **Source:** https://sketchfab.com/3d-models/ufo-flying-saucer-spaceship-ovni-094ce2baf6ee40aa8f083b7d0fcf0a9f
 - **Licence:** Sketchfab Standard — https://sketchfab.com/licenses
 
-The unmodified download is kept in this folder. The file served by the site is
-`public/3d/ufo-v1.glb`, produced from the GLB with:
+The unmodified download is **not** part of this repository — only this file and the
+optimised asset are tracked. `public/3d/ufo-v1.glb` is what the site serves,
+produced from the original GLB (20.5 MB) with:
 
 ```sh
 npx @gltf-transform/cli optimize \
-  '3d/ufo_flying_saucer_spaceship_ovni (1).glb' \
+  'ufo_flying_saucer_spaceship_ovni (1).glb' \
   public/3d/ufo-v1.glb \
   --compress quantize \
   --simplify true \
@@ -23,6 +24,10 @@ npx @gltf-transform/cli optimize \
   --join true \
   --palette false
 ```
+
+To rebuild it, download the model again from the source URL above — the raw GLB
+and its texture folders are kept locally under `3d/` for that reason, and are
+ignored by git (119 MB of formats we do not need to version).
 
 That takes the asset from 20.5 MB / 344k triangles to 3.2 MB / 69k triangles.
 The GLB's `asset.extras` still carries the author, source and licence, so the
