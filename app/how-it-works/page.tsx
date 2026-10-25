@@ -128,7 +128,7 @@ export default function HowItWorksPage() {
           Smart Filter hides it by default.
         </p>
 
-        <h3>2. Why one signature can cover twenty swaps</h3>
+        <h3>2. Why one signature can cover many swaps</h3>
         <p>
           Solana caps a transaction at 1232 bytes. Most dust swaps would each
           consume a whole signature on their own, which is miserable — twenty
@@ -144,15 +144,22 @@ export default function HowItWorksPage() {
           applies to the whole packet.
         </p>
         <p>
-          The result: a wallet with twenty junk tokens can often clear them in a
-          single approval.
+          How many packs into one depends on the routes: three dust tokens
+          measured <strong>two transactions</strong> on mainnet. Every swap inside
+          a transaction shares its signature, so a wallet that can approve a batch
+          asks once for the lot — measured on Solflare and Backpack, where one
+          approval signed two transactions. Phantom is the exception: its scanner
+          rejects a batched approval, so it is asked once per transaction, and the
+          app hands it one at a time rather than risk a rejection it cannot undo.
         </p>
 
         <h3>3. Reclaiming locked rent</h3>
         <p>
-          Every SPL token account holds a rent deposit — about{" "}
-          <strong>0.002 SOL</strong> for a legacy account, a little more for a
-          Token-2022 one — that cannot be withdrawn while the account exists. It
+          Every SPL token account holds a rent deposit — measured at{" "}
+          <strong>1,488,440 lamports (0.00148844 SOL)</strong> for an account
+          created under the current schedule, about 0.002 SOL for one funded
+          before the 2021 rent reduction, and a little more again for Token-2022
+          with extensions — that cannot be withdrawn while the account exists. It
           is frequently worth more than the dust itself. The figure is read from
           the account being closed rather than taken from a constant, for the
           reason in section 4.
@@ -217,12 +224,15 @@ export default function HowItWorksPage() {
           </li>
         </ul>
         <p>
-          Rent is read from each account&apos;s own balance rather than
-          multiplied out of a constant, because the two programs do not hold the
-          same amount: a legacy account holds 2,039,280 lamports, a Token-2022
-          account with extensions 2,074,080. The <em>live rent-exempt minimum</em>
-          is lower than either — 1,488,440 when measured — so pricing from it
-          would understate the total by about 27%.
+          Rent is read from each account&apos;s own balance rather than multiplied
+          out of a constant, because deposits differ by generation and by program:
+          an account created before the network&rsquo;s 2021 rent reduction holds
+          about <strong>2,039,280</strong> lamports, one created since holds
+          <strong>1,488,440</strong> — measured on 2026-10-25, both from the
+          rent-exempt minimum for a 165-byte account and from the closes
+          themselves — and a Token-2022 account with extensions holds more than
+          either. A single constant would therefore misprice every close of the
+          other generation, and the fee is a share of that price.
         </p>
         <p>
           Spacedust takes {RECLAIM_RATE} of the rent it returns — the same rate The
@@ -267,6 +277,14 @@ export default function HowItWorksPage() {
           transfer taken <em>after</em> the close or refund has returned
           the rent, so it is always funded by the thing it is charged on and never
           touches the dust being recovered. It is shown before you sign anything.
+        </p>
+        <p>
+          One distinction matters in practice: a full sweep usually closes the
+          accounts its swaps emptied, and <em>that</em> rent is charged like any
+          other close. Measured on a three-token sweep, 4,465,320 lamports of rent
+          came back and 66,978 was charged — three closes at
+          <code>floor(1,488,440 × 1.5%) = 22,326</code> each — while the swap
+          proceeds themselves were untouched.
         </p>
 
         <h3>8. What can go wrong</h3>
@@ -632,13 +650,15 @@ export default function HowItWorksPage() {
         </p>
         <p>
           Spacedust shows that as a figure rather than burying it, which is why
-          rent is read per account and never from a constant. On the account the
-          probe measured, the real deposit was{" "}
-          <strong>1,488,440 lamports where the constant says 2,039,280</strong> —
-          a 37% overstatement that would otherwise have been displayed to you as
-          money coming back, and charged a fee on. The {PAYLOAD_RATE} fee is taken
-          on what the close actually returns, priced per account rather than per
-          transaction, so a batch of eleven is not charged eleven times over.
+          rent is read per account and never from a constant. The constant this
+          app used to hold said <strong>2,039,280 lamports</strong>; the deposit
+          measured on a real account was{" "}
+          <strong>1,488,440</strong> — a 37% overstatement that would have been
+          displayed to you as money coming back, and charged a fee on. It was
+          corrected, and the per-account read is what keeps it correct for both
+          generations of account. The {PAYLOAD_RATE} fee is taken on what the
+          close actually returns, priced per account rather than per transaction,
+          so a batch of eleven is not charged eleven times over.
         </p>
 
         <h3>6. What Payload refuses to send</h3>
@@ -766,11 +786,16 @@ export default function HowItWorksPage() {
           anyone&rsquo;s favour by accident.
         </p>
         <p>
-          The network fee is the other side of it, and it is small next to what
-          comes back: a close costs a few thousand lamports of compute, against a
-          deposit measured in millions. The only question worth asking is whether
-          you want the account gone — and since it is empty and can be recreated
-          the moment that token is received again, the answer is usually yes.
+          The network fee is the other side of it. What this app asks for is small
+          — the compute budget is sized to the work, so a close requests a few
+          tens of thousands of compute units rather than a swap&rsquo;s 800,000 —
+          but the wallet has the last word. Measured on identical three-token
+          sweeps on 2026-10-25: Phantom and Backpack paid <strong>7,000
+          lamports</strong> per transaction; Solflare added its own priority fee
+          and paid <strong>87,000</strong>, twelve times as much, without the app
+          asking for it. That is why the success screen now reports the fee the
+          chain recorded rather than the fee this app estimated: the estimate was
+          right about what we requested and wrong about what you paid.
         </p>
         <p>
           If the wallet cannot cover that fee, Spacedust advances it. A small fee

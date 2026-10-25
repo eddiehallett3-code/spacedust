@@ -1426,6 +1426,18 @@ Verified against a real server rather than assumed: across `/`, `/how-it-works`,
 nonce, zero inline event handlers, and the nonce in the header matches the ones in
 the HTML of that same response. `lib/security/csp.test.ts` pins the directives, the
 derived origins and the report-only default; `CSP_ENFORCE=1` was checked end to end
+
+**One allowance exists for the model, not for the network.** `connect-src` carries
+`blob:`, because three's GLTFLoader hands the saucer's embedded textures to
+`ImageBitmapLoader` through an object URL, and `fetch` on a `blob:` URL is governed
+by `connect-src`. Without it every texture in `ufo-v1.glb` failed to load, in every
+browser, logged as `THREE.GLTFLoader: Couldn't load texture blob:…` — while the
+model still drew, untextured, which is why it went unnoticed from the day it
+shipped until a screenshot showed it. A `blob:` URL is minted by our own script and
+cannot address a host, so this does not widen the exfiltration surface the
+directive exists to close; `img-src` and `worker-src` already carried it, and
+`csp.test.ts` pins the enumerated host list beside it.
+
 as well, and flips the header name without changing anything else.
 
 ### How the Slingshot mark was verified
@@ -1631,6 +1643,98 @@ rules while 25 of those same assets simulated a clean burn, and a check that
 wrong would block burns that work. Rule-set cases are left to the simulation,
 which stops them before anyone signs.
 
+
+### How the fee, the sponsor and the receipts were verified against mainnet
+
+On **2026-10-25** every money path was run against mainnet from three wallets —
+Phantom, Backpack and Solflare — plus a wallet holding no SOL at all. Nothing
+below is a simulation. Three read-only probes reproduce it:
+`probes/tmp-sweep-audit.mjs` (per-instruction detail and lamport deltas),
+`probes/tmp-fee-reconcile.mjs` (rent against fee against what the owner kept) and
+`probes/tmp-sponsored-unwrap.mjs` (rent derived from the wSOL balance, repayment,
+sponsor net).
+
+**The same three tokens, three wallets, identical arithmetic.**
+
+| Wallet | Transactions | Network fee each | Rent | Spacedust fee | Kept |
+|---|---|---|---|---|---|
+| Phantom | 2 | 7,000 | 4,465,320 | 66,978 | 4,398,342 |
+| Backpack | 2 (one approval) | 7,000 | 4,465,320 | 66,978 | 4,398,342 |
+| Solflare | 2 | **87,000** | 4,465,320 | 66,978 | 4,398,342 |
+
+The fee is `floor(1,488,440 × 1.5%) = 22,326` per account, three times, summed —
+not 1.5% of the batch total, which would have been 66,980. Two lamports apart
+here, and the per-account rule is the one that holds when the packer splits a
+batch across transactions.
+
+**Backpack signed two transactions with one approval.** That is the path that
+used to break: a tail signed against one blockhash and sent after the others used
+to expire. Both landed ten slots apart, in order, with the repayment and the fee
+transfers intact.
+
+**The receipts were wrong in two places, and were fixed rather than explained.**
+The network-fee line came from the simulation's estimate, so on Solflare it
+reported 14,000 where 174,000 was paid — wrong by twelve times. The "You
+received" line came from the amounts the routes were *quoted* to produce, and a
+fill 459 lamports below that quote was what made it visible. Both now come from
+the confirmed transactions: `meta.fee` for the cost, and the owner's balance
+delta corrected for rent, platform fee and network fee for the delivery. On the
+same Solflare run the three figure lines then reconciled to the wallet's measured
+change to the lamport: `4,398,342 + 2,995,911 − 174,000 = 7,220,253`.
+
+**A wallet with no SOL at all closed three accounts.**
+
+```
+rent from 3 closes   4,465,320
+Spacedust fee          −66,978
+sponsor repayment      −12,500
+                      = 4,385,842 to the user
+```
+
+The sponsor paid 10,500 of network fee (two signatures) and was repaid 12,500,
+netting **+2,000** — the margin, measured rather than intended. The repayment sat
+after all three closes, which is the only ordering that can work: Solana charges
+the fee before any instruction runs, so the rent is not available until the
+closes have happened.
+
+**An unwrap is not taxed on the wrapped SOL.** Funded case: 12,700,000 of
+principal plus 1,488,440 of rent were released, the fee was 22,326 — exactly 1.5%
+of the **rent**, and 0.157% of the release — and the wallet moved
+`12,700,000 + 1,488,440 − 22,326 − 5,500 = 14,160,614`, which is what the chain
+showed. A fee on the whole release would have taken 212,826.
+
+**The same unwrap, sponsored:** `2,900,000 + 1,488,440 − 22,326 − 12,500 =
+4,353,614`, sponsor paid 10,500, netted +2,000. Before signing, the app told the
+user their wallet held no SOL, that Spacedust would cover the fee, and that it
+would be reclaimed from the rent.
+
+
+**A wallet below the rent-exempt floor cannot pay anything.** Solana will not
+leave an account holding a non-zero balance below its rent-exempt minimum, so a
+wallet with 87,348 lamports cannot pay a 7,000 fee — it would end at 80,348,
+which is neither empty nor exempt. The cluster calls that
+`InsufficientFundsForRent`, and it is what Jupiter's own wallet reported when a
+test drain tried to leave 87,000 behind. The floor was measured rather than
+remembered: **650,240 lamports** for a zero-byte account. (The first draft of the
+constant said 890,880 from memory and was wrong by 240,640.)
+
+That failure now produces a quote instead of the raw cluster sentence. Holding
+887,000 lamports, Slingshot says:
+
+> This wallet holds 0.000887 SOL, and the first transaction needs 0.000007 SOL in
+> network fees plus 0.001488 SOL for the account it opens … — 0.000608 SOL short.
+
+`7,000 + 1,488,440 − 887,000 = 608,440`, and the suggested top-up rounds to
+0.001 SOL. A zero-balance wallet gets its own message — "This wallet has no SOL" —
+because the two failures are different: one has no account on chain at all, the
+other has one that cannot legally pay a fee.
+
+**What this did not verify.** SNS delete has not been run on mainnet: a `.sol`
+costs more to register than the delete returns, so that flow is covered by unit
+tests and by the instruction audit instead. The gap is deliberate and written
+down, not forgotten.
+
+
 ---
 
 ## Cost
@@ -1722,6 +1826,10 @@ has already been violated once:
 | `lib/sweep/plan-void.test.ts` | The SOL transfer sent on chain is 22,326 lamports — 1.5% of the rent the chain reports, and a frozen token account is refused before a burn is built for it |
 | `lib/sweep/plan-sweep.test.ts` | A stale blockhash window is refreshed by **re-packing** the batch — the same swaps, the same transactions in the same order, one new blockhash embedded — and not by re-quoting Jupiter, which would move the amounts under a preview the user had already read |
 | `lib/sweep/summary.test.ts` | Rent is summed from **each close's own deposit** and only from closes that landed — a failed transaction used to credit the user with rent that never arrived — while the integrator fee reported is the one actually applied, not the configured rate |
+| `lib/sweep/settled.test.ts` | The receipt's network fee and "You received" come from the **confirmed transactions**, not from the simulation's estimate and the route's quote — a wallet that adds its own priority fee charged 12× the estimate, and a fill 459 lamports under the quote made the delivery optimistic. An unreadable transaction returns nothing rather than half a sum, because half a fee looks measured |
+| `lib/solana/fee-shortfall.test.ts` | A wallet below the rent-exempt floor is told it is below the minimum, not that it is short of the fee — the two are different failures, and the second copy would be a lie |
+| `lib/salvage/plan-delete.test.ts` | The SNS delete prices its fee on the name account's own rent and puts the transfer **after** the delete, so it can only be paid from rent that has already arrived — and a name the registry says belongs to another wallet is refused by name instead of offered |
+
 | `lib/sweep/totals.test.ts` | Per-account lamports are **summed**, not multiplied: a count times one figure is only right while every account holds the same deposit, which is false for older accounts and Token-2022 ones with extensions |
 | `lib/sweep/canonical.test.ts` | A balance held anywhere but the wallet's associated token account is a balance a swap cannot reach — Jupiter drains the ATA — so it is refused with a reason that points at The Void, and a Token-2022 mint is judged by its own program's derivation |
 | `lib/payload/preview.test.ts` | A Payload preview's figures come from one mapping, used both when the batch is first planned and when it is rebuilt on a fresh blockhash — the rebuild used to store the new plan and leave the old figures on screen |

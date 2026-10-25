@@ -15,7 +15,7 @@ import { feeFromRentLamports } from "@/lib/solana/rent";
 import { SponsorAdvanceNote } from "@/components/salvage/sponsor-advance-note";
 import { RECLAIM_RATE } from "@/lib/config/tools";
 import { getPublicFeeWallet } from "@/lib/config/public-env";
-import { RECLAIM_FEE_BPS } from "@/lib/utils/constants";
+import { RECLAIM_FEE_BPS, TOKEN_ACCOUNT_RENT_LAMPORTS } from "@/lib/utils/constants";
 import { formatSol, pluralize, truncateAddress } from "@/lib/utils/format";
 import type { EmptyTokenAccount } from "@/types/token";
 
@@ -106,7 +106,9 @@ export function RentReclaimPanel({
         <CardHeader>
           <SectionTitle
             title="Rent left behind"
-            description="Empty token accounts still hold their rent — about 0.002 SOL each — until they are closed."
+            description={`Empty token accounts still hold their rent — about ${(
+              TOKEN_ACCOUNT_RENT_LAMPORTS / 1e9
+            ).toFixed(4)} SOL each — until they are closed.`}
           />
         </CardHeader>
         <CardContent>

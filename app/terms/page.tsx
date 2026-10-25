@@ -83,16 +83,27 @@ export default function TermsPage() {
 
         <h2>4. Fees</h2>
         <p>
-          Spacedust charges one fee: <strong>1.5% of rent reclaimed when a flow
-          closes an empty token account</strong>. It is taken from the rent the
-          network returns, not from the assets you send or swap. Swaps are not
-          charged. Partial sends and actions that free no rent do not incur the
-          fee. The fee is shown before you sign.
+          Spacedust charges one fee: <strong>1.5% of rent reclaimed</strong> when a
+          flow returns a deposit — closing an empty token account, refunding the
+          surplus rent a Token-2022 account holds, unwrapping wrapped SOL, or
+          deleting a <code>.sns</code> name. It is taken from the rent the network
+          returns, not from the assets you send or swap. Swaps are not charged.
+          Partial sends and actions that free no rent do not incur the fee. The fee
+          is calculated per account on that account&rsquo;s own deposit, rounded
+          down to the lamport, and shown before you sign.
+        </p>
+        <p>
+          Where a wallet holds no SOL, Spacedust may pay the network fee for that
+          transaction from its own operating wallet. That advance and a small
+          margin are repaid out of the rent the same transaction has just
+          released, before the remainder reaches you; it is part of the figure
+          shown before you sign, and it never exceeds the rent that funded it.
         </p>
         <p>
           Solana network and priority fees are separate, are set by the network
-          and validators, and are not paid to Spacedust. Third-party providers
-          may charge their own fees.
+          and validators, and are not paid to Spacedust. Your wallet may add a
+          priority fee of its own, over which Spacedust has no control. Third-party
+          providers may charge their own fees.
         </p>
 
         <h2>5. Third-party services</h2>
