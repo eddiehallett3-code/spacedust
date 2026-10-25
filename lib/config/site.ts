@@ -60,18 +60,21 @@ export const DAPP_FAVICON_32_PATH = "/favicon-32.png";
 /**
  * Separate, smaller copies for the wallet handshake.
  *
- * Same artwork as v3, recompressed: the PWA icons are 245 KB at 512px because
- * they carry an alpha channel and no palette, and wallet icon fetchers commonly
- * cap at 250 KB — Backpack showed the domain with no logo beside it, and at
- * 250,669 bytes the 512 was 669 bytes over that line. These are flattened (no
- * alpha, in case a wallet composites onto white) and palette-compressed: 65 KB,
- * 12 KB and 5 KB. The PWA set is left byte-identical so the installed-app tile
- * and the icon Phantom reviewed do not churn for a wallet-only fix.
+ * The PWA icons are 245 KB at 512px with an alpha channel. jup.ag's logo renders
+ * in the same wallet sheets where ours did not, so this set is deliberately the
+ * most boring PNG that can be produced: truecolour, no palette, no alpha, no
+ * interlacing, at 256/128/96 — the sizes wallets actually ask for. Earlier
+ * attempts (v3 at 245 KB with alpha, then v4 palette-compressed) were both
+ * refused; each change is one variable and one new filename, because a wallet
+ * that cached a failed fetch by URL will not retry it.
+ *
+ * The PWA set stays byte-identical so the installed-app tile and the icon Phantom
+ * reviewed do not churn for a wallet-only fix.
  */
 export const DAPP_WALLET_ICON_PATHS = [
-  "/dapp-icon-wc-512.png",
-  "/dapp-icon-wc-192.png",
-  "/dapp-icon-wc-96.png",
+  "/dapp-icon-w5-256.png",
+  "/dapp-icon-w5-128.png",
+  "/dapp-icon-w5-96.png",
 ] as const;
 
 /**
