@@ -63,6 +63,43 @@ advisory, because `npm ci` silently ignores it and the next `npm install` crashe
 patched release; the maintainer's last version is the vulnerable one, and the
 advisory's own "fixed in" field is empty.
 
+**Verified, not assumed (2026-10-25):**
+
+- npm has published nothing since **1.1.5 on 2019-10-17**; `latest` is still
+  1.1.5 and there is no newer tag, prerelease or dist-tag.
+- Upstream has **25 open pull requests and 12 open issues** and no release since.
+- The advisory lists *Patched versions: None*.
+
+**Forks exist, and were not adopted.** The registry carries several:
+`bigint-buffer-fixed@1.1.6` (repo `y3fers0n/bigint-buffer`, maintainer on a
+trustwallet.com address), `four-flap-bigint-buffer@1.1.6`,
+`@openclawcash/bigint-buffer`, `@gsknnft/bigint-buffer@2.x`,
+`@exodus/bigint-buffer`, `@trufflesuite/bigint-buffer@1.1.10`.
+
+The tarballs were unpacked and diffed against 1.1.5. What `bigint-buffer-fixed`
+changes is one guard in each direction:
+
+```js
+if (!buf || !(buf instanceof Buffer)) {
+    return BigInt(0);
+}
+```
+
+plus removal of the native converter call from the browser build. That is a type
+check, not a length check — it does not obviously address the overflow — and it
+changes a bad input from an exception into **`0n`**. For a wallet app that is the
+wrong trade: a silent zero reads as a zero balance, which is worse than a crash
+that says nothing happened. Adopting an unaudited fork to remove an alert, while
+making malformed data quieter, is a net loss.
+
+**Why this app cannot hit it anyway.** The vulnerable function is reached only
+through `@solana/buffer-layout-utils`, whose `decode` passes the result of a
+`blob(length)` layout — a **fixed 8 bytes for `u64`, 16 for `u128`**. The length
+is a layout constant, not something account data can influence, so the "crafted
+buffer" precondition has no route in from here. In the browser bundle the native
+converter is not even loaded, which is the half of the package the advisory
+describes.
+
 Reached only through `@solana/buffer-layout-utils` (inside `@solana/spl-token`),
 which decodes **account data the app fetched from its own RPC proxy**. An attacker
 who can serve that data has already compromised Helius or the proxy, at which
