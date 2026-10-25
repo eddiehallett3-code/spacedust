@@ -38,43 +38,39 @@ export const DAPP_DESCRIPTION =
  * `/logo-512.png` remains as the legacy filename, so an old bookmark or a
  * cached metadata entry can still resolve.
  *
- * v3 — WHY THE TILE IS NO LONGER BLACK. The v2 set flattened the wordmark onto
- * pure black. Measured at 512px that is a black square carrying a pale band
- * across 26% of its height: mean luminance 8/255, with 4% of pixels above
- * mid-grey. A wallet renders it at 32-64px in a list beside a dozen coloured
- * icons, where it reads as an empty tile — which is exactly what "Spacedust has
- * no logo" looks like from the outside. The artwork did not change; the tile
- * did. Same wordmark, on the violet-to-cyan the site already glows in: 92/255
- * mean luminance, 96% of the square visible against black.
+ * v6 — THE TILE MATCHES THE APP. v3 put the artwork on a bright violet-to-cyan
+ * tile: legible, but the brightest object on the page and not the colour of
+ * anything in the product. v6 uses the app's own surface: `space-850` (#0a0d1f)
+ * under the two washes `body` carries, plus a white bloom behind the saucer so it
+ * reads as lit. Measured at 29/255 mean luminance — a third of v3, and more than
+ * three times the 8.6 that made the v2 black tile read as an empty square in a
+ * wallet list. That band is the whole point: darker than this starts losing the
+ * icon at 40px, which is the size a wallet draws it.
  *
- * New filenames again, for the same reason as v2: a wallet holding the blank
- * tile cached must be forced to refetch.
+ * New filenames each time, because a wallet holding the previous artwork cached
+ * must be forced to refetch.
  */
-export const DAPP_ICON_PATH = "/dapp-icon-v3-512.png";
-export const DAPP_ICON_192_PATH = "/dapp-icon-v3-192.png";
-export const DAPP_ICON_180_PATH = "/dapp-icon-v3-180.png";
-export const DAPP_MASKABLE_ICON_PATH = "/dapp-icon-v3-512-maskable.png";
+export const DAPP_ICON_PATH = "/dapp-icon-v6-512.png";
+export const DAPP_ICON_192_PATH = "/dapp-icon-v6-192.png";
+export const DAPP_ICON_180_PATH = "/dapp-icon-v6-180.png";
+export const DAPP_MASKABLE_ICON_PATH = "/dapp-icon-v6-512-maskable.png";
 /** Small PNG for icon loaders that ask for a tab-sized image. */
 export const DAPP_FAVICON_32_PATH = "/favicon-32.png";
 
 /**
- * Separate, smaller copies for the wallet handshake.
+ * The copies the wallet handshake carries.
  *
- * The PWA icons are 245 KB at 512px with an alpha channel. jup.ag's logo renders
- * in the same wallet sheets where ours did not, so this set is deliberately the
- * most boring PNG that can be produced: truecolour, no palette, no alpha, no
- * interlacing, at 256/128/96 — the sizes wallets actually ask for. Earlier
- * attempts (v3 at 245 KB with alpha, then v4 palette-compressed) were both
- * refused; each change is one variable and one new filename, because a wallet
- * that cached a failed fetch by URL will not retry it.
- *
- * The PWA set stays byte-identical so the installed-app tile and the icon Phantom
- * reviewed do not churn for a wallet-only fix.
+ * Same artwork, at the sizes wallets actually ask for, and deliberately the most
+ * boring PNG that can be produced: truecolour (no palette), no alpha, no
+ * interlacing, each far under any size cap. Earlier attempts were refused — first
+ * at 245 KB with an alpha channel, then palette-compressed — and the measurement
+ * that ended the guessing was jup.ag's logo rendering in a wallet sheet where
+ * ours did not.
  */
 export const DAPP_WALLET_ICON_PATHS = [
-  "/dapp-icon-w5-256.png",
-  "/dapp-icon-w5-128.png",
-  "/dapp-icon-w5-96.png",
+  "/dapp-icon-v6-256.png",
+  "/dapp-icon-v6-128.png",
+  "/dapp-icon-v6-96.png",
 ] as const;
 
 /**
