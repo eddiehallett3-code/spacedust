@@ -15,8 +15,14 @@ attachment.
 | [`screenshot-5-security.jpg`](https://spacedust.cc/press/screenshot-5-security.jpg) | 1080×1920 | JPEG | Security posture |
 | [`screenshot-6-how-it-works.jpg`](https://spacedust.cc/press/screenshot-6-how-it-works.jpg) | 1080×1920 | JPEG | How it works |
 
-Icon, unchanged and already in use: https://spacedust.cc/dapp-icon-v3-512.png
-(512×512, opaque).
+Icon: https://spacedust.cc/dapp-icon-v6-512.png (512×512, opaque, truecolour).
+
+The `v3` filenames (`/dapp-icon-v3-512.png` and its siblings) serve byte-identical
+artwork, because those URLs are already in the listing emails sent to Phantom,
+Jupiter, Solflare and Backpack — one brand in circulation rather than two. The
+wallet handshake uses `/dapp-icon-v6-256.png`, `-128` and `-96`: truecolour, no
+palette, no alpha, each far under any size cap, because the first three attempts
+were refused by wallets for exactly those reasons.
 
 ## Requirements this covers
 
