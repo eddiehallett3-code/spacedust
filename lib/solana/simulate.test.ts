@@ -158,6 +158,20 @@ describe("simulateAll — a wallet that cannot pay the fee", () => {
     ).rejects.toBeInstanceOf(FeeShortfallError);
   });
 
+  it("treats a rent shortfall as the balance problem it is", async () => {
+    // A wallet holding 87,348 lamports can "afford" a 7,000 fee and still not be
+    // allowed to pay it: the account would end below the rent-exempt floor. The
+    // cluster calls that `InsufficientFundsForRent`, which the old gate ignored,
+    // so the raw cluster sentence reached the phone instead of an amount.
+    await expect(
+      simulateAll(
+        connectionWith("Transaction results in an account with insufficient funds for rent", 87_348),
+        [packedWithLimit()],
+      ),
+    ).rejects.toBeInstanceOf(FeeShortfallError);
+  });
+
+
   it("names a wallet with no lamports as empty, not as a missing token account", async () => {
     // The real report: a wallet with 0 SOL swapping 20¢ of USDC was told "a token
     // account no longer exists, rescan". `AccountNotFound` was the *wallet*, and a

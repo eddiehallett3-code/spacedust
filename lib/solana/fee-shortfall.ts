@@ -48,6 +48,16 @@ export interface FeeShortfall {
    * transaction can run, so it belongs in the figure the user is asked to send.
    */
   rentLamports: number;
+  /**
+   * Lamports the wallet must keep simply to remain a legal account.
+   *
+   * Solana refuses to leave a non-zero balance below the rent-exempt floor, so a
+   * wallet holding 87,348 lamports cannot pay a 7,000 fee — it would end at
+   * 80,348, which is neither empty nor exempt. That is `InsufficientFundsForRent`
+   * even though the fee is affordable, and it is a different cost from the
+   * deposit above: nothing is opened, and nothing comes back.
+   */
+  reserveLamports: number;
   /** The fees of the whole batch, in lamports. */
   totalFeeLamports: number;
   /** How many transactions the batch would send. */
@@ -73,6 +83,8 @@ export interface FeeShortfallInput {
   transactionCount: number;
   /** Deposit for an account this transaction opens. Defaults to none. */
   rentLamports?: number;
+  /** Lamports the wallet must keep to stay rent-exempt. Defaults to none. */
+  reserveLamports?: number;
 }
 
 /**
@@ -104,8 +116,9 @@ export function assessFeeShortfall(
   const availableLamports = Math.max(0, Math.trunc(input.availableLamports));
   const firstFeeLamports = Math.max(0, Math.trunc(input.firstFeeLamports));
   const rentLamports = Math.max(0, Math.trunc(input.rentLamports ?? 0));
+  const reserveLamports = Math.max(0, Math.trunc(input.reserveLamports ?? 0));
 
-  const requiredLamports = firstFeeLamports + rentLamports;
+  const requiredLamports = firstFeeLamports + rentLamports + reserveLamports;
   if (requiredLamports <= 0) return null;
   if (availableLamports >= requiredLamports) return null;
 
@@ -115,6 +128,7 @@ export function assessFeeShortfall(
     availableLamports,
     firstFeeLamports,
     rentLamports,
+    reserveLamports,
     totalFeeLamports: Math.max(
       firstFeeLamports,
       Math.trunc(input.totalFeeLamports),
@@ -136,6 +150,7 @@ export function assessFeeShortfall(
 export function describeFeeShortfall(shortfall: FeeShortfall): FeeShortfallCopy {
   const others = shortfall.transactionCount - 1;
   const opensAccount = shortfall.rentLamports > 0;
+  const belowMinimum = shortfall.reserveLamports > 0;
   const othersNote =
     others > 0
       ? ` The other ${pluralize(others, "transaction")} need about ${formatSol(
@@ -145,21 +160,34 @@ export function describeFeeShortfall(shortfall: FeeShortfall): FeeShortfallCopy 
   const rentNote = opensAccount
     ? ` plus ${formatSol(shortfall.rentLamports)} for the account it opens, which comes back when that account closes at the end of the same transaction`
     : "";
+  // A wallet can be short of neither the fee nor a deposit and still be unable to
+  // pay: Solana will not leave an account holding a non-zero balance below its
+  // rent-exempt minimum. Quoting "not enough for the fee" there would be a lie,
+  // and the raw cluster sentence ("insufficient funds for rent") is a dead end.
+  const reserveNote = belowMinimum
+    ? `, and the account has to keep ${formatSol(
+        shortfall.reserveLamports,
+      )} more to stay above Solana's rent-exempt minimum`
+    : "";
   const whyNote = opensAccount
     ? "The fee and that deposit are both taken before any instruction runs, so neither can come out of what the transaction itself returns."
-    : "Reclaimed rent cannot pay for this one: Solana takes the fee before a close releases anything.";
+    : belowMinimum
+      ? "An account cannot be left holding less than the rent-exempt minimum — it must be either empty or above it — so this balance cannot pay a fee at all."
+      : "Reclaimed rent cannot pay for this one: Solana takes the fee before a close releases anything.";
 
   return {
     // A swap needs more than a fee, and saying "for the fee" while quoting a
     // deposit would be the kind of half-truth this app keeps out of its copy.
     title: opensAccount
       ? "Not enough SOL to send this"
-      : "Not enough SOL for the fee",
+      : belowMinimum
+        ? "This wallet is below the minimum balance"
+        : "Not enough SOL for the fee",
     message: `This wallet holds ${formatSol(
       shortfall.availableLamports,
     )}, and the first transaction needs ${formatSol(
       shortfall.firstFeeLamports,
-    )} in network fees${rentNote} — ${formatSol(
+    )} in network fees${rentNote}${reserveNote} — ${formatSol(
       shortfall.shortfallLamports,
     )} short, so there is nothing to sign yet.`,
     hint: `Send at least ${formatSol(

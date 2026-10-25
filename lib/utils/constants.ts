@@ -49,6 +49,23 @@ export const TOKEN_ACCOUNT_SIZE_BYTES = 165;
 export const TOKEN_ACCOUNT_RENT_LAMPORTS = 1_488_440;
 
 /**
+ * The rent-exempt floor for an empty system account: the minimum a wallet may
+ * hold without its balance becoming illegal.
+ *
+ * Solana will not let an account end a transaction holding a non-zero balance
+ * below this figure — it must be either exactly zero (the account is gone) or at
+ * least this much. So a wallet with 87,348 lamports cannot pay a 7,000-lamport
+ * fee: it would be left at 80,348, which the cluster refuses as
+ * `InsufficientFundsForRent` even though the fee itself is affordable.
+ *
+ * Measured against mainnet on 2026-10-25 rather than remembered: 650,240
+ * lamports for a zero-byte account. (The first draft of this constant said
+ * 890,880 from memory and was wrong by 240,640 — the kind of error that would
+ * have told a wallet with 700,000 lamports it was fine when it was not.)
+ */
+export const SYSTEM_ACCOUNT_RENT_EXEMPT_LAMPORTS = 650_240;
+
+/**
  * FALLBACK rent-exempt minimum for an account with **no data** (650,240
  * lamports). Fetched at plan time for the same reason as above.
  *

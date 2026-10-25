@@ -6,6 +6,7 @@ import {
   BASE_FEE_LAMPORTS,
   COMPUTE_BUDGET_PROGRAM_ID,
   PRIORITY_FEE_MICRO_LAMPORTS,
+  SYSTEM_ACCOUNT_RENT_EXEMPT_LAMPORTS,
   TOKEN_2022_PROGRAM_ID,
   TOKEN_ACCOUNT_RENT_LAMPORTS,
   TOKEN_PROGRAM_ID,
@@ -166,9 +167,17 @@ export async function simulateAll(
  * Two shapes arrive: the raw program error, and the sentence
  * `describeInstructionFailure` turns it into. Both are matched, because this run
  * sees the translated one.
+ *
+ * `insufficient funds for rent` is its own sentence and used to fall through: a
+ * wallet holding a few tens of thousands of lamports pays the fee and is left
+ * *below* the rent-exempt floor, which the cluster reports as a rent shortfall
+ * rather than a fee one. Missing it meant the raw
+ * "Transaction results in an account with insufficient funds for rent" reached
+ * the user instead of the copy that says how much to send. Found on a phone by
+ * leaving 87,000 lamports in a test wallet.
  */
 const INSUFFICIENT_FUNDS_PATTERN =
-  /insufficient funds for fee|InsufficientFunds|insufficient lamports|does not have enough SOL to cover network fees/i;
+  /insufficient funds for fee|insufficient funds for rent|InsufficientFunds|insufficient lamports|does not have enough SOL to cover network fees/i;
 
 /**
  * Stop the batch when the wallet cannot pay for its first transaction.
@@ -232,6 +241,41 @@ async function assertFeePayerCanStart(
   // wallet itself. `AccountNotFound` is what the RPC returns in that case.
   if (availableLamports === 0) {
     throw new EmptyWalletError(payer.toBase58());
+  }
+
+  // A wallet can fail to pay *legally* without being short of the fee: Solana
+  // refuses to leave an account holding a non-zero balance below the rent-exempt
+  // floor, so 87,348 lamports cannot pay a 7,000 fee — that would end at 80,348,
+  // which is neither zero nor exempt. The cluster reports it as "insufficient
+  // funds for rent", and it reached a real user as the raw sentence because the
+  // gate below only knew fee wording.
+  //
+  // So the arithmetic decides first. A balance below what the first transaction
+  // needs cannot produce a successful transaction whatever the simulation blamed,
+  // which is the same claim the pattern check makes and a stronger one to base it
+  // on than a string.
+  const firstFee = fees[0] ?? 0;
+  const deposit = opensTokenAccount ? TOKEN_ACCOUNT_RENT_LAMPORTS : 0;
+  // Two separate floors apply, and the higher one is the real requirement: the
+  // wallet must afford the fee plus any deposit, and it must not be left holding
+  // a legal-looking-but-illegal amount below the rent-exempt minimum.
+  const requiredLamports = Math.max(
+    firstFee + deposit,
+    firstFee + SYSTEM_ACCOUNT_RENT_EXEMPT_LAMPORTS,
+  );
+  const reserveLamports = Math.max(0, requiredLamports - (firstFee + deposit));
+
+  if (availableLamports < requiredLamports) {
+    const shortfall = assessFeeShortfall({
+      payer: payer.toBase58(),
+      availableLamports,
+      firstFeeLamports: firstFee,
+      rentLamports: deposit,
+      reserveLamports,
+      totalFeeLamports: fees.reduce((sum, fee) => sum + fee, 0),
+      transactionCount: packed.length,
+    });
+    if (shortfall) throw new FeeShortfallError(shortfall);
   }
 
   // Only a fee failure gets the exact-shortfall treatment. Anything else keeps

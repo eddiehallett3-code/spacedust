@@ -166,6 +166,36 @@ describe("a transaction that opens an account", () => {
   });
 });
 
+describe("a wallet below the rent-exempt floor", () => {
+  // Found on a phone: 87,348 lamports cannot pay a 7,000 fee, because the account
+  // would be left at 80,348 — non-zero and below the 650,240 minimum, which the
+  // cluster refuses as `InsufficientFundsForRent`. The old gate only matched fee
+  // wording, so the raw sentence reached the user instead of an amount to send.
+  const shortfall = assessFeeShortfall({
+    payer: "G4ucVPdGWwbPxJdox4acDpcN8tFXU2VP35Dg9emG95",
+    availableLamports: 87_348,
+    firstFeeLamports: 7_000,
+    reserveLamports: 650_240,
+    totalFeeLamports: 7_000,
+    transactionCount: 1,
+  });
+
+  it("counts the floor as part of what the wallet must hold", () => {
+    expect(shortfall).not.toBeNull();
+    expect(shortfall?.reserveLamports).toBe(650_240);
+    expect(shortfall?.shortfallLamports).toBe(7_000 + 650_240 - 87_348);
+  });
+
+  it("says the balance is below the minimum rather than short of the fee", () => {
+    const copy = describeFeeShortfall(shortfall!);
+
+    expect(copy.title).toBe("This wallet is below the minimum balance");
+    expect(copy.message).toContain("rent-exempt minimum");
+    expect(copy.hint).toContain("either empty or above it");
+  });
+});
+
+
 /**
  * The wallet that does not exist.
  *
