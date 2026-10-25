@@ -123,10 +123,86 @@ re-registered under a new one.
 - After signing, check the certificate digest against the value above before
   uploading. A mismatch means the wrong key was used, and it would be permanent.
 
+## On a device
+
+Installed over `adb install -r` onto a Galaxy S24 FE running Android 16 and
+driven by `adb shell input` with screenshots taken from the device.
+
+- **Launches and renders.** The hero, wordmark, starfield and the saucer's
+  textures all drew; the model is textured rather than flat, which is the same
+  `blob:` CSP fix that the store screenshots depend on.
+- **Touch, scrolling and client-side routing work.** Tapping the hero CTA
+  reached `/scan` without a reload, and the typed address carried across to the
+  scan page and back to the landing card.
+- **The RPC path works from inside the WebView.** A generated address with no
+  history returned token accounts 0, empty rent 0, approvals 0, `$0.00`,
+  `+0 SOL` and "Read-only result. Nothing is signed." — a real round trip
+  through `/api/rpc`, not a cached state.
+- **MWA does not appear at all — the shell cannot connect a wallet.** The picker
+  lists Phantom, Solflare, Backpack, WalletConnect and Jupiter, and no
+  "Mobile Wallet Adapter" row. Phantom, Backpack and Jupiter read "Not
+  installed" although `pm list packages` shows `app.phantom`,
+  `app.backpack.mobile` and `ag.jup.jupiter.android` on that device, and
+  tapping Solflare's "Detected — try connecting" dispatches nothing: the app
+  stays foreground and no intent is logged. Every row is a configured extension
+  adapter reporting `NotDetected`/`Loadable`; not one Standard-registry wallet
+  is in the list.
+
+  The same picker, in Chrome on the same phone, shows the same five rows with
+  the same states, so this is the web app's mobile path rather than the wrapper.
+
+  The library explains the first half of it
+  (`@solana-mobile/wallet-standard-mobile@0.7.0`, `registerMwa`):
+
+  ```js
+  if (getIsLocalAssociationSupported() && (!isWebView(ua) || isSolanaMobileWebShell(ua)))
+    registerWallet(new LocalSolanaMobileWalletAdapterWallet(config));
+  else … console.warn("MWA not registered: device or environment not supported");
+  ```
+
+  A generic WebView gets no wallet unless its user agent carries
+  `Solana Mobile Web Shell`. This shell does append exactly that string — the
+  debug build logged
+  `… Mobile Safari/537.36 Solana Mobile Web Shell`, with `isSecureContext` true
+  and `/android/i` matching — so the guard should pass, and the registration is
+  being lost somewhere after it. Nothing is logged to say so: this WebView
+  forwards console messages to the shell, and a reload produced no MWA warning
+  and no console lines at all.
+
+  Consequence: the APK installs, renders and can scan, but
+  **cannot sign anything**, which is what it exists for. Do not submit it until
+  this is fixed.
+
+### Avast flags it
+
+Avast One raised **"Suspicious app found"** for `cc.spacedust.app` on install,
+with detection ID `e6907338984d`, offering an uninstall button. The app was not
+blocked and ran normally afterwards.
+
+Nothing in the APK explains it: the only permission is `INTERNET`, and the
+detection is not a named family. It is the usual heuristic for an APK that is
+self-signed and installed from outside a store — the same reason Play Protect
+warns on sideloads. Two things follow:
+
+- Report it as a false positive at
+  <https://www.avast.com/false-positive-file-form.php> with that detection ID
+  and a link to <https://spacedust.cc>, so the next build's hash is not flagged.
+- Distribution through the dApp Store does not exempt the file from these
+  heuristics; expect the warning to persist for some users until the vendor
+  clears the hash.
+
 ## Not yet done
 
-- **No device or emulator has run this APK.** It builds, signs and declares the
-  right package, version, label, icon and permissions; whether the shell loads
-  the site and completes an MWA handshake on real hardware is unverified.
+- **Wallet connection is the blocker.** See "MWA does not appear at all" above: the
+  shell can scan but cannot sign, so it is not submittable yet. The next step is
+  to find where the registration is lost — check that the effect that calls
+  `registerMwa` runs at all in this WebView (a temporary `console.log` beside it,
+  and the same page in a plain Chrome tab for comparison), then that the
+  Standard-registry wallet reaches `useWallet().wallets`
+  (`@solana/wallet-adapter-react@0.15.40` merges via
+  `useStandardWalletAdapters`, which the provider does rely on).
 - **Publisher account and KYC/KYB** for the dApp Store. The assets are covered
   in [listing-assets.md](listing-assets.md).
+- **A cosmetic nit:** a thin scrollbar is drawn down the right edge of the
+  WebView. It is unobtrusive, but Android renders it persistently where macOS
+  fades it out, so it appears in the app and in none of the store screenshots.
