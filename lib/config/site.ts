@@ -58,6 +58,23 @@ export const DAPP_MASKABLE_ICON_PATH = "/dapp-icon-v3-512-maskable.png";
 export const DAPP_FAVICON_32_PATH = "/favicon-32.png";
 
 /**
+ * Separate, smaller copies for the wallet handshake.
+ *
+ * Same artwork as v3, recompressed: the PWA icons are 245 KB at 512px because
+ * they carry an alpha channel and no palette, and wallet icon fetchers commonly
+ * cap at 250 KB — Backpack showed the domain with no logo beside it, and at
+ * 250,669 bytes the 512 was 669 bytes over that line. These are flattened (no
+ * alpha, in case a wallet composites onto white) and palette-compressed: 65 KB,
+ * 12 KB and 5 KB. The PWA set is left byte-identical so the installed-app tile
+ * and the icon Phantom reviewed do not churn for a wallet-only fix.
+ */
+export const DAPP_WALLET_ICON_PATHS = [
+  "/dapp-icon-wc-512.png",
+  "/dapp-icon-wc-192.png",
+  "/dapp-icon-wc-96.png",
+] as const;
+
+/**
  * The metadata a wallet needs to identify this dApp.
  *
  * Every image URL is absolute. A wallet's dApp browser may read this object
@@ -71,7 +88,7 @@ export function getDappMetadata(origin: string = getSiteUrl()) {
     name: getAppName(),
     description: DAPP_DESCRIPTION,
     url: base,
-    icons: [`${base}${DAPP_ICON_PATH}`, `${base}${DAPP_ICON_192_PATH}`],
+    icons: DAPP_WALLET_ICON_PATHS.map((path) => `${base}${path}`),
   };
 }
 
