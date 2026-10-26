@@ -38,7 +38,6 @@ for (const signature of signatures) {
     typeof entry === "string" ? entry : entry.pubkey,
   );
   const pre = tx.meta.preBalances;
-  const post = tx.meta.postBalances;
 
   const instructions = [
     ...(tx.transaction.message.instructions ?? []),

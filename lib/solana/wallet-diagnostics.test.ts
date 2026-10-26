@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { isMobileUserAgent, looksLikeWalletInAppBrowser, walletBrowseLink, isAndroidUserAgent } from "@/lib/solana/wallet-diagnostics";
+import {
+  isAndroidUserAgent,
+  isMobileUserAgent,
+  isSolanaMobileWebShell,
+  looksLikeWalletInAppBrowser,
+  visibleWalletNames,
+  walletBrowseLink,
+} from "@/lib/solana/wallet-diagnostics";
 
 /**
  * The mobile wallet path.
@@ -95,5 +102,105 @@ describe("the mobile checks these links depend on", () => {
     expect(isAndroidUserAgent(ANDROID)).toBe(true);
     expect(isAndroidUserAgent(IPHONE)).toBe(false);
     expect(isAndroidUserAgent(DESKTOP)).toBe(false);
+  });
+});
+
+
+describe("which rows the picker shows", () => {
+  // Registration order, as `useWallet().wallets` reports it: the configured
+  // extension adapters first, WalletConnect last.
+  const EVERY_ADAPTER = [
+    "Phantom",
+    "Solflare",
+    "Backpack",
+    "Jupiter",
+    "WalletConnect",
+  ];
+
+  it("lists every adapter when there is no browse panel to fall back on", () => {
+    // Desktop, or inside a wallet's own browser: the extension is injected, so
+    // "not detected" means "not installed" and the Install links are honest.
+    expect(
+      visibleWalletNames({
+        names: EVERY_ADAPTER,
+        hasWalletLinks: false,
+        hasMobileWalletAdapter: false,
+      }),
+    ).toEqual(EVERY_ADAPTER);
+  });
+
+  it("reduces a phone browser to WalletConnect when MWA is not registered", () => {
+    // iOS, where the protocol does not exist: the panel above the list is the
+    // route, and the only row that can finish is WalletConnect.
+    expect(
+      visibleWalletNames({
+        names: EVERY_ADAPTER,
+        hasWalletLinks: true,
+        hasMobileWalletAdapter: false,
+      }),
+    ).toEqual(["WalletConnect"]);
+  });
+
+  it("keeps the Mobile Wallet Adapter on a phone, above WalletConnect", () => {
+    // The bug this replaced: the row was filtered out along with the extensions,
+    // so Android visitors were offered only the route that leaves the page —
+    // even though the registered adapter connects natively, in place.
+    expect(
+      visibleWalletNames({
+        names: ["WalletConnect", "Phantom", "Mobile Wallet Adapter"],
+        hasWalletLinks: true,
+        hasMobileWalletAdapter: true,
+      }),
+    ).toEqual(["Mobile Wallet Adapter", "WalletConnect"]);
+  });
+
+  it("still drops the extension rows on a phone", () => {
+    // They can only say "Install" about an app the visitor may already have,
+    // which is the complaint the browse panel exists to answer.
+    expect(
+      visibleWalletNames({
+        names: ["Phantom", "Backpack", "Mobile Wallet Adapter", "WalletConnect"],
+        hasWalletLinks: true,
+        hasMobileWalletAdapter: true,
+      }),
+    ).toEqual(["Mobile Wallet Adapter", "WalletConnect"]);
+  });
+
+  it("keeps registration order when nothing is filtered", () => {
+    // The desktop list must not be reordered by the mobile ranking.
+    expect(
+      visibleWalletNames({
+        names: ["WalletConnect", "Phantom", "Mobile Wallet Adapter"],
+        hasWalletLinks: false,
+        hasMobileWalletAdapter: true,
+      }),
+    ).toEqual(["WalletConnect", "Phantom", "Mobile Wallet Adapter"]);
+  });
+});
+
+describe("isSolanaMobileWebShell", () => {
+  // Measured on a Galaxy S24 FE running Android 16: the shell appends its
+  // marker, and `registerMwa` refuses to register inside a WebView without it.
+  const ANDROID_WEBVIEW =
+    "Mozilla/5.0 (Linux; Android 16; SM-S721B Build/BP4A.251205.006; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/155.0.8059.43 Mobile Safari/537.36";
+
+  it("recognises the marker the shell appends", () => {
+    expect(
+      isSolanaMobileWebShell(`${ANDROID_WEBVIEW} Solana Mobile Web Shell`),
+    ).toBe(true);
+  });
+
+  it("does not claim a plain Android WebView", () => {
+    // A `; wv)` token alone says nothing about MWA support, and guessing from it
+    // was how the picker came to treat an app shell as a wallet's own browser.
+    expect(isSolanaMobileWebShell(ANDROID_WEBVIEW)).toBe(false);
+  });
+
+  it("does not match a browser", () => {
+    expect(
+      isSolanaMobileWebShell(
+        "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Mobile Safari/537.36",
+      ),
+    ).toBe(false);
   });
 });

@@ -26,6 +26,7 @@ import {
   diagnoseConnectFailure,
   isMobileUserAgent,
   looksLikeWalletInAppBrowser,
+  visibleWalletNames,
   walletBrowseLink,
   type ConnectFailure,
 } from "@/lib/solana/wallet-diagnostics";
@@ -239,42 +240,35 @@ function WalletPickerDialog({ onClose }: { onClose: () => void }) {
   );
 
   /**
-   * WalletConnect first — but only where it is the only thing that can work.
+   * Which rows to list, and in what order.
    *
-   * `walletLinks` is set exactly when this is a phone that is not already inside
-   * a wallet's own browser: no extension is injected, and the Mobile Wallet
-   * Adapter completes with some wallets and not others — Phantom opens and never
-   * starts the local socket the protocol needs. There, the WalletConnect row is
-   * the one that can connect the wallet the user already has, so it should not sit
-   * fifth behind rows that cannot work at all. Everywhere else the adapters keep
-   * the order they registered in.
+   * The rule lives in `visibleWalletNames` so it can be tested without a
+   * browser. It used to reduce a phone to WalletConnect alone, on the finding
+   * that Phantom opens and never starts the local socket the protocol needs.
+   * That was the browser permission rather than the protocol: Local Network
+   * Access made `ws://localhost` require consent, and the library this app ships
+   * (v0.7.0) asks for it before connecting. So a registered Mobile Wallet
+   * Adapter is now kept, and placed above WalletConnect — it is the only route
+   * that finishes without leaving this page.
    *
-   * `sort` is stable, so the remaining rows hold their place.
-   *
-   * The same condition decides what is *listed*, and there it is all-or-nothing:
-   * on a phone outside a wallet's own browser, WalletConnect is the list. Every
-   * other entry is an extension adapter or the Mobile Wallet Adapter, neither of
-   * which can complete from a plain mobile browser — and one of them reporting
-   * "Detected — try connecting" is worse than useless, because it reads as a
-   * promise and then dead-ends. Reported exactly that way, on Solflare.
-   *
-   * So the panel above is the whole story on a phone: open this page inside the
-   * wallet, or reach it over WalletConnect.
+   * Extension rows are still dropped on a phone: they can only ever say
+   * "Install" about an app the visitor may already have, which is the complaint
+   * the browse panel above exists to answer.
    */
   const orderedWallets = useMemo(() => {
-    const visible = walletLinks
-      ? wallets.filter(
-          (entry) => entry.adapter.name === WALLET_CONNECT_ADAPTER_NAME,
-        )
-      : wallets;
-
-    if (!walletLinks) return visible;
-    const rank = (name: string) =>
-      name === WALLET_CONNECT_ADAPTER_NAME ? 0 : 1;
-    return [...visible].sort(
-      (a, b) => rank(a.adapter.name) - rank(b.adapter.name),
+    const byName = new Map<string, (typeof wallets)[number]>(
+      wallets.map((entry) => [String(entry.adapter.name), entry] as const),
     );
-  }, [wallets, walletLinks]);
+
+    return visibleWalletNames({
+      names: wallets.map((entry) => String(entry.adapter.name)),
+      hasWalletLinks: Boolean(walletLinks),
+      hasMobileWalletAdapter,
+    }).flatMap((name) => {
+      const entry = byName.get(name);
+      return entry ? [entry] : [];
+    });
+  }, [wallets, walletLinks, hasMobileWalletAdapter]);
 
   /**
    * Jupiter, for the "Open in" panel — and the one button there that is not a
@@ -487,18 +481,14 @@ return (
             `ERR_CONNECTION_REFUSED` on `ws://localhost:<port>/solana-wallet`).
             Hiding the fallback behind "this works" would leave Phantom users with a
             row that dead-ends. */}
-        {hasMobileWalletAdapter && !walletLinks ? (
+        {hasMobileWalletAdapter ? (
           <p className="mt-3 rounded-xl border border-success/25 bg-success/8 p-3 text-[11px] leading-relaxed text-muted">
             <strong className="font-medium text-foreground">
               Tap “Mobile Wallet Adapter” below
             </strong>{" "}
-            if your wallet supports it — it opens the app you already have and asks
-            you to approve there. Jupiter Mobile completes that handshake;{" "}
-            <strong className="font-medium text-foreground">Phantom does not</strong>{" "}
-            — it opens and can never finish the request from a normal browser, so
-            use{" "}
-            <strong className="font-medium text-foreground">Open in Phantom</strong>{" "}
-            below instead, which runs this whole page inside Phantom.
+            — it opens the wallet you already have and asks you to approve there,
+            without leaving this page. If that handshake does not complete, the
+            links underneath open the whole page inside your wallet instead.
           </p>
         ) : null}
 
@@ -514,9 +504,9 @@ return (
               Open this page inside your wallet
             </p>
             <p className="mt-1 text-[11px] leading-relaxed text-muted">
-              The one route that works from a phone browser for every wallet,
-              Phantom included. It runs this whole page inside the wallet, so
-              there is nothing to connect afterwards.
+              {hasMobileWalletAdapter
+                ? "If that handshake does not complete, these open the whole page inside the wallet instead — the same provider a desktop extension would give it."
+                : "The one route that works from a phone browser for every wallet, Phantom included. It runs this whole page inside the wallet, so there is nothing to connect afterwards."}
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
               {Object.entries(walletLinks).map(([name, href]) => (

@@ -74,6 +74,67 @@ export function isAndroidUserAgent(userAgent: string): boolean {
 }
 
 /**
+ * Which rows the picker should render.
+ *
+ * On a phone outside a wallet's own browser no extension is injected, so every
+ * extension adapter reports `NotDetected` and its row can do nothing but offer
+ * an Install link for an app the user already has. There the panel of browse
+ * links is the answer, and the list underneath is reduced to the routes that can
+ * actually finish: WalletConnect, plus the Mobile Wallet Adapter when it
+ * registered.
+ *
+ * That last clause is the fix for a real report. The rule used to be "on a
+ * phone, WalletConnect only", written when a phone browser could not complete an
+ * MWA handshake — Phantom opened and never started the local socket. That was
+ * the *permission*, not the protocol: browsers began requiring Local Network
+ * Access for `ws://localhost`, and `@solana-mobile/wallet-standard-mobile` fixed
+ * it in v0.5.0 by asking for the permission first. This app ships v0.7.0, so
+ * withholding the row withheld the one connection that stays on this page.
+ *
+ * Ordering is part of the answer, not decoration: the native route first, then
+ * WalletConnect. A handshake that never leaves the page should be the first
+ * thing read, and the route that sends the user into another app the second.
+ */
+export function visibleWalletNames(input: {
+  /** Every adapter name `useWallet().wallets` reports, in registration order. */
+  names: readonly string[];
+  /** True when the "open this page inside your wallet" panel is being shown. */
+  hasWalletLinks: boolean;
+  /** True when a Mobile Wallet Adapter adapter registered and is usable. */
+  hasMobileWalletAdapter: boolean;
+}): string[] {
+  const { names, hasWalletLinks, hasMobileWalletAdapter } = input;
+
+  if (!hasWalletLinks) return [...names];
+
+  const mobile = (name: string): boolean =>
+    name === WALLET_CONNECT_ADAPTER_NAME ||
+    (hasMobileWalletAdapter && name === MOBILE_WALLET_ADAPTER_NAME);
+
+  return names
+    .filter(mobile)
+    .sort(
+      (a, b) =>
+        Number(b === MOBILE_WALLET_ADAPTER_NAME) -
+        Number(a === MOBILE_WALLET_ADAPTER_NAME),
+    );
+}
+
+/**
+ * Is this the Solana Mobile WebView shell?
+ *
+ * Kept for the wrapper this app no longer ships, and for anyone who wraps it
+ * again: the shell appends this exact marker to the user agent, and
+ * `@solana-mobile/wallet-standard-mobile` looks for it before registering the
+ * Mobile Wallet Adapter inside a WebView — a generic WebView gets no wallet at
+ * all. It is also not a wallet's browser, which `looksLikeWalletInAppBrowser`
+ * would otherwise claim from the `; wv)` token.
+ */
+export function isSolanaMobileWebShell(userAgent: string): boolean {
+  return userAgent.includes("Solana Mobile Web Shell");
+}
+
+/**
  * The name the Mobile Wallet Adapter adapter reports.
  *
  * Here rather than in `app/providers.tsx` because the wallet picker needs it too,
