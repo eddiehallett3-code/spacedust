@@ -109,7 +109,7 @@ decoration.
 | Where | Entry point | What it wants | Status |
 |---|---|---|---|
 | Solana ecosystem directory | <https://solana.com/ecosystem> | Name, website, description, category, logo, socials | **No public submission route found** — see below |
-| DappRadar | <https://dappradar.com/submit> | dApp name, URL, chain, category, description, 512 logo. Free | **Unreachable from this machine** (403 on every path) and contract-oriented — see below |
+| DappRadar | <https://dappradar.com/**submit-a-project**> | Client-rendered form; expect name, website, chain, category, description, logo | Not submitted |
 | AlternativeTo | <https://alternativeto.net> → "Add app" | Listed as an **alternative to Sol Incinerator**; licence, platforms, description, icon | Not submitted — 403 to curl, open in a browser |
 | Reown / WalletConnect Explorer | <https://cloud.reown.com> — the project already exists, since `REOWN_PROJECT_ID` is set | Name, description, logo, chains | Not submitted |
 
@@ -210,19 +210,27 @@ So the route is a person, not a form. One email asking whether a submission rout
 exists beats any amount of clicking: a curated directory answers a direct
 question and ignores a request to be added.
 
-### DappRadar is built for contracts
+### DappRadar: the form is at `/submit-a-project`
 
-Every path on `dappradar.com` returns 403 to this machine — `/submit`,
-`/submit-dapp`, `/faq`, the sitemap — and `help.dappradar.com` does not resolve, so
-a submission route could not be confirmed at all. Only `robots.txt` answers.
+Worth writing down, because the obvious guesses are all wrong: `/submit` and
+`/submit-dapp` are 404s, there is no submit link in the navigation or the footer,
+and every page on that site answers 403 to a plain HTTP client. The path is in
+their page sitemap — `https://dappradar.com/submit-a-project` — and the form is
+client-rendered, so its fields appear only in a browser.
 
-Deeper than the access problem: their ranking is built on a dApp's own on-chain
-contract and the volume through it. Spacedust has no contract of its own; it
-composes existing programs. A wallet utility with no TVL and no contract address
-does not fit the shape of the index, so even a successful submission has nowhere
-to rank.
+Two things learned while finding it, both of which correct an earlier assumption
+in this document:
 
-Leave it, unless someone has a browser session where the form actually loads.
+- **Tools are indexed.** Their category list includes `non-dapps-wallets`,
+  `non-dapps-security` and `non-dapps-analytics`, and a listing lives at
+  `/dapp/<slug>`. A wallet utility without its own contract does have somewhere to
+  go; the "built for contracts" worry was wrong.
+- **Many entries are discovered, not submitted.** Their homepage advertises
+  "Newly Added — fresh listings across the ecosystem, discovered by the radar", so
+  a missing listing is not proof nobody applied.
+
+Expected category for Spacedust: a `non-dapps-*` category, wallets or services —
+whichever the form offers closest to a wallet tool.
 
 ## Platform support
 
