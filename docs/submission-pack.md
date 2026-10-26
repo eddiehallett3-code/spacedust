@@ -132,6 +132,20 @@ Skipping the relation entirely is a legitimate choice: the `solana` and
 `cryptocurrency` tags still place Spacedust in browsable lists, and `/compare`
 does the head-to-head job better than a directory row can.
 
+If a relation is wanted, search terms rather than names — the catalogue is
+user-built, so a candidate has to be found before it can be attached:
+
+- Same job: `incinerator`, `wallet cleaner`, `dust`, `burn tokens`, `sweep`,
+  `solana tools`
+- Batch sending (Payload): `multisender`, `bulk send`, `disperse`, `cointool`
+- Swapping (Slingshot): `jupiter`, `swap aggregator`
+
+Do **not** attach to wallets — Phantom, Solflare, Trust Wallet, Exodus. They are
+different jobs, they exist, and "alternative to Trust Wallet" reads as spam to
+moderators and searchers alike. Two accurate relations beat eight plausible ones;
+relations are not fixed at submission, so one can be added whenever a counterpart
+appears.
+
 ## Field-by-field answers
 
 Most forms ask a version of these, and having them settled is what makes the
