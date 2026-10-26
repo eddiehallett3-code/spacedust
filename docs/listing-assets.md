@@ -108,10 +108,10 @@ the app no longer has is worse than one with fewer screenshots.
 
 > **Spacedust** — https://spacedust.cc
 > Non-custodial Solana wallet tools: batch-swap dust in as few transactions as
-> the 1232-byte limit allows, send or burn what has no market left, reclaim
-> rent from empty accounts, revoke stale approvals, and scan any address
-> read-only. 1.5% of reclaimed rent; swaps are free. No key ever leaves the
-> user's wallet.
+> the 1232-byte limit allows, send or burn what has no market left, batch-send a
+> wallet's contents to one address, reclaim rent from empty accounts, revoke
+> stale approvals, and scan any address read-only. 1.5% of the rent returned;
+> swaps are free. No key ever leaves the user's wallet.
 
 The copy above is the short version of what [submission-pack.md](submission-pack.md)
 holds — the same description at four lengths, plus the field-by-field answers and

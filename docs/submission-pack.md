@@ -19,27 +19,30 @@ prompt is describing a second product.
 
 **One line** (fits a 100-character field):
 
-> Non-custodial Solana wallet tools: batch swap dust, reclaim rent, revoke
+> Non-custodial Solana wallet tools: batch swap and send, reclaim rent, revoke
 > approvals.
 
-**Short** (~45 words):
+**Short** (~55 words):
 
 > Spacedust cleans up a Solana wallet. It swaps leftover tokens into SOL or USDC
 > in as few transactions as the 1,232-byte limit allows, sends or burns what has
-> no market, closes empty accounts to reclaim their rent, revokes stale
-> approvals, and scans any address read-only before you connect anything.
+> no market, batch-sends to one address, closes empty accounts to reclaim their
+> rent, revokes stale approvals, and scans any address read-only before you
+> connect anything.
 
-**Standard** (~100 words):
+**Standard** (~110 words):
 
 > Spacedust is a non-custodial toolkit for maintaining a Solana wallet. Slingshot
 > batch-swaps leftover tokens through Jupiter, packing as many as the 1,232-byte
 > transaction limit allows. The Void sends or burns tokens, NFTs and cNFTs that
-> have no market left. Salvage closes empty SPL and Token-2022 accounts to
-> reclaim their rent, refunds surplus rent, and unwraps wSOL. Approvals lists
-> every delegation on the wallet so it can be revoked. Wallet Scan looks up any
-> address read-only, with no wallet connection at all. Every transaction is
-> simulated and its instructions audited before your wallet is asked to sign.
-> 1.5% of the rent recovered; swaps are free. No key ever leaves your wallet.
+> have no market left. Payload batch-sends SOL, tokens, NFTs and cNFTs to one
+> address, checking the destination before anything moves. Salvage closes empty
+> SPL and Token-2022 accounts to reclaim their rent, refunds surplus rent, and
+> unwraps wSOL. Approvals lists every delegation on the wallet so it can be
+> revoked. Wallet Scan looks up any address read-only, with no wallet connection
+> at all. Every transaction is simulated and its instructions audited before your
+> wallet is asked to sign. 1.5% of the rent recovered; swaps are free. No key ever
+> leaves your wallet.
 
 **Long** (~200 words) — for a directory with a description field that scrolls:
 
@@ -51,15 +54,19 @@ prompt is describing a second product.
 > Slingshot batch-swaps leftovers into SOL, USDC or JUP, packing as many swaps
 > into a transaction as the 1,232-byte limit allows — so a wallet with forty dusty
 > tokens takes a handful of approvals, not forty. The Void sends or burns tokens,
-> NFTs and cNFTs that have no market left, and returns the rent. Salvage closes
-> empty SPL and Token-2022 accounts, refunds the surplus rent those accounts hold,
-> and unwraps wSOL. Approvals shows every delegation on the wallet so you can
-> revoke it. Wallet Scan reads any address without a connection.
+> NFTs and cNFTs that have no market left, and returns the rent. Payload
+> batch-sends SOL, tokens, NFTs and cNFTs to one address, checking the destination
+> before anything moves — the tool for moving a position to a new wallet rather
+> than destroying it. Salvage closes empty SPL and Token-2022 accounts, refunds
+> the surplus rent those accounts hold, and unwraps wSOL. Approvals shows every
+> delegation on the wallet so you can revoke it. Wallet Scan reads any address
+> without a connection.
 >
 > Every transaction is dry-run against the cluster, and its instructions are
 > checked against the plan before your wallet opens, so the only thing you are
 > ever asked to sign is something that can only do what you asked. Spacedust never
-> holds your key. It charges 1.5% of the rent it recovers and nothing on swaps.
+> holds your key. It charges 1.5% of the rent it returns — closing an account,
+> refunding surplus, or sending one out — and nothing on swaps.
 
 ## Categories and tags
 
