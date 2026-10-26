@@ -118,6 +118,12 @@ export function Footer() {
             >
               Security
             </Link>
+            <Link
+              href="/compare"
+              className="text-muted transition-colors hover:text-foreground"
+            >
+              Compare
+            </Link>
             {github ? (
               <a
                 href={github}

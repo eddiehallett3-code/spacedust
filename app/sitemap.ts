@@ -20,6 +20,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return [
     { url: `${base}/`, priority: 1 },
     { url: `${base}/how-it-works`, priority: 0.7 },
+    { url: `${base}/compare`, priority: 0.7 },
     { url: `${base}/security`, priority: 0.6 },
     { url: `${base}/privacy`, priority: 0.3 },
     { url: `${base}/terms`, priority: 0.3 },
