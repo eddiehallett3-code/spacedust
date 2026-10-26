@@ -115,7 +115,22 @@ decoration.
 
 AlternativeTo is worth doing first despite looking least like an app store: its
 visitors arrive searching "alternative to Sol Incinerator", which is the most
-qualified traffic any of these can send.
+qualified traffic any of these can send — **but that entry does not exist there.**
+Checked 26 October 2026 against the site's own search, so the relation has to be
+built before it can be used:
+
+1. Search the spelling variants first (`incinerator`, `sol-incinerator`,
+   `solincinerator`) — entries are created by users and are named inconsistently.
+2. If it is genuinely absent, add it: name, `sol-incinerator.com`, Free,
+   Online/Web, tags `solana cryptocurrency`. Write it neutrally and stop there.
+   The comparison belongs on <https://spacedust.cc/compare>, which is dated and
+   sourced; a directory entry written to knock a competitor is removed, and
+   fairly.
+3. Then set "Spacedust is an alternative to Sol Incinerator" on Spacedust's page.
+
+Skipping the relation entirely is a legitimate choice: the `solana` and
+`cryptocurrency` tags still place Spacedust in browsable lists, and `/compare`
+does the head-to-head job better than a directory row can.
 
 ## Field-by-field answers
 
