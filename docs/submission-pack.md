@@ -121,7 +121,14 @@ round quick rather than an afternoon:
   tick MIT or Apache.
 - **Source:** <https://github.com/eddiehallett3-code/spacedust>
 - **Contact:** support@spacedust.cc
-- **Pricing:** 1.5% of the rent recovered; no fee on swaps
+- **Pricing:** select **Free** — no subscription, no sign-up, no upfront cost. The
+  1.5% is taken out of rent the user recovers, not charged for access. Where a
+  free-text price field exists: *Free to use. 1.5% of the rent recovered; no fee
+  on swaps.*
+- **Source code:** select **Source available**, not Open source and not
+  Proprietary. `LICENSE` publishes the code for reading and review while
+  reserving every other right, which is their definition of source available
+  verbatim; "Proprietary" on those forms means the source is *not* published.
 - **Wallets supported:** Phantom, Solflare, Backpack, Jupiter, and anything over
   WalletConnect
 - **Platforms:** Web (any modern browser), Android via a wallet's own browser
