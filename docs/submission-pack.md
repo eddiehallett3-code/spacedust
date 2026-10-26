@@ -81,8 +81,17 @@ among them; this one is 211):
   plus a category; pick *Tools* rather than *DeFi*, which implies a protocol with
   liquidity.
 - **Chain:** Solana
-- **Tags:** `solana`, `wallet-cleaner`, `rent`, `token-2022`, `dust`, `approvals`,
-  `non-custodial`, `defi-tools`
+- **Tags:** `solana`, `cryptocurrency`, `crypto`, `web3`, `blockchain`, `defi`,
+  `wallet`. Secondary, only where a form wants more: `finance`, `crypto-wallet`,
+  `productivity`.
+- **Tags to avoid:** `bitcoin`, `ethereum`, `nft`. Off-chain-topic tags on a Solana
+  tool read as keyword stuffing on a directory whose listings are community-edited,
+  and that is what attracts a removal request rather than traffic.
+
+On AlternativeTo specifically, take tags **from its autocomplete** rather than
+typing them: a new tag containing one app is invisible, while an existing tag is a
+browsable list. The first three above do the discovery work; the rest are
+decoration.
 
 ## Assets
 
