@@ -129,6 +129,16 @@ round quick rather than an afternoon:
   Proprietary. `LICENSE` publishes the code for reading and review while
   reserving every other right, which is their definition of source available
   verbatim; "Proprietary" on those forms means the source is *not* published.
+- **Source URL:** <https://github.com/eddiehallett3-code/spacedust> — verified
+  public and reachable unauthenticated, which is what makes the answer above
+  true. The licence on its own:
+  <https://github.com/eddiehallett3-code/spacedust/blob/main/LICENSE>
+- **License (a separate field, and a different question):** choose
+  **Proprietary**, or **Other / Custom** where offered. A licence list classifies
+  rights, and these rights are all reserved with a viewing permission — no OSI
+  licence is granted. This is not a contradiction of "Source available": that
+  field asks whether the code is published, this one asks what it is licensed
+  under, and the answers are "yes" and "proprietary, with the source readable".
 - **Wallets supported:** Phantom, Solflare, Backpack, Jupiter, and anything over
   WalletConnect
 - **Platforms:** Web (any modern browser), Android via a wallet's own browser
