@@ -108,7 +108,7 @@ decoration.
 
 | Where | Entry point | What it wants | Status |
 |---|---|---|---|
-| Solana ecosystem directory | <https://solana.com/ecosystem> — "Submit your project", usually in the directory's footer | Name, one-liner, category, logo, website, socials | Not submitted |
+| Solana ecosystem directory | <https://solana.com/ecosystem> — the **"Submit app"** button opens an in-page form (not a Typeform; the page ships its own validation and success strings) | Name, website, description, category, logo, socials | Not submitted |
 | DappRadar | <https://dappradar.com/submit> | dApp name, URL, chain, category, description, 512 logo. Free | Not submitted — 403 to curl, open it in a browser |
 | AlternativeTo | <https://alternativeto.net> → "Add app" | Listed as an **alternative to Sol Incinerator**; licence, platforms, description, icon | Not submitted — 403 to curl, open in a browser |
 | Reown / WalletConnect Explorer | <https://cloud.reown.com> — the project already exists, since `REOWN_PROJECT_ID` is set | Name, description, logo, chains | Not submitted |
@@ -264,6 +264,11 @@ emails sit unanswered.
 
 The sitemap is generated from `app/sitemap.ts`, so every tool route is already in
 it and a new tool cannot be forgotten.
+
+Pre-flight, checked on 26 October 2026 so the submission is not wasted:
+`robots.txt` allows everything except `/api/` and names the sitemap; the sitemap
+carries all twelve routes including `/compare`; `/compare` sends an absolute
+canonical. Nothing to fix before submitting.
 
 ## Tracking
 
