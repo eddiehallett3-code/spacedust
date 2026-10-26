@@ -54,7 +54,39 @@ const SHOTS = [
   { file: "screenshot-4-slingshot.jpg", url: "/slingshot", clip: PHONE },
   { file: "screenshot-5-security.jpg", url: "/security", clip: PHONE },
   { file: "screenshot-6-how-it-works.jpg", url: "/how-it-works", clip: PHONE },
+  {
+    file: "screenshot-7-payload.jpg",
+    url: "/payload",
+    clip: PHONE,
+    why: "batch send, before anything is chosen",
+  },
+  {
+    file: "screenshot-8-void.jpg",
+    url: "/void",
+    clip: PHONE,
+    why: "the send-or-burn choice, before anything is chosen",
+  },
 ];
+
+/**
+ * Capture a subset, for adding a shot without refilming the set.
+ *
+ * `ONLY=payload,void node scripts/capture-store-shots.mjs` matches on filename,
+ * so the images already published keep the exact bytes they had. A full run
+ * rewrites all of them, which is right when the design changes and wrong when
+ * one tool is simply missing.
+ */
+const ONLY = (process.env.ONLY ?? "")
+  .split(",")
+  .map((token) => token.trim().toLowerCase())
+  .filter(Boolean);
+
+const selectedShots =
+  ONLY.length === 0
+    ? SHOTS
+    : SHOTS.filter((shot) =>
+        ONLY.some((token) => shot.file.toLowerCase().includes(token)),
+      );
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -213,7 +245,7 @@ async function main() {
 
   try {
     await withPage(port, async ({ send, problems }) => {
-      for (const shot of SHOTS) {
+      for (const shot of selectedShots) {
         const started = Date.now();
         await send("Page.navigate", { url: `${BASE}${shot.url}` });
         await settle(send, { needsSaucer: shot.url === "/" });

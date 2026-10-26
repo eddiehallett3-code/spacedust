@@ -14,6 +14,8 @@ attachment.
 | [`screenshot-4-slingshot.jpg`](https://spacedust.cc/press/screenshot-4-slingshot.jpg) | 1080×1920 | JPEG | Batch swap |
 | [`screenshot-5-security.jpg`](https://spacedust.cc/press/screenshot-5-security.jpg) | 1080×1920 | JPEG | Security posture |
 | [`screenshot-6-how-it-works.jpg`](https://spacedust.cc/press/screenshot-6-how-it-works.jpg) | 1080×1920 | JPEG | How it works |
+| [`screenshot-7-payload.jpg`](https://spacedust.cc/press/screenshot-7-payload.jpg) | 1080×1920 | JPEG | Batch send to one address |
+| [`screenshot-8-void.jpg`](https://spacedust.cc/press/screenshot-8-void.jpg) | 1080×1920 | JPEG | Sending or burning what has no market |
 
 Icon: https://spacedust.cc/dapp-icon-v6-512.png (512×512, opaque, truecolour).
 
@@ -83,10 +85,17 @@ were refused by wallets for exactly those reasons.
 # screenshots: fresh captures from production, straight into public/press/
 node scripts/capture-store-shots.mjs
 
+# add or redo one tool without refilming the set (matches on filename)
+ONLY=payload,void node scripts/capture-store-shots.mjs
+
 # point it somewhere else (a preview build), or at another Chrome
 node scripts/capture-store-shots.mjs http://localhost:3000
 CHROME_PATH=/path/to/chrome node scripts/capture-store-shots.mjs
 ```
+
+A full run rewrites every file, so it is the wrong tool for adding one shot: the
+images already published to wallets keep the bytes they were sent with unless you
+ask for them by name.
 
 The script reports the page's own console errors next to each file. Treat any
 line starting `!` as a failed capture and investigate before publishing it —
