@@ -101,7 +101,7 @@ decoration.
 | Banner 1200×600 | <https://spacedust.cc/press/banner-1200x600.png> — 143,568 B |
 | Screenshot — landing | <https://spacedust.cc/press/screenshot-1-landing.jpg> — 187,766 B |
 | Screenshot — read-only scan | <https://spacedust.cc/press/screenshot-2-scan.jpg> — 126,349 B |
-| Screenshots 3–8 | see [listing-assets.md](listing-assets.md) |
+| Screenshots 3–9 | see [listing-assets.md](listing-assets.md) |
 
 
 ## Where to submit

@@ -16,6 +16,7 @@ attachment.
 | [`screenshot-6-how-it-works.jpg`](https://spacedust.cc/press/screenshot-6-how-it-works.jpg) | 1080×1920 | JPEG | How it works |
 | [`screenshot-7-payload.jpg`](https://spacedust.cc/press/screenshot-7-payload.jpg) | 1080×1920 | JPEG | Batch send to one address |
 | [`screenshot-8-void.jpg`](https://spacedust.cc/press/screenshot-8-void.jpg) | 1080×1920 | JPEG | Sending or burning what has no market |
+| [`screenshot-9-approvals.jpg`](https://spacedust.cc/press/screenshot-9-approvals.jpg) | 1080×1920 | JPEG | Token approvals and what can be revoked |
 
 Icon: https://spacedust.cc/dapp-icon-v6-512.png (512×512, opaque, truecolour).
 

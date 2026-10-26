@@ -66,6 +66,12 @@ const SHOTS = [
     clip: PHONE,
     why: "the send-or-burn choice, before anything is chosen",
   },
+  {
+    file: "screenshot-9-approvals.jpg",
+    url: "/approvals",
+    clip: PHONE,
+    why: "every delegation on the wallet, before connecting",
+  },
 ];
 
 /**
