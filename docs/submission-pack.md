@@ -109,7 +109,7 @@ decoration.
 | Where | Entry point | What it wants | Status |
 |---|---|---|---|
 | Solana ecosystem directory | <https://solana.com/ecosystem> | Name, website, description, category, logo, socials | **No public submission route found** — see below |
-| DappRadar | <https://dappradar.com/submit> | dApp name, URL, chain, category, description, 512 logo. Free | Not submitted — 403 to curl, open it in a browser |
+| DappRadar | <https://dappradar.com/submit> | dApp name, URL, chain, category, description, 512 logo. Free | **Unreachable from this machine** (403 on every path) and contract-oriented — see below |
 | AlternativeTo | <https://alternativeto.net> → "Add app" | Listed as an **alternative to Sol Incinerator**; licence, platforms, description, icon | Not submitted — 403 to curl, open in a browser |
 | Reown / WalletConnect Explorer | <https://cloud.reown.com> — the project already exists, since `REOWN_PROJECT_ID` is set | Name, description, logo, chains | Not submitted |
 
@@ -209,6 +209,20 @@ for *"your application"* — a programme application, not a directory listing.
 So the route is a person, not a form. One email asking whether a submission route
 exists beats any amount of clicking: a curated directory answers a direct
 question and ignores a request to be added.
+
+### DappRadar is built for contracts
+
+Every path on `dappradar.com` returns 403 to this machine — `/submit`,
+`/submit-dapp`, `/faq`, the sitemap — and `help.dappradar.com` does not resolve, so
+a submission route could not be confirmed at all. Only `robots.txt` answers.
+
+Deeper than the access problem: their ranking is built on a dApp's own on-chain
+contract and the volume through it. Spacedust has no contract of its own; it
+composes existing programs. A wallet utility with no TVL and no contract address
+does not fit the shape of the index, so even a successful submission has nowhere
+to rank.
+
+Leave it, unless someone has a browser session where the form actually loads.
 
 ## Platform support
 
