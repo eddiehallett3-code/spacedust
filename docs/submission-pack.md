@@ -108,7 +108,7 @@ decoration.
 
 | Where | Entry point | What it wants | Status |
 |---|---|---|---|
-| Solana ecosystem directory | <https://solana.com/ecosystem> — the **"Submit app"** button opens an in-page form (not a Typeform; the page ships its own validation and success strings) | Name, website, description, category, logo, socials | Not submitted |
+| Solana ecosystem directory | <https://solana.com/ecosystem> | Name, website, description, category, logo, socials | **No public submission route found** — see below |
 | DappRadar | <https://dappradar.com/submit> | dApp name, URL, chain, category, description, 512 logo. Free | Not submitted — 403 to curl, open it in a browser |
 | AlternativeTo | <https://alternativeto.net> → "Add app" | Listed as an **alternative to Sol Incinerator**; licence, platforms, description, icon | Not submitted — 403 to curl, open in a browser |
 | Reown / WalletConnect Explorer | <https://cloud.reown.com> — the project already exists, since `REOWN_PROJECT_ID` is set | Name, description, logo, chains | Not submitted |
@@ -196,6 +196,19 @@ Three things a listing is tempted to add, none of them true today:
 - **An audit.** The transaction checks are real and documented, but nobody
   external has audited this code, and "audited" in a listing means the other
   thing.
+
+### The Solana ecosystem directory is curated
+
+Checked on 26 October 2026 and left in the table only so nobody repeats the work:
+`/ecosystem/submit` and `/ecosystem/add` return the same page title as
+`/ecosystem`, i.e. client-side fallbacks rather than routes; there are no
+Typeform, Google Forms, Tally or Airtable links in the page; and the submission
+form the payload does contain asks for a *"co-lead name and email"* and thanks you
+for *"your application"* — a programme application, not a directory listing.
+
+So the route is a person, not a form. One email asking whether a submission route
+exists beats any amount of clicking: a curated directory answers a direct
+question and ignores a request to be added.
 
 ## Platform support
 
