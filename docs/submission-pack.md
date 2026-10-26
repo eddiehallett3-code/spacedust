@@ -22,6 +22,13 @@ prompt is describing a second product.
 > Non-custodial Solana wallet tools: batch swap and send, reclaim rent, revoke
 > approvals.
 
+**Short, 260 characters** (the limit on some directory fields — AlternativeTo
+among them; this one is 211):
+
+> Non-custodial Solana wallet cleaner: batch-swap dusty tokens, batch-send or
+> burn the rest, reclaim rent from empty accounts, revoke stale approvals, scan
+> any address read-only. 1.5% of rent returned; swaps free.
+
 **Short** (~55 words):
 
 > Spacedust cleans up a Solana wallet. It swaps leftover tokens into SOL or USDC
