@@ -232,6 +232,19 @@ in this document:
 Expected category for Spacedust: a `non-dapps-*` category, wallets or services —
 whichever the form offers closest to a wallet tool.
 
+**The form itself renders empty.** Checked on 26 October 2026 in a browser and
+through a JavaScript-executing reader, both of which showed the title, navigation
+and footer and nothing between them — so it is not an ad-blocker or a browser
+quirk. Either the form is behind a DappRadar account, or the page is retired and
+listings now arrive some other way. The homepage's "Newly Added — discovered by
+the radar" line points at automatic ingestion.
+
+Routes that do not depend on that page: their Discord
+(<https://discord.gg/dappradar>) to ask how a tool gets indexed, and
+<https://dappradar.com/advertise> for commercial contact. Opening an existing
+listing — Sol Incinerator's, for instance — and looking for a claim or update link
+is the other way in, because it shows the intake the entry actually used.
+
 ## Platform support
 
 A web app, so "which platforms" has two answers: where it runs, and where it has
