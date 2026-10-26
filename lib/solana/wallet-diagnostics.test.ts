@@ -124,55 +124,44 @@ describe("which rows the picker shows", () => {
       visibleWalletNames({
         names: EVERY_ADAPTER,
         hasWalletLinks: false,
-        hasMobileWalletAdapter: false,
       }),
     ).toEqual(EVERY_ADAPTER);
   });
 
-  it("reduces a phone browser to WalletConnect when MWA is not registered", () => {
-    // iOS, where the protocol does not exist: the panel above the list is the
-    // route, and the only row that can finish is WalletConnect.
+  it("reduces a phone browser to WalletConnect", () => {
+    // iOS, where the protocol does not exist, and Android, where the handshake
+    // was tried on a real phone and never answered: the panel above the list is
+    // the route, and WalletConnect is the row that finishes.
     expect(
       visibleWalletNames({
         names: EVERY_ADAPTER,
         hasWalletLinks: true,
-        hasMobileWalletAdapter: false,
       }),
     ).toEqual(["WalletConnect"]);
   });
 
-  it("keeps the Mobile Wallet Adapter on a phone, above WalletConnect", () => {
-    // The bug this replaced: the row was filtered out along with the extensions,
-    // so Android visitors were offered only the route that leaves the page —
-    // even though the registered adapter connects natively, in place.
+  it("does not offer the Mobile Wallet Adapter on a phone, even when it registered", () => {
+    // This is the decision, not an oversight. The row was once kept here on the
+    // strength of the library documentation claiming MWA works in Android
+    // Chrome; on a real device the wallet opened, nothing answered, and the
+    // picker timed out with "No response from Mobile Wallet Adapter". A row that
+    // promises a connection and then dead-ends is worse than no row at all, so
+    // the adapter is filtered out with the extensions. See
+    // `visibleWalletNames` for what evidence would reverse this.
     expect(
       visibleWalletNames({
         names: ["WalletConnect", "Phantom", "Mobile Wallet Adapter"],
         hasWalletLinks: true,
-        hasMobileWalletAdapter: true,
       }),
-    ).toEqual(["Mobile Wallet Adapter", "WalletConnect"]);
-  });
-
-  it("still drops the extension rows on a phone", () => {
-    // They can only say "Install" about an app the visitor may already have,
-    // which is the complaint the browse panel exists to answer.
-    expect(
-      visibleWalletNames({
-        names: ["Phantom", "Backpack", "Mobile Wallet Adapter", "WalletConnect"],
-        hasWalletLinks: true,
-        hasMobileWalletAdapter: true,
-      }),
-    ).toEqual(["Mobile Wallet Adapter", "WalletConnect"]);
+    ).toEqual(["WalletConnect"]);
   });
 
   it("keeps registration order when nothing is filtered", () => {
-    // The desktop list must not be reordered by the mobile ranking.
+    // The desktop list must not be reordered by the mobile rule.
     expect(
       visibleWalletNames({
         names: ["WalletConnect", "Phantom", "Mobile Wallet Adapter"],
         hasWalletLinks: false,
-        hasMobileWalletAdapter: true,
       }),
     ).toEqual(["WalletConnect", "Phantom", "Mobile Wallet Adapter"]);
   });

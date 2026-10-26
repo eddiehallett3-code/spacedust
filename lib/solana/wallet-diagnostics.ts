@@ -79,45 +79,41 @@ export function isAndroidUserAgent(userAgent: string): boolean {
  * On a phone outside a wallet's own browser no extension is injected, so every
  * extension adapter reports `NotDetected` and its row can do nothing but offer
  * an Install link for an app the user already has. There the panel of browse
- * links is the answer, and the list underneath is reduced to the routes that can
- * actually finish: WalletConnect, plus the Mobile Wallet Adapter when it
- * registered.
+ * links is the answer, and the list underneath is reduced to WalletConnect —
+ * the only route that reliably finishes from a plain mobile browser.
  *
- * That last clause is the fix for a real report. The rule used to be "on a
- * phone, WalletConnect only", written when a phone browser could not complete an
- * MWA handshake — Phantom opened and never started the local socket. That was
- * the *permission*, not the protocol: browsers began requiring Local Network
- * Access for `ws://localhost`, and `@solana-mobile/wallet-standard-mobile` fixed
- * it in v0.5.0 by asking for the permission first. This app ships v0.7.0, so
- * withholding the row withheld the one connection that stays on this page.
+ * **The Mobile Wallet Adapter was offered here, and it dead-ended.** This
+ * function used to keep it, above WalletConnect, on the strength of the library
+ * documentation: MWA appears in Android Chrome, and
+ * `@solana-mobile/wallet-standard-mobile` v0.5.0+ asks for the Local Network
+ * Access permission that once broke it. v0.7.0 is what this app ships, so the
+ * reasoning looked settled.
  *
- * Ordering is part of the answer, not decoration: the native route first, then
- * WalletConnect. A handshake that never leaves the page should be the first
- * thing read, and the route that sends the user into another app the second.
+ * On a real phone it was not. The row appeared, the wallet opened, and the
+ * connection sat until the picker's own timeout reported "No response from
+ * Mobile Wallet Adapter". A row that reads as a promise and then times out is
+ * worse than no row: it costs the user the one thing a picker exists to save
+ * them, which is finding out quickly that this is not the way in. So the rule
+ * went back to WalletConnect, and this comment is here to stop it being
+ * "fixed" a third time without a device.
+ *
+ * What would change the verdict: a phone test in which the permission prompt
+ * appears and the handshake completes. Which wallet was tried matters too —
+ * the browser flow is wallet-dependent, and the report that started all this
+ * named Phantom as the one that opens and never answers. Until that exists, the
+ * browse panel is the answer on a phone, and this list is WalletConnect.
  */
 export function visibleWalletNames(input: {
   /** Every adapter name `useWallet().wallets` reports, in registration order. */
   names: readonly string[];
   /** True when the "open this page inside your wallet" panel is being shown. */
   hasWalletLinks: boolean;
-  /** True when a Mobile Wallet Adapter adapter registered and is usable. */
-  hasMobileWalletAdapter: boolean;
 }): string[] {
-  const { names, hasWalletLinks, hasMobileWalletAdapter } = input;
+  const { names, hasWalletLinks } = input;
 
   if (!hasWalletLinks) return [...names];
 
-  const mobile = (name: string): boolean =>
-    name === WALLET_CONNECT_ADAPTER_NAME ||
-    (hasMobileWalletAdapter && name === MOBILE_WALLET_ADAPTER_NAME);
-
-  return names
-    .filter(mobile)
-    .sort(
-      (a, b) =>
-        Number(b === MOBILE_WALLET_ADAPTER_NAME) -
-        Number(a === MOBILE_WALLET_ADAPTER_NAME),
-    );
+  return names.filter((name) => name === WALLET_CONNECT_ADAPTER_NAME);
 }
 
 /**
