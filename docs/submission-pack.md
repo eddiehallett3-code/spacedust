@@ -168,6 +168,33 @@ Three things a listing is tempted to add, none of them true today:
   external has audited this code, and "audited" in a listing means the other
   thing.
 
+## Platform support
+
+A web app, so "which platforms" has two answers: where it runs, and where it has
+been run. Only the second is evidence, and it is one row long.
+
+| Platform | Works | Wallet route | Tested |
+|---|---|---|---|
+| Android phone | Yes — Chrome, Samsung Internet, Brave | Open in Phantom/Solflare/Backpack, or WalletConnect | Galaxy S24 FE, Android 16, Chrome |
+| Android tablet | Yes | Same | No |
+| iPhone | Yes — Safari, and Chrome (WebKit) | In-app browser links, or WalletConnect; no MWA on iOS at all | No |
+| iPad | Yes | Same as iPhone; layout breaks at `sm`/`lg` | No |
+| Windows | Yes — Chrome, Edge, Firefox | Extensions, or WalletConnect | No |
+| macOS | Yes | Extensions, or WalletConnect | Desktop Chrome, plus mobile-viewport emulation |
+| Linux | Yes — Chrome, Firefox | Extensions, or WalletConnect | No |
+| Windows Phone | No | — | Dead platform: no browser there receives security updates |
+
+Conditions that make "works" true anywhere: **HTTPS** (a wallet connection needs
+`crypto.subtle`; localhost is exempt), and a modern engine. The floor is set by
+`color-mix()` — 15 uses in `app/globals.css` — and by `dvh`, which together mean
+**Chrome 111+, Safari 16.2+, Firefox 113+**: anything from early 2023 onwards.
+An older browser gets a partially unstyled page rather than a broken one, but it
+is not supported and has not been tested. WebGL matters only for the saucer: a
+missing renderer drops the model by design rather than breaking the page.
+
+**On a form, select Online / Web-based only.** Not Android and not iOS: there is no
+native app, and those ticks claim a store presence that does not exist.
+
 ## AlternativeTo's feature checkboxes
 
 AlternativeTo suggests a list of features and asks you to tick what applies. Ticked:
