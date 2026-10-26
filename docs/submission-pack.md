@@ -168,6 +168,30 @@ Three things a listing is tempted to add, none of them true today:
   external has audited this code, and "audited" in a listing means the other
   thing.
 
+## AlternativeTo's feature checkboxes
+
+AlternativeTo suggests a list of features and asks you to tick what applies. Ticked:
+**Support for multiple currencies**, **Privacy focused**, **No registration
+required**, **No Tracking**, **Ad-free**, **Dark Mode**.
+
+Left clear, deliberately:
+
+- **Crypto Exchange** — swaps route through Jupiter; this app holds no funds and
+  runs no order book.
+- **Decentralized** — their definition is "no single entity controlling it". The
+  frontend, the server routes and the fee wallet are all one entity's, and
+  *non-custodial* is not the same word as *decentralized*. This is the tick a
+  community editor would reverse.
+- **Currency Conversion** — their version means fiat conversion at exchange rates;
+  a token swap is technically a conversion and practically a different tool.
+- **End-to-End Encryption** — HTTPS is not E2E and there is no second party to
+  encrypt between.
+
+The privacy ticks are supportable because there is no analytics, advertising or
+session-replay SDK in the dependency tree, and `app/privacy/page.tsx` states it —
+including the hosting logs the claim does not cover. A directory claim that can be
+checked against a privacy policy is worth more than one nobody can verify.
+
 ## Search indexing, the same day
 
 Listings are gated; indexing is not. With `/compare` live and aimed at "solana
