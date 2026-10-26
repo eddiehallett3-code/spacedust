@@ -1,0 +1,160 @@
+# Submission pack
+
+Everything a directory asks for, in one place, so the product is described the
+same way in every listing. The same rule as the dApp metadata in
+`lib/config/site.ts`: one spelling of the description rather than a fresh
+paragraph per form, because a directory that describes Spacedust differently from
+the wallet handshake is describing a second product.
+
+Absolute links throughout, since most forms fetch the image rather than accept an
+upload. Every URL below was checked on **26 October 2026** and returned HTTP 200.
+
+Two of these sentences are load-bearing and appear elsewhere in the codebase: the
+one-liner is the shape of `DAPP_DESCRIPTION` in `lib/config/site.ts`, which the
+wallet handshake and the manifest both use. If that constant changes, change this
+page with it — a listing that describes the product differently from the wallet
+prompt is describing a second product.
+
+## The copy, in four lengths
+
+**One line** (fits a 100-character field):
+
+> Non-custodial Solana wallet tools: batch swap dust, reclaim rent, revoke
+> approvals.
+
+**Short** (~45 words):
+
+> Spacedust cleans up a Solana wallet. It swaps leftover tokens into SOL or USDC
+> in as few transactions as the 1,232-byte limit allows, sends or burns what has
+> no market, closes empty accounts to reclaim their rent, revokes stale
+> approvals, and scans any address read-only before you connect anything.
+
+**Standard** (~100 words):
+
+> Spacedust is a non-custodial toolkit for maintaining a Solana wallet. Slingshot
+> batch-swaps leftover tokens through Jupiter, packing as many as the 1,232-byte
+> transaction limit allows. The Void sends or burns tokens, NFTs and cNFTs that
+> have no market left. Salvage closes empty SPL and Token-2022 accounts to
+> reclaim their rent, refunds surplus rent, and unwraps wSOL. Approvals lists
+> every delegation on the wallet so it can be revoked. Wallet Scan looks up any
+> address read-only, with no wallet connection at all. Every transaction is
+> simulated and its instructions audited before your wallet is asked to sign.
+> 1.5% of the rent recovered; swaps are free. No key ever leaves your wallet.
+
+**Long** (~200 words) — for a directory with a description field that scrolls:
+
+> Spacedust is a set of non-custodial tools for keeping a Solana wallet in order.
+> Dust accumulates: a few thousand tokens worth almost nothing, empty token
+> accounts still holding their rent deposit, approvals granted years ago to
+> programs nobody remembers. Spacedust deals with all three.
+>
+> Slingshot batch-swaps leftovers into SOL, USDC or JUP, packing as many swaps
+> into a transaction as the 1,232-byte limit allows — so a wallet with forty dusty
+> tokens takes a handful of approvals, not forty. The Void sends or burns tokens,
+> NFTs and cNFTs that have no market left, and returns the rent. Salvage closes
+> empty SPL and Token-2022 accounts, refunds the surplus rent those accounts hold,
+> and unwraps wSOL. Approvals shows every delegation on the wallet so you can
+> revoke it. Wallet Scan reads any address without a connection.
+>
+> Every transaction is dry-run against the cluster, and its instructions are
+> checked against the plan before your wallet opens, so the only thing you are
+> ever asked to sign is something that can only do what you asked. Spacedust never
+> holds your key. It charges 1.5% of the rent it recovers and nothing on swaps.
+
+## Categories and tags
+
+- **Category:** Wallet tools / Utilities. DappRadar and its like index a chain
+  plus a category; pick *Tools* rather than *DeFi*, which implies a protocol with
+  liquidity.
+- **Chain:** Solana
+- **Tags:** `solana`, `wallet-cleaner`, `rent`, `token-2022`, `dust`, `approvals`,
+  `non-custodial`, `defi-tools`
+
+## Assets
+
+| Use | URL |
+|---|---|
+| Icon 512 (opaque) | <https://spacedust.cc/dapp-icon-v6-512.png> — 80,495 B |
+| Banner 1200×600 | <https://spacedust.cc/press/banner-1200x600.png> — 143,568 B |
+| Screenshot — landing | <https://spacedust.cc/press/screenshot-1-landing.jpg> — 187,766 B |
+| Screenshot — read-only scan | <https://spacedust.cc/press/screenshot-2-scan.jpg> — 126,349 B |
+| Screenshots 3–6 | see [listing-assets.md](listing-assets.md) |
+
+
+## Where to submit
+
+| Where | Entry point | What it wants | Status |
+|---|---|---|---|
+| Solana ecosystem directory | <https://solana.com/ecosystem> — "Submit your project", usually in the directory's footer | Name, one-liner, category, logo, website, socials | Not submitted |
+| DappRadar | <https://dappradar.com/submit> | dApp name, URL, chain, category, description, 512 logo. Free | Not submitted — 403 to curl, open it in a browser |
+| AlternativeTo | <https://alternativeto.net> → "Add app" | Listed as an **alternative to Sol Incinerator**; licence, platforms, description, icon | Not submitted — 403 to curl, open in a browser |
+| Reown / WalletConnect Explorer | <https://cloud.reown.com> — the project already exists, since `REOWN_PROJECT_ID` is set | Name, description, logo, chains | Not submitted |
+
+AlternativeTo is worth doing first despite looking least like an app store: its
+visitors arrive searching "alternative to Sol Incinerator", which is the most
+qualified traffic any of these can send.
+
+## Field-by-field answers
+
+Most forms ask a version of these, and having them settled is what makes the
+round quick rather than an afternoon:
+
+- **Name:** Spacedust
+- **Website:** <https://spacedust.cc>
+- **Chain:** Solana
+- **Licence:** source is public for reading and review, **all rights reserved** —
+  not open source. Say "source available" if a form offers the choice; do not
+  tick MIT or Apache.
+- **Source:** <https://github.com/eddiehallett3-code/spacedust>
+- **Contact:** support@spacedust.cc
+- **Pricing:** 1.5% of the rent recovered; no fee on swaps
+- **Wallets supported:** Phantom, Solflare, Backpack, Jupiter, and anything over
+  WalletConnect
+- **Platforms:** Web (any modern browser), Android via a wallet's own browser
+
+## What not to claim
+
+Three things a listing is tempted to add, none of them true today:
+
+- **Open source.** The repository is public so the code can be read and reviewed,
+  and `LICENSE` reserves every other right. "Source available" is accurate;
+  "open source" is not, and a directory that repeats it becomes a claim nobody
+  can stand behind.
+- **Mobile Wallet Adapter on phones.** The row was shipped and reverted: on a real
+  Android phone the handshake timed out. See
+  [mobile-web-wallets.md](mobile-web-wallets.md).
+- **An app-store listing.** No APK, so no dApp Store or Play presence.
+- **An audit.** The transaction checks are real and documented, but nobody
+  external has audited this code, and "audited" in a listing means the other
+  thing.
+
+## Search indexing, the same day
+
+Listings are gated; indexing is not. With `/compare` live and aimed at "solana
+wallet cleaner comparison", this is the channel that compounds while the wallet
+emails sit unanswered.
+
+1. **Google Search Console** — add `spacedust.cc` as a *Domain* property, verify
+   with the DNS TXT record it gives you, then submit
+   <https://spacedust.cc/sitemap.xml>.
+2. **Bing Webmaster Tools** — "Import from Search Console", which copies the
+   verification and the sitemap in one step.
+3. **Request indexing** for `/compare`, `/scan` and each tool page once the
+   sitemap is accepted. A new page on a new domain otherwise takes days to weeks.
+
+The sitemap is generated from `app/sitemap.ts`, so every tool route is already in
+it and a new tool cannot be forgotten.
+
+## Tracking
+
+Fill this in as each goes out, so the follow-up dates are not a memory test.
+
+| Where | Submitted | Outcome | Follow-up due |
+|---|---|---|---|
+| AlternativeTo | | | |
+| Solana ecosystem directory | | | |
+| DappRadar | | | |
+| Reown / WalletConnect Explorer | | | |
+| Search Console | | | — |
+| Bing Webmaster | | | — |
+

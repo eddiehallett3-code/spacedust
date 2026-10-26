@@ -112,3 +112,7 @@ the app no longer has is worse than one with fewer screenshots.
 > rent from empty accounts, revoke stale approvals, and scan any address
 > read-only. 1.5% of reclaimed rent; swaps are free. No key ever leaves the
 > user's wallet.
+
+The copy above is the short version of what [submission-pack.md](submission-pack.md)
+holds — the same description at four lengths, plus the field-by-field answers and
+the list of directories to send it to.
