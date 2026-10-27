@@ -295,6 +295,19 @@ swap routing already goes through Jupiter's API. Nothing to apply for.
 **Backpack — xNFTs.** Unlike the others, Backpack runs apps natively as xNFTs
 rather than cataloguing websites, so a plain web app has no entry there.
 
+## Wallet outreach status
+
+| Wallet | State | Next |
+|---|---|---|
+| Phantom | Portal submissions **paused** per their docs | Re-check in a few months; nothing else possible |
+| Solflare | DM sent on X, 26 Oct 2026 | If no reply in 3–5 days, use <https://www.solflare.com/contact/> (a ticket with an owner) and/or their Discord |
+| Jupiter | Strict List is tokens only | Nothing to apply for |
+| Backpack | xNFTs, not web apps | Nothing; never applicable |
+
+The ask, when a channel opens, is a question rather than a request: *who curates
+the featured apps in the in-app browser, and what is the route in?* A named person
+and a process is answerable; "please list us" is not.
+
 The pattern is consistent with the web directories: the surfaces that accept
 submissions are few, and the ones that matter are curated or paused. That makes
 search the only channel without a gatekeeper, which is where this document puts
