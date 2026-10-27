@@ -124,12 +124,14 @@ export default function SecurityPage() {
         </p>
         <p>
           The only things kept in your browser are a few preferences and a log,
-          all in <code>localStorage</code>: your dust threshold, the output asset
-          you chose, the smart-filter toggle, your past-sweep history, the
-          site-wide tally those sweeps add to, the assets you have hidden, the
-          addresses of lookup tables whose rent is still waiting to be reclaimed,
-          whether that rent should be reclaimed automatically, and whether the
-          interface is in Basic or Pro mode. None of it leaves the device.
+          in <code>localStorage</code>: your dust threshold, the output asset you
+          chose, the smart-filter toggle, your past-sweep history, the site-wide
+          tally those sweeps add to, the assets you have hidden, the addresses of
+          lookup tables whose rent is still waiting to be reclaimed, and whether
+          that rent should be reclaimed automatically. The one exception is the
+          interface mode, Basic or Pro, which lives in <code>sessionStorage</code>
+          and is deliberately forgotten when you leave so the destructive tools
+          are never waiting for you by default. None of it leaves the device.
         </p>
 
         {/* The claim above, made actionable. A reader who wants to check that this

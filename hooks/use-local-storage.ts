@@ -19,14 +19,37 @@ export function useLocalStorage<T>(
   key: string,
   fallback: T,
   validate?: (value: unknown) => value is T,
+  options?: {
+    /**
+     * `session` for a preference that should not outlive a visit.
+     *
+     * localStorage is the right default: a choice a user made deliberately
+     * should still be there tomorrow. Some preferences are the opposite — an
+     * interface depth, a temporary filter — and remembering those past the visit
+     * that set them is a bug rather than a convenience.
+     */
+    storage?: "local" | "session";
+  },
 ): [T, (value: T | ((previous: T) => T)) => void] {
   const [value, setValue] = useState<T>(fallback);
   const hydrated = useRef(false);
+  const area = options?.storage ?? "local";
+
+  /** Storage access can throw outright in private modes, so it is never assumed. */
+  const storage = useCallback((): Storage | null => {
+    try {
+      return area === "session"
+        ? window.sessionStorage
+        : window.localStorage;
+    } catch {
+      return null;
+    }
+  }, [area]);
 
   useEffect(() => {
     try {
-      const raw = window.localStorage.getItem(key);
-      if (raw !== null) {
+      const raw = storage()?.getItem(key);
+      if (raw != null) {
         const parsed: unknown = JSON.parse(raw);
         if (validate ? validate(parsed) : true) {
           setValue(parsed as T);
@@ -51,7 +74,7 @@ export function useLocalStorage<T>(
         // immediately overwrite what we just wrote with the fallback.
         if (hydrated.current) {
           try {
-            window.localStorage.setItem(key, JSON.stringify(resolved));
+            storage()?.setItem(key, JSON.stringify(resolved));
           } catch {
             // Storage full or unavailable — in-memory state still works.
           }
@@ -59,7 +82,7 @@ export function useLocalStorage<T>(
         return resolved;
       });
     },
-    [key],
+    [key, storage],
   );
 
   return [value, setStoredValue];

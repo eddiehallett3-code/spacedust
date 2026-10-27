@@ -99,8 +99,9 @@ export default function PrivacyPage() {
             <strong>Local browser data.</strong> Your dust threshold, preferred
             output asset, smart-filter setting, sweep history, hidden assets, the
             local sweep tally, pending lookup-table cleanup addresses, whether the
-            interface is in Basic or Pro mode, and whether you dismissed the
-            storage notice. This stays on your device.
+            interface is in Basic or Pro mode (kept only for the current visit),
+            and whether you dismissed the storage notice. This stays on your
+            device.
           </li>
           <li>
             <strong>Support messages.</strong> If you email us, we receive your

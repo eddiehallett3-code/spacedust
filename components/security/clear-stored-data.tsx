@@ -37,7 +37,13 @@ export function ClearStoredData() {
   const [confirming, setConfirming] = useState(false);
 
   function clear() {
-    for (const key of KEYS) window.localStorage.removeItem(key);
+    // Both stores: interface mode lives in sessionStorage so it resets on the
+    // next visit, and a sweep that only emptied localStorage would leave this
+    // page's promise half true.
+    for (const key of KEYS) {
+      window.localStorage.removeItem(key);
+      window.sessionStorage.removeItem(key);
+    }
     window.location.reload();
   }
 
