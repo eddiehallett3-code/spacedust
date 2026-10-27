@@ -111,7 +111,7 @@ decoration.
 | Solana ecosystem directory | <https://solana.com/ecosystem> | Name, website, description, category, logo, socials | **No public submission route found** — see below |
 | DappRadar | <https://dappradar.com/**submit-a-project**> | Client-rendered form; expect name, website, chain, category, description, logo | Not submitted |
 | AlternativeTo | <https://alternativeto.net> → "Add app" | Listed as an **alternative to Sol Incinerator**; licence, platforms, description, icon | Not submitted — 403 to curl, open in a browser |
-| Reown / WalletConnect Explorer | <https://cloud.reown.com> — the project already exists, since `REOWN_PROJECT_ID` is set | Name, description, logo, chains | Not submitted |
+| Reown / WalletConnect Explorer | <https://cloud.reown.com> | — | **Not applicable** — the Explorer is the WalletGuide: an index of *wallets*, not dApps. See below |
 
 AlternativeTo is worth doing first despite looking least like an app store: its
 visitors arrive searching "alternative to Sol Incinerator", which is the most
@@ -232,18 +232,16 @@ in this document:
 Expected category for Spacedust: a `non-dapps-*` category, wallets or services —
 whichever the form offers closest to a wallet tool.
 
-**The form itself renders empty.** Checked on 26 October 2026 in a browser and
-through a JavaScript-executing reader, both of which showed the title, navigation
-and footer and nothing between them — so it is not an ad-blocker or a browser
-quirk. Either the form is behind a DappRadar account, or the page is retired and
-listings now arrive some other way. The homepage's "Newly Added — discovered by
-the radar" line points at automatic ingestion.
+**The form renders empty — confirmed.** Checked on 26 October 2026 in a normal
+browser by the site owner and through a JavaScript-executing reader: both showed
+the title, navigation and footer and nothing between them. So it is not an
+ad-blocker, a login state or a browser quirk — the page is broken or retired, and
+the homepage's "Newly Added — discovered by the radar" line points at automatic
+ingestion as the real intake.
 
-Routes that do not depend on that page: their Discord
-(<https://discord.gg/dappradar>) to ask how a tool gets indexed, and
-<https://dappradar.com/advertise> for commercial contact. Opening an existing
-listing — Sol Incinerator's, for instance — and looking for a claim or update link
-is the other way in, because it shows the intake the entry actually used.
+Closed. Revisit only if someone reports the form working; the alternatives are
+their Discord (<https://discord.gg/dappradar>) asking how a tool gets indexed, and
+<https://dappradar.com/advertise> for commercial contact.
 
 ## Platform support
 
@@ -271,6 +269,17 @@ missing renderer drops the model by design rather than breaking the page.
 
 **On a form, select Online / Web-based only.** Not Android and not iOS: there is no
 native app, and those ticks claim a store presence that does not exist.
+
+### The Reown Explorer indexes wallets, not dApps
+
+Correcting an earlier entry in this document: the Reown / WalletConnect Explorer
+is the **WalletGuide**, and its API says what it holds — `GET /v3/wallets`, with
+filters for `platforms` (`ios`, `android`, `mac`, `injected`) and `sdks`
+(`sign_v1`, `sign_v2`, `auth_v1`). Those are the properties of a wallet that
+*receives* a connection.
+
+Spacedust initiates connections. There is no entry to apply for, and the existing
+`REOWN_PROJECT_ID` is a connection project, not a listing. Nothing to do here.
 
 ## AlternativeTo's feature checkboxes
 
