@@ -390,10 +390,10 @@ Fill this in as each goes out, so the follow-up dates are not a memory test.
 
 | Where | Submitted | Outcome | Follow-up due |
 |---|---|---|---|
-| AlternativeTo | | | |
-| Solana ecosystem directory | | | |
-| DappRadar | | | |
-| Reown / WalletConnect Explorer | | | |
-| Search Console | | | — |
+| AlternativeTo | 26 Oct 2026 | Submitted; no comparable apps on the site, so no "alternative to" relation | — |
+| Solana ecosystem directory | 26 Oct 2026 | Airtable form submitted: Wallet + Infrastructure, status Launched, 300-word description, flat-black v7 logo | Await review |
+| DappRadar | — | Form page renders empty; closed | — |
+| Reown / WalletConnect Explorer | — | Not applicable — indexes wallets, not dApps | — |
+| Search Console | 26 Oct 2026 | Property added; sitemap submitted, showing "couldn't fetch" on first attempt | Re-check the "Last read" column in 24 h |
 | Bing Webmaster | | | — |
 
