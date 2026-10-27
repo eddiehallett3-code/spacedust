@@ -243,6 +243,41 @@ Closed. Revisit only if someone reports the form working; the alternatives are
 their Discord (<https://discord.gg/dappradar>) asking how a tool gets indexed, and
 <https://dappradar.com/advertise> for commercial contact.
 
+## Wallet dApp directories: what is actually possible
+
+Checked against the vendors' own documentation on 26 October 2026, because a
+generated summary of "developer entry points" is worth exactly as much as its
+citations.
+
+**Phantom — closed.** Phantom Portal is real (`phantom.app/portal`), and its docs
+say plainly:
+
+> "Phantom Portal is not accepting new applications at this time. New sign-ups for
+> Phantom Connect SDK access and new app submissions to the Phantom app directory
+> are paused. Existing Portal apps and App IDs are not affected."
+> — <https://docs.phantom.com/phantom-portal/portal>
+
+There is nothing to submit and no queue to join. Worth re-checking in a few
+months; nothing else to do.
+
+**Solflare — no documented route.** Their docs describe an "in-app browser for
+connecting to Solana apps on mobile" and nothing about submitting one. The claim
+that their directory is indexed from the Solana Ecosystem Directory appears
+nowhere in their documentation. Their Discord
+(<https://discord.com/invite/solflare>) is the only human channel.
+
+**Jupiter — not applicable.** The Strict List is a *token* list: it exists so
+holders do not see "unknown token" warnings. Spacedust issues no token, and its
+swap routing already goes through Jupiter's API. Nothing to apply for.
+
+**Backpack — xNFTs.** Unlike the others, Backpack runs apps natively as xNFTs
+rather than cataloguing websites, so a plain web app has no entry there.
+
+The pattern is consistent with the web directories: the surfaces that accept
+submissions are few, and the ones that matter are curated or paused. That makes
+search the only channel without a gatekeeper, which is where this document puts
+the effort — see "Search indexing" below.
+
 ## Platform support
 
 A web app, so "which platforms" has two answers: where it runs, and where it has
