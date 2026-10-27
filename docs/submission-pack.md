@@ -108,7 +108,7 @@ decoration.
 
 | Where | Entry point | What it wants | Status |
 |---|---|---|---|
-| Solana ecosystem directory | <https://solana.com/ecosystem> | Name, website, description, category, logo, socials | **No public submission route found** — see below |
+| Solana ecosystem directory | **Airtable form**: <https://airtable.com/appNiIyfQFaXNlv1U/pagM20DDyI1xImbzD/form> (guidelines linked) | Contact + founder details (private), project name, 300-word description, status, logo, up to 3 categories, website, socials | **Open — submit this one** |
 | DappRadar | <https://dappradar.com/**submit-a-project**> | Client-rendered form; expect name, website, chain, category, description, logo | Not submitted |
 | AlternativeTo | <https://alternativeto.net> → "Add app" | Listed as an **alternative to Sol Incinerator**; licence, platforms, description, icon | Not submitted — 403 to curl, open in a browser |
 | Reown / WalletConnect Explorer | <https://cloud.reown.com> | — | **Not applicable** — the Explorer is the WalletGuide: an index of *wallets*, not dApps. See below |
@@ -197,18 +197,40 @@ Three things a listing is tempted to add, none of them true today:
   external has audited this code, and "audited" in a listing means the other
   thing.
 
-### The Solana ecosystem directory is curated
+### The Solana ecosystem directory: submit via Airtable
 
-Checked on 26 October 2026 and left in the table only so nobody repeats the work:
-`/ecosystem/submit` and `/ecosystem/add` return the same page title as
-`/ecosystem`, i.e. client-side fallbacks rather than routes; there are no
-Typeform, Google Forms, Tally or Airtable links in the page; and the submission
-form the payload does contain asks for a *"co-lead name and email"* and thanks you
-for *"your application"* — a programme application, not a directory listing.
+Recorded here first as "curated, no public route", which was wrong: scanning
+`solana.com/ecosystem` for a form found none, because the form is not on that page.
+It is an Airtable form, linked from the directory's submission guidelines.
 
-So the route is a person, not a form. One email asking whether a submission route
-exists beats any amount of clicking: a curated directory answers a direct
-question and ignores a request to be added.
+- **Form:** <https://airtable.com/appNiIyfQFaXNlv1U/pagM20DDyI1xImbzD/form>
+- **Guidelines:** <https://perfect-breath-c0a.notion.site/Project-Submission-Guidelines-3e251e11ff3b4732af32487f97d50e33>
+
+Two eligibility rules decide whether it is worth submitting at all:
+
+1. **On-chain activity is required** — "your project must produce some form of
+   on-chain activity on the Solana Blockchain." Spacedust qualifies through the
+   transactions its users sign: account closes, swaps, burns, sends. It has no
+   contract of its own, and that is worth stating plainly in the description rather
+   than leaving a reviewer to discover it.
+2. **The category must come from their list:** Analytics, Art, CEX, DeFi, dePIN,
+   Developer Tools, Digital Collectibles, Explorer, Gaming, Infrastructure, Mobile,
+   Oracle, Payments, Privacy, Stablecoin, Wallet, DAO, Social.
+
+The form, field by field:
+
+| Field | Value |
+|---|---|
+| Full name, role, email | the owner's — private, not displayed |
+| Telegram, X | the owner's |
+| Primary founder + Twitter | private |
+| **Project name** | Spacedust |
+| **Description** | max 300 words — the Standard or Long copy above both fit |
+| **Status** | Launched |
+| **Logo** | `https://spacedust.cc/dapp-icon-v6-512.png` — PNG, which they accept |
+| **Categories (up to 3)** | **Wallet**, then Infrastructure. Not DeFi, which implies a protocol with liquidity |
+| Website | <https://spacedust.cc> |
+| Twitter, Discord, Telegram | optional — leave blank rather than inventing handles |
 
 ### DappRadar: the form is at `/submit-a-project`
 
