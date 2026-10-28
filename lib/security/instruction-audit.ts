@@ -83,6 +83,16 @@ export interface AuditExpectations {
   feeWallet: string | null;
   /** The exact fee this plan computed. More than this leaving is a refusal. */
   expectedFeeLamports: number;
+  /**
+   * How many transactions the plan packed into.
+   *
+   * The Spacedust fee is declared here as a plan-wide total, but the sponsor's
+   * repayment is per *transaction* — one transfer per packed transaction — so its
+   * cap has to be scaled by this. `assertPlanAudited` fills it in from the packed
+   * transactions it is already given; a caller that audits instructions alone
+   * leaves it at one.
+   */
+  expectedTransactions?: number;
   /** Accounts the plan intends to close. An extra close is a warning. */
   expectedCloses?: readonly string[];
   /** Accounts the plan intends to act on — name accounts, token accounts. */
@@ -364,6 +374,7 @@ interface AuditAccumulator {
   findings: AuditFinding[];
   calls: Map<string, AuditCall>;
   feeLamports: number;
+  repaymentLamports: number;
 }
 
 function refuse(
@@ -435,6 +446,7 @@ export function auditInstructions(
     findings: [],
     calls: new Map(),
     feeLamports: 0,
+    repaymentLamports: 0,
   };
 
   const allowed = new Set(FLOW_PROGRAMS[expected.flow]);
@@ -642,6 +654,7 @@ export function auditInstructions(
           programId,
           `network fee repaid ${transfer.lamports.toLocaleString()} lamports → ${short(transfer.to)}`,
         );
+        into.repaymentLamports += transfer.lamports;
         return;
       }
       // Moving your own SOL to an account you own is not a loss — and a sweep
@@ -1291,6 +1304,42 @@ export function auditInstructions(
       }
     });
 
+    // ── The totals, which the per-instruction caps cannot see ─────────────
+    //
+    // Every transfer above is compared with the plan's own figure, so N
+    // transfers that each fit can still add up to more than the plan ever
+    // showed — a duplicate fee or a duplicate repayment is exactly that shape,
+    // and a builder that appends one more instruction produces it without
+    // touching anything this app wrote. The sum is what leaves the wallet, so
+    // the sum is what is checked.
+    if (
+      expected.feeWallet !== null &&
+      into.feeLamports > expected.expectedFeeLamports
+    ) {
+      into.findings.push({
+        severity: "refuse",
+        code: "fee-exceeds-plan",
+        message: `The batch sends ${into.feeLamports.toLocaleString()} lamports to the fee wallet in total, more than the ${expected.expectedFeeLamports.toLocaleString()} the plan showed you.`,
+        programId: SYSTEM_PROGRAM_ID,
+      });
+    }
+
+    if (expected.sponsor) {
+      const transactions = Math.max(
+        1,
+        Math.trunc(expected.expectedTransactions ?? 1),
+      );
+      const cap = expected.sponsor.expectedLamports * transactions;
+      if (into.repaymentLamports > cap) {
+        into.findings.push({
+          severity: "refuse",
+          code: "sponsor-repayment-exceeds-plan",
+          message: `The batch repays ${into.repaymentLamports.toLocaleString()} lamports to the fee sponsor in total, more than the ${cap.toLocaleString()} the plan showed you.`,
+          programId: SYSTEM_PROGRAM_ID,
+        });
+      }
+    }
+
     return {
       ok: !into.findings.some((finding) => finding.severity === "refuse"),
       findings: into.findings,
@@ -1419,7 +1468,12 @@ export function assertPlanAudited(input: {
   packed?: readonly { base64: string }[];
   expected: AuditExpectations;
 }): AuditResult {
-  const result = auditInstructions(input.instructions, input.expected);
+  const result = auditInstructions(input.instructions, {
+    ...input.expected,
+    // The sponsor repays once per packed transaction, so its cap comes from how
+    // many there actually are rather than from what the plan hoped for.
+    expectedTransactions: input.packed?.length ?? input.expected.expectedTransactions,
+  });
 
   if (input.packed && input.packed.length > 0) {
     const packedFindings = auditPackedPrograms(input.packed, input.expected);

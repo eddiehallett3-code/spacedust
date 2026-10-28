@@ -123,7 +123,9 @@ function sweep(over: Partial<AuditExpectations> = {}): AuditExpectations {
 }
 
 /** The first refusal in a result, which is what a user is shown. */
-function refusal(result: { findings: { severity: string; code: string }[] }) {
+function refusal(result: {
+  findings: { severity: string; code: string; message: string }[];
+}) {
   return result.findings.find((finding) => finding.severity === "refuse");
 }
 
@@ -695,6 +697,83 @@ function pack(
     ),
   };
 }
+
+describe("the plan's totals", () => {
+  // The per-instruction caps compare each transfer with the plan's own figure,
+  // which is why a duplicated one used to slip through: two transfers that each
+  // fit sum to twice what the user was shown. These are the shapes a builder with
+  // one extra instruction produces.
+
+  it("refuses a duplicated fee transfer that fits on its own", () => {
+    const FEE = 8_000;
+    const result = auditInstructions(
+      [
+        ...budget(),
+        jupiterSwap(),
+        flip(OWNER, FEE_WALLET, FEE),
+        flip(OWNER, FEE_WALLET, FEE),
+      ],
+      sweep({ feeWallet: FEE_WALLET, expectedFeeLamports: FEE }),
+    );
+
+    expect(result.ok).toBe(false);
+    expect(refusal(result)?.code).toBe("fee-exceeds-plan");
+    expect(refusal(result)?.message).toContain("in total");
+    // Both transfers were counted, so the panel can say what is actually leaving.
+    expect(result.feeLamports).toBe(FEE * 2);
+  });
+
+  it("accepts a fee split across two transfers that still sums to the plan", () => {
+    // The mirror of the case above: counting the sum must not refuse a plan whose
+    // parts add up to exactly what it promised.
+    const FEE = 8_000;
+    const result = auditInstructions(
+      [
+        ...budget(),
+        jupiterSwap(),
+        flip(OWNER, FEE_WALLET, FEE / 2),
+        flip(OWNER, FEE_WALLET, FEE / 2),
+      ],
+      sweep({ feeWallet: FEE_WALLET, expectedFeeLamports: FEE }),
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.feeLamports).toBe(FEE);
+  });
+
+  it("refuses a duplicated sponsor repayment", () => {
+    const REPAYMENT = 12_000;
+    const result = auditInstructions(
+      [
+        ...budget(),
+        jupiterSwap(),
+        flip(OWNER, STRANGER, REPAYMENT),
+        flip(OWNER, STRANGER, REPAYMENT),
+      ],
+      sweep({ sponsor: { address: STRANGER, expectedLamports: REPAYMENT } }),
+    );
+
+    expect(result.ok).toBe(false);
+    expect(refusal(result)?.code).toBe("sponsor-repayment-exceeds-plan");
+  });
+
+  it("scales the sponsor cap by the transactions actually packed", () => {
+    // A three-transaction sponsored plan repays once per transaction. Comparing
+    // that sum against a single repayment would refuse every real sponsored
+    // batch, which is why the cap is scaled rather than the total taken raw.
+    const REPAYMENT = 12_000;
+    const repayments = [1, 2, 3].map(() => flip(OWNER, STRANGER, REPAYMENT));
+    const result = auditInstructions(
+      [...budget(), jupiterSwap(), ...repayments],
+      {
+        ...sweep({ sponsor: { address: STRANGER, expectedLamports: REPAYMENT } }),
+        expectedTransactions: 3,
+      },
+    );
+
+    expect(result.ok).toBe(true);
+  });
+});
 
 describe("the packed bytes", () => {
   it("accepts a transaction whose programs are all on the flow's list", () => {
