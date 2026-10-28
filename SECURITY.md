@@ -54,6 +54,31 @@ minimal reproduction or a failing test is better than prose.
 Best effort, from one person. I aim to acknowledge within a few days and to ship
 a fix or a clear explanation as quickly as I can. There is no bug bounty.
 
+## Known dependency advisories
+
+`npm audit` reports about forty findings against `main`. They are four root
+causes, and **none of them is fixed by changing a version** — which is worth
+writing down, because otherwise the number gets re-triaged every month and the one
+advisory that does matter arrives in the same pile.
+
+| Root | Reached through | Why it is accepted |
+|---|---|---|
+| `bigint-buffer`, overflow in `toBigIntLE` | `@solana/spl-token` → `buffer-layout-utils` | The advisory covers `<=1.1.5`, and `1.1.5` **is** the latest release: there is no fix, and the package is deprecated. It overflows only when handed a buffer longer than eight bytes; the layout it is used from reads a fixed-size u64. |
+| `zod` below 4.6.6, memory exhaustion | vendored `zod@3` inside `@reown/appkit-wallet` and `@coinbase/cdp-sdk` | Our own `zod` is 4.6.7, past the range. Forcing a major into vendor code with `overrides` is a breaking change inside the wallet modal, to defend against a failure an attacker can only reach in their own tab. |
+| `stream-json`, prototype pollution and an O(depth²) parse | `@solana/web3.js` → `jayson` | Not reachable here. web3.js imports `jayson/lib/client/browser`, and `stream-json` does not appear in its bundle at all. |
+| `uuid`, missing bounds check | transitive | Bites only when a caller supplies its own buffer. Nothing in this app does. |
+
+**What would change the answer**, and should be treated as the signal to
+re-triage: any of these moving into a server path rather than the browser; a call
+to `toBigIntLE` with a caller-controlled length; or the `@solana/web3.js` 2/3
+migration, which deletes the first root outright and with it roughly thirty of the
+forty reported findings.
+
+For this app the dependency list is not the main signal. The instruction audit
+(`lib/security/instruction-audit.ts`) is what stands between a third-party
+instruction set and a signing prompt, and it is the thing worth reviewing on a
+change; `npm audit` mostly reports on libraries that are already behind it.
+
 ## Supported version
 
 The deployed site at `spacedust.cc`, built from `main`. Older commits are

@@ -63,6 +63,16 @@ import { CLOSE_USER_VOLUME_ACCUMULATOR_DISCRIMINATOR } from "@/lib/salvage/pump-
  * the owner. The token-level outcome of a swap is checked after the fact
  * instead, from the simulation's own balance deltas.
  *
+ * WHERE THIS RUNS, AND WHAT THAT MEANS. It runs in the browser, on the plan the
+ * same code just built, so its `expected` values come from the planner rather
+ * than from a server that could overrule it. That is the intended threat model:
+ * it defends against instructions that did not come from our planner — a Jupiter
+ * `/build` response, a Metaplex builder, a dependency that changed — and against
+ * our own planner meaning something other than what the panel says. It does not
+ * defend against a compromised page, because a page that can lie about the plan
+ * can lie about the expectations too; that is the CSP's job, and it is why the
+ * policy is enforced in production rather than reported.
+ *
  * Nothing here signs, sends, or mutates anything.
  */
 

@@ -51,13 +51,20 @@ export async function POST(request: Request) {
   // is web3.js and the app renders the resulting error like any other RPC failure.
   const quota = allowRequest(request, "rpc");
   if (!quota.allowed) {
+    const seconds = Math.max(1, Math.ceil(quota.retryAfterSeconds));
     return NextResponse.json(
       {
         jsonrpc: "2.0",
         id: null,
-        error: { code: -32005, message: "Rate limit exceeded. Try again shortly." },
+        error: {
+          code: -32005,
+          // The wait is in the sentence as well as the header: this body is
+          // rendered by the app's own error state, and "try again shortly" with
+          // no number is what makes someone retry immediately.
+          message: `Rate limit exceeded. Try again in ${seconds} second${seconds === 1 ? "" : "s"}.`,
+        },
       },
-      { status: 429, headers: { "Retry-After": String(quota.retryAfterSeconds) } },
+      { status: 429, headers: { "Retry-After": String(seconds) } },
     );
   }
 

@@ -241,13 +241,24 @@ export function allowRequest(request: Request, route: LimitedRoute): Allowance {
  * the easiest part to leave out, and a client told to wait without being told how
  * long simply retries straight away.
  *
+ * The same number is repeated in the body, which is not redundant. A header is
+ * the HTTP-correct place for it, but `apiFetch` is the only client this app has
+ * and a proxy in front of a deployment is free to strip response headers; the
+ * body field survives that, and it is what lets the UI say "try again in 12
+ * seconds" instead of "shortly". Both are derived from one `Math.ceil`, so they
+ * cannot disagree.
+ *
  * `/api/rpc` does not use this — it owes its client a JSON-RPC error object and
  * builds its own — which is exactly the kind of exception worth having one obvious
  * place for.
  */
 export function rateLimitResponse(allowance: Allowance): NextResponse {
+  const seconds = Math.max(1, Math.ceil(allowance.retryAfterSeconds));
   return NextResponse.json(
-    { error: "Too many requests from this address. Try again shortly." },
-    { status: 429, headers: { "Retry-After": String(allowance.retryAfterSeconds) } },
+    {
+      error: `Too many requests from this address. Try again in ${seconds} second${seconds === 1 ? "" : "s"}.`,
+      retryAfterSeconds: seconds,
+    },
+    { status: 429, headers: { "Retry-After": String(seconds) } },
   );
 }

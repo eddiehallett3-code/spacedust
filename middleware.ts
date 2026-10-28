@@ -51,6 +51,12 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   if (route) {
     const allowance = await checkSharedLimit(request, route);
     if (!allowance.allowed) {
+      // The wait goes in the sentence as well as the header: "shortly" is what
+      // makes someone retry immediately, which is the one thing a budget exists
+      // to prevent. Both forms are derived from the same ceiling so they cannot
+      // disagree, and the body copy survives a proxy that strips headers.
+      const seconds = Math.max(1, Math.ceil(allowance.retryAfterSeconds));
+      const wait = `Try again in ${seconds} second${seconds === 1 ? "" : "s"}.`;
       // `/api/rpc` owes its client a JSON-RPC error object, because its client is
       // web3.js and the app renders whatever comes back as an RPC failure. A plain
       // `{error}` body would reach it as a parse failure instead of a rate limit, so
@@ -62,14 +68,17 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
               id: null,
               error: {
                 code: -32005,
-                message: "Rate limit exceeded. Try again shortly.",
+                message: `Rate limit exceeded. ${wait}`,
               },
             }
-          : { error: "Too many requests from this address. Try again shortly." };
+          : {
+              error: `Too many requests from this address. ${wait}`,
+              retryAfterSeconds: seconds,
+            };
 
       return NextResponse.json(body, {
         status: 429,
-        headers: { "Retry-After": String(allowance.retryAfterSeconds) },
+        headers: { "Retry-After": String(seconds) },
       });
     }
   }
