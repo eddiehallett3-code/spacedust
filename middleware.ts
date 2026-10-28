@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { limitedRouteForPath } from "@/lib/api/rate-limit";
 import { checkSharedLimit } from "@/lib/api/rate-limit-store";
+import { wwwRedirectUrl } from "@/lib/api/www-redirect";
 import { buildCsp, cspHeaderName } from "@/lib/security/csp";
 
 /**
@@ -46,6 +47,23 @@ function createNonce(): string {
 }
 
 export async function middleware(request: NextRequest): Promise<NextResponse> {
+  // First, before anything is counted or computed: `www` is an alias for the
+  // apex, so it never reaches a route. The platform's own domain setting does
+  // the same thing at the edge when it is configured for it; this is the same
+  // decision made in the request path, which is also the reason it is here
+  // rather than only there — a dashboard setting that refuses to save cannot
+  // leave a second origin serving the site.
+  const apex = wwwRedirectUrl({
+    // The header the request arrived with, not `nextUrl.hostname`: the latter is
+    // the listening address in development, so keying on it would make this
+    // untestable locally and depend on a framework detail in production. `host`
+    // is the value the client asked for, which is exactly the question here.
+    host: request.headers.get("host") ?? request.nextUrl.hostname,
+    pathname: request.nextUrl.pathname,
+    search: request.nextUrl.search,
+  });
+  if (apex) return NextResponse.redirect(apex, 308);
+
   const route = limitedRouteForPath(request.nextUrl.pathname);
 
   if (route) {
