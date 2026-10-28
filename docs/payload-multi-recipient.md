@@ -261,6 +261,115 @@ About **2 weeks of focused work**; longer with NFTs/cNFTs and batch verification
 The file upload is easy; the mint→many-recipients close/attribution/audit model is
 the hard part.
 
+## Update — percentages, and 100 recipients (27 Oct 2026)
+
+The note above scoped v1 at 20 recipients with explicit amounts. The ask changed:
+**percentage per asset per address**, and **up to 100 addresses**. This section
+prices that against the constants the code already uses, and it changes the
+recommendation.
+
+### What 100 recipients actually costs
+
+Measured earlier in `lib/payload/plan-send.ts`: one `create ATA → transfer → close`
+run is **394 bytes, 15,243 CU**, and **~11 fresh destinations** fit in a 1232-byte
+transaction. From `lib/utils/constants.ts`:
+
+| Limit | Value | Effect at 100 recipients |
+|---|---|---|
+| `MAX_TX_SIZE_BYTES` (+40 headroom) | 1232 | ~11 new-recipient units per transaction |
+| `MAX_INSTRUCTIONS_PER_TX` | 24 | ~8 units/tx when each is create+transfer |
+| `MAX_LOCKED_ACCOUNTS_PER_TX` | 64 | not binding first: source, mint, owner and program are shared |
+| **Transactions for 100 recipients** | | **9–13** |
+| `BASE_FEE_LAMPORTS` per signature | 5,000 | 0.045–0.065 SOL |
+| `TOKEN_ACCOUNT_RENT_LAMPORTS` | 1,488,440 | **0.149 SOL per mint, for 100 fresh ATAs** |
+| Priority fee at `PRIORITY_FEE_MICRO_LAMPORTS` | 2,500 | a few thousandths of a SOL across the batch |
+
+Two conclusions that matter more than any of the UI work:
+
+1. **ATA rent is the cost, not the fee.** Splitting one token to 100 addresses
+   that have never held it costs the sender ~0.149 SOL in rent before a single
+   token moves. Five tokens is ~0.75 SOL. For a dust-splitting tool that is
+   fatal, and it must be shown before signing, priced from the chain, not
+   estimated.
+2. **Phantom signs one transaction at a time.** `PHANTOM_USES_BATCH = false` in
+   `lib/solana/submit.ts`, because Phantom's scanner refuses a batched approval.
+   So 9–13 transactions is **9–13 approvals** on the most common wallet, against
+   one on Solflare/Backpack. This is the real limit on "100 addresses", and no
+   amount of packing removes it.
+
+### Percentages are arithmetic, not a new planner
+
+`plan-send.ts` already takes an explicit amount per token — the single-recipient
+flow applies partial amounts to the token list before planning. So a percentage is
+a transform on that list, and the rules belong in a pure module:
+
+- Work in **base units, integers only**. `amount = floor(balance × bps / 10000)`.
+- Distribute the remainder by **largest remainder**, ties broken by recipient
+  order, so the allocations sum to exactly the requested basis points and no dust
+  is silently lost to rounding.
+- **Sum ≤ 100%** per asset. 100% across several addresses is the interesting case
+  because it empties the source account, which is what releases rent and is the
+  only thing Payload charges 1.5% on. Anything less than 100% closes nothing and
+  costs no fee — which is consistent, and worth stating in the UI.
+- **SOL cannot be split to 100%**: keep back the rent-exempt floor, the batch's
+  network fees, and any ATA rent the batch creates.
+
+### The refactor, in order of risk
+
+- `PackUnit.mint` is the packer's identity for a unit. One mint going to many
+  recipients collides. Add an `id` (`mint:recipient`) defaulting to `mint`, so the
+  sweep and swap paths do not change, and carry it through `PackedTransaction`,
+  `SendOutcome` and `PayloadOutcome`.
+- `lib/security/instruction-audit.ts` expects **one** destination, one ATA owner
+  and one cNFT destination. It becomes a set: every transfer destination must be
+  in the approved recipient list, and every created ATA must be owned by one of
+  them.
+- **One close per mint** is still correct, but only when that mint's total across
+  all recipients equals the source balance — otherwise there is nothing to close
+  and the fee is zero.
+- `useDestinationVerification` sends one 0.001 SOL test. At 100 recipients,
+  per-address verification is not a workflow; the answer is a full-list review
+  with a content hash before signing, plus an optional batch test.
+
+### Revised recommendation: stage it
+
+**Stage 1 — SOL only, percentages, upload, 100 recipients.** Native transfers are
+one instruction, three accounts, no ATA and no rent; ~24 fit per transaction, so
+100 recipients is ~5 transactions and costs fees alone. Nearly the whole feature
+value, none of the ATA cost, and it proves the recipient parser, the percentage
+arithmetic and the multi-transaction UX.
+
+**Stage 2 — SPL tokens.** Adds the packing identity refactor, the audit set, and
+ATA rent. Cap at ~25 recipients per mint in the UI, with the rent total shown as a
+line item: "0.037 SOL to create 25 token accounts".
+
+**Stage 3 — NFTs and cNFTs.** One recipient per asset; the existing note's deferral
+stands.
+
+### Revised effort
+
+| Piece | Stage 1 | Stage 2 |
+|---|---|---|
+| Recipient parser + upload UI (CSV, labels, errors by line) | 2–3 d | — |
+| Percentage matrix UI + totals + virtualised lists for 100 | 3–4 d | +2 d |
+| Planner/packing/outcome/audit refactor | 2–3 d | 4–6 d |
+| Multi-transaction progress, partial-failure report, Phantom path | 2–3 d | +1 d |
+| Probe, tests, edge cases (rent, rounding, caps) | 2–3 d | 2–3 d |
+
+Stage 1 is **~2 weeks**; Stage 2 adds **~2 weeks**. The file upload is the easy
+part in both.
+
+### Decisions this asks you to make
+
+1. **Cap**: 100 recipients is achievable for SOL and painful for tokens. Cap per
+   asset, not per batch — e.g. 100 SOL recipients, 25 token recipients per mint.
+2. **Percentages only, or percentages *and* exact amounts?** Percentages are the
+   ask; exact amounts are what the code takes. Supporting both is a UI question,
+   not a planner one.
+3. **Phantom's 13 approvals**: accept them, or cap the batch at ~2 transactions
+   (~22 recipients) for Phantom and tell the user why. The second is honest and
+   probably better than a wall of prompts.
+
 ## Logo follow-up (resolved)
 
 The master is `Logo/logo-.png`. The dApp icon set in
