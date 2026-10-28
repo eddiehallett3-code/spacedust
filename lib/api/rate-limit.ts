@@ -43,8 +43,9 @@ export type LimitedRoute =
  *
  *  - `rpc` is the noisy one. Preparing one sweep fetches a blockhash, quotes fees
  *    and simulates each packed transaction, then sends and polls for status —
- *    dozens within a few seconds. 240/min passes an impatient repeat sweep while
- *    capping a loop at a rate Helius will not notice.
+ *    dozens within a few seconds. 180/min is two of the largest pass the app
+ *    makes: one sweep plus an honest retry, and not a loop. It was 240, which was
+ *    three, and headroom nobody asked for on a key that bills per call.
  *  - `plan` builds one plan per preview; `tokens` and `asset-proof` each back a
  *    single screen's scan.
  *  - `health` is the most expensive *per call* — it makes one real upstream request
@@ -55,7 +56,12 @@ export type LimitedRoute =
  *    hand out an unmetered scan.
  */
 const BUDGETS: Record<LimitedRoute, number> = {
-  rpc: 240,
+  // The residual risk that number does not remove: `getTokenAccountsByOwner`
+  // pages through every account an owner holds and is the expensive method on the
+  // allow-list, so a caller can still spend 180 calls a minute reading whoever's
+  // wallet it names. A tighter ceiling belongs in front of the edge rather than
+  // here, because this number also has to pass a real sweep.
+  rpc: 180,
   plan: 60,
   tokens: 30,
   "asset-proof": 30,

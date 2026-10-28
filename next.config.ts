@@ -125,6 +125,30 @@ const nextConfig: NextConfig = {
           { key: "X-Frame-Options", value: "DENY" },
           {
             /**
+             * HSTS, pinned here rather than left to the platform.
+             *
+             * Vercel already sends this exact value, so declaring it changes
+             * nothing today — which is the point: the browser rule that makes the
+             * first request of a session unforgeable would otherwise be a
+             * property of the host, and a move or a plan change could drop it
+             * silently. A site that can be served over plain http once is a site
+             * whose wallet connection can be downgraded.
+             *
+             * `max-age=63072000` is two years, matching what is already served.
+             * Deliberately **not** `includeSubDomains` yet: the commitment covers
+             * every subdomain that will ever exist, including one added later for
+             * a purpose that does not speak TLS. `www` does not resolve today; when
+             * it does, and redirects to the apex, add it.
+             *
+             * Deliberately no `preload` either. Preload is a one-way door — removal
+             * takes months and a browser release — so it is a decision to take on
+             * purpose, not as a hardening default.
+             */
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000",
+          },
+          {
+            /**
              * `camera=(self)`, NOT `camera=()`.
              *
              * WHY THIS IS NOT JUST A LOCKDOWN LIST: `camera=()` denies the camera
