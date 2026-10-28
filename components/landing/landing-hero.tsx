@@ -20,14 +20,34 @@ import { UfoModel } from "./ufo-model";
  * connects a wallet. The saucer sits in the right-hand column on desktop and in
  * the normal flow below the copy on phones; it scrolls with the hero rather than
  * following the viewport, so it can never trail the reader over the tool cards.
+ *
+ * The scan card underneath is deliberately not visible on arrival: the grid takes
+ * the first screen and the card's own margin starts it just below the fold. That
+ * is what the grid's desktop min-height is for, and why the section no longer
+ * carries one.
  */
 export function LandingHero() {
   return (
+    /* No `100svh` on the section any more. A section that claims the first screen
+       does not move the card below it: the section is as tall as its content, and
+       the card is content. The grid below claims the screen instead, which is the
+       only way to say "the hero occupies this, and the card starts after it". */
     <section
       aria-labelledby="landing-heading"
-      className="relative z-10 flex flex-col justify-center pb-8 pt-16 sm:pb-10 sm:pt-16 lg:min-h-[calc(100svh-4rem)] lg:pb-16 lg:pt-10"
+      className="relative z-10 flex flex-col pb-8 pt-16 sm:pb-10 sm:pt-16 lg:pb-16 lg:pt-10"
     >
-      <div className="grid min-h-[calc(100svh-3.5rem)] content-start items-center gap-2 sm:gap-8 lg:min-h-0 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+      {/* `content-start` is what makes the min-height free: rows pack to the top,
+          so surplus height is empty space below the hero rather than space
+          inserted between the hero and its copy. Content already taller than the
+          minimum simply wins, so a short window is untouched.
+
+          On desktop the minimum is the first screen minus the 3.5rem header, the
+          section's `pt-10` and the 4rem that the scan card's own `mt-16` adds —
+          i.e. `100svh - 8rem` — which leaves the card's top edge 32px below the
+          fold at any height, and its 16px glow inset inside that. Measured before
+          the change: the card began at 769px at every desktop width, so a 900px
+          window showed 131px of it and a 1080px window showed 311px. */}
+      <div className="grid min-h-[calc(100svh-3.5rem)] content-start items-center gap-2 sm:gap-8 lg:min-h-[calc(100svh-8rem)] lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
         <div className="mx-auto min-w-0 max-w-2xl text-center lg:mx-0 lg:text-left">
           <h1
             id="landing-heading"

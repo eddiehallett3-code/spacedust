@@ -15,6 +15,12 @@ import { Input } from "@/components/ui/input";
  *
  * The right-hand column describes what the scan returns rather than inventing
  * numbers for a wallet nobody owns. That is the honest version of a preview.
+ *
+ * The margin above the card is load-bearing. It is the entire gap between the
+ * bottom of the hero grid and this card, and the grid's desktop min-height is
+ * computed with it — `100svh - 8rem` in `landing-hero.tsx` accounts for the 3.5rem
+ * header, the section's `pt-10` and this margin. Changing one without the other
+ * puts the top of the card back over the fold.
  */
 const OUTPUTS = [
   "Token accounts, balances and Token-2022 extensions",
