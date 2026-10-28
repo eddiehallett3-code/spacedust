@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  ComputeBudgetProgram,
   Keypair,
   PublicKey,
   SystemProgram,
@@ -15,6 +16,7 @@ import {
 import { createCloseAccountInstruction, createComputeBudgetInstructions } from "@/lib/solana/instructions";
 import { LIGHTHOUSE_PROGRAM_ID } from "@/lib/security/program-ids";
 import {
+  MAX_SPONSORED_COMPUTE_UNIT_LIMIT,
   MAX_SPONSORED_PRIORITY_MICRO_LAMPORTS,
   MIN_SPONSOR_BALANCE_LAMPORTS,
   SPONSOR_MARGIN_LAMPORTS,
@@ -128,6 +130,50 @@ describe("feeLamportsForMessage", () => {
     }).compileToV0Message();
 
     expect(feeLamportsForMessage(message)).toBe(FEE);
+  });
+
+  it("assumes the whole compute cap when a price is set without a limit", () => {
+    // The attack this closes, in one line: set a priority price, omit the limit.
+    // The chain still charges actual-compute × price — the cap is 1.4M units —
+    // but a missing limit used to be read as 0, so the fee came out as the base
+    // alone and the repayment was sized against it. The sponsor then paid more
+    // than it was repaid, on a transaction that passed every other rule.
+    const message = new TransactionMessage({
+      payerKey: sponsor.publicKey,
+      recentBlockhash: "11111111111111111111111111111111",
+      instructions: [
+        ComputeBudgetProgram.setComputeUnitPrice({
+          microLamports: PRIORITY_FEE_MICRO_LAMPORTS,
+        }),
+      ],
+    }).compileToV0Message();
+
+    expect(feeLamportsForMessage(message)).toBe(
+      5_000 +
+        Math.ceil(
+          (MAX_SPONSORED_COMPUTE_UNIT_LIMIT * PRIORITY_FEE_MICRO_LAMPORTS) /
+            1_000_000,
+        ),
+    );
+  });
+
+  it("assumes the cap with no compute-budget instructions at all", () => {
+    // Nothing declared does not mean nothing charged: the default price is what
+    // this app pays, and compute is whatever the transaction consumes. Two
+    // signatures here — the sponsor and the wallet that owns the closed account.
+    const message = new TransactionMessage({
+      payerKey: sponsor.publicKey,
+      recentBlockhash: "11111111111111111111111111111111",
+      instructions: [closeInstruction()],
+    }).compileToV0Message();
+
+    expect(feeLamportsForMessage(message)).toBe(
+      2 * 5_000 +
+        Math.ceil(
+          (MAX_SPONSORED_COMPUTE_UNIT_LIMIT * PRIORITY_FEE_MICRO_LAMPORTS) /
+            1_000_000,
+        ),
+    );
   });
 });
 

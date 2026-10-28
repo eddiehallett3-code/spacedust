@@ -88,6 +88,9 @@ const SYSTEM_TRANSFER = 2;
 const SIGNATURE_LENGTH = 64;
 const LAMPORTS_PER_SIGNATURE = BASE_FEE_LAMPORTS;
 
+/** The highest compute limit the sponsor will fund. Above this, refuse. */
+export const MAX_SPONSORED_COMPUTE_UNIT_LIMIT = 1_400_000;
+
 export type SponsorVerdict =
   | {
       ok: true;
@@ -149,8 +152,18 @@ export function feeLamportsForMessage(message: VersionedMessage): number {
     }
   }
 
+  // A missing limit is not a zero limit.
+  //
+  // The fee the chain charges is actual-compute × price, and neither number has
+  // to be declared: a client can set a priority price and omit the limit
+  // instruction entirely, or omit the price and still consume compute. Reading a
+  // missing limit as 0 priced such a transaction at the base fee alone and asked
+  // for the matching repayment, while the chain could charge for the whole cap —
+  // so the sponsor was repaid less than it paid. Both fallbacks therefore assume
+  // the worst case the policy already caps: the maximum price it will fund, over
+  // the maximum compute it will fund.
   const microLamports = price ?? PRIORITY_FEE_MICRO_LAMPORTS;
-  const units = limit ?? 0;
+  const units = limit ?? MAX_SPONSORED_COMPUTE_UNIT_LIMIT;
   return base + Math.ceil((units * microLamports) / 1_000_000);
 }
 
@@ -170,9 +183,6 @@ export function sponsoredRepaymentLamports(
   );
   return LAMPORTS_PER_SIGNATURE * 2 + priority + margin;
 }
-
-/** The highest compute limit the sponsor will fund. Above this, refuse. */
-export const MAX_SPONSORED_COMPUTE_UNIT_LIMIT = 1_400_000;
 
 /**
  * Decide whether the sponsor may sign a transaction.
