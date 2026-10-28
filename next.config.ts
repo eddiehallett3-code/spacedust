@@ -134,18 +134,26 @@ const nextConfig: NextConfig = {
              * silently. A site that can be served over plain http once is a site
              * whose wallet connection can be downgraded.
              *
-             * `max-age=63072000` is two years, matching what is already served.
-             * Deliberately **not** `includeSubDomains` yet: the commitment covers
-             * every subdomain that will ever exist, including one added later for
-             * a purpose that does not speak TLS. `www` does not resolve today; when
-             * it does, and redirects to the apex, add it.
+             * `max-age=63072000` is two years, matching what Vercel already
+             * sends, plus `includeSubDomains`.
              *
-             * Deliberately no `preload` either. Preload is a one-way door — removal
-             * takes months and a browser release — so it is a decision to take on
-             * purpose, not as a hardening default.
+             * The `includeSubDomains` half was deliberately withheld until there
+             * was a subdomain: it commits every name under the apex to HTTPS, so
+             * adding it before `www` existed bought nothing and would have been a
+             * promise about hosts that did not resolve. `www.spacedust.cc` now
+             * holds its own certificate and redirects to the apex, so the promise
+             * is one it can keep — and it closes the gap where a plain-http `www`
+             * link could be intercepted before the redirect happens.
+             *
+             * It is still a commitment: any future subdomain has to speak HTTPS on
+             * day one. That is fine for product hosts and would not be fine for a
+             * host kept deliberately HTTP-only.
+             *
+             * Deliberately no `preload` — that is a one-way door taking months to
+             * unwind, and a decision to take on purpose rather than by default.
              */
             key: "Strict-Transport-Security",
-            value: "max-age=63072000",
+            value: "max-age=63072000; includeSubDomains",
           },
           {
             /**

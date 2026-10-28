@@ -70,4 +70,28 @@ describe("the rest of the response headers", () => {
       "strict-origin-when-cross-origin",
     );
   });
+
+  it("pins HSTS here, at two years, covering subdomains", async () => {
+    // Pinned in the repo rather than left to the host: Vercel sends the same
+    // value, and a value that only the platform sends is one a move or a plan
+    // change can drop without anything in this repository noticing.
+    //
+    // `includeSubDomains` earns its place now that `www` holds its own
+    // certificate and redirects to the apex — it closes the window where a
+    // plain-`http` `www` link could be intercepted before the redirect. It is
+    // also a commitment: every future subdomain has to speak HTTPS on day one.
+    const hsts = (await responseHeaders())["Strict-Transport-Security"];
+
+    expect(hsts).toContain("max-age=63072000");
+    expect(hsts).toContain("includeSubDomains");
+  });
+
+  it("never opts into the HSTS preload list by accident", async () => {
+    // `preload` cannot be undone quickly: removal takes months and a browser
+    // release. It is a decision to take on purpose, so it must never arrive as a
+    // side effect of editing the header above.
+    expect((await responseHeaders())["Strict-Transport-Security"]).not.toContain(
+      "preload",
+    );
+  });
 });
