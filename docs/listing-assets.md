@@ -18,27 +18,27 @@ attachment.
 | [`screenshot-8-void.jpg`](https://spacedust.cc/press/screenshot-8-void.jpg) | 1080×1920 | JPEG | Sending or burning what has no market |
 | [`screenshot-9-approvals.jpg`](https://spacedust.cc/press/screenshot-9-approvals.jpg) | 1080×1920 | JPEG | Token approvals and what can be revoked |
 
-Icon: https://spacedust.cc/dapp-icon-v6-512.png (512×512, opaque, truecolour).
+Icon: https://spacedust.cc/dapp-icon-v7-512.png (512×512, `#000000`, opaque,
+truecolour) — the flat-black tile. It is also what the site serves as its favicon,
+Apple touch icon and manifest icon, so a directory listing and the browser tab show
+the same artwork.
 
-A second, flat-black set exists for listings:
-https://spacedust.cc/dapp-icon-v7-512.png (512×512, `#000000`, opaque,
-truecolour). Built from the same master (`Logo/logo-.png`) at the same framing, so
-the mark is identical and only the tile differs — black reads cleanly on a white
-directory page, where the gradient tile looks muddy.
-
-Measured mean luminance: **v6 29.0, v7 8.1** out of 255. That 8.1 is a number this
-project has been bitten by before — the v2 black tile measured 8.6 and "read as an
-empty square in a wallet list", which is why v6 exists. So v7 is the right choice
-for a form that wants a logo on a white background, and the wrong choice for the
-wallet handshake, where the icon is drawn small on a dark sheet. Sizes: 512, 256,
-192, 180, 128, 96, plus a 512 maskable with the mark inset to the safe area.
+The `v6` set is the other tile: the app's own surface (`space-850` #0a0d1f under
+the two body washes), which reads as a lit window on a dark sheet. Measured mean
+luminance: **v6 29.0, v7 8.1** out of 255. That 8.1 is a number this project has
+been bitten by before — the v2 black tile measured 8.6 and "read as an empty square
+in a wallet list", which is why v6 exists. So v7 is the right tile for anything on a
+white background — a directory page, a tab strip, an iOS home screen — and the wrong
+one for the wallet handshake, where the icon is drawn small on a dark sheet and
+keeps `/dapp-icon-v6-256.png`, `-128` and `-96`. Both sets exist at 512, 256, 192,
+180, 128, 96, plus a 512 maskable with the mark inset to the safe area.
 
 The `v3` filenames (`/dapp-icon-v3-512.png` and its siblings) serve byte-identical
 artwork, because those URLs are already in the listing emails sent to Phantom,
 Jupiter, Solflare and Backpack — one brand in circulation rather than two. The
-wallet handshake uses `/dapp-icon-v6-256.png`, `-128` and `-96`: truecolour, no
-palette, no alpha, each far under any size cap, because the first three attempts
-were refused by wallets for exactly those reasons.
+wallet handshake files are truecolour, no palette, no alpha, each far under any size
+cap, because the first three attempts were refused by wallets for exactly those
+reasons.
 
 ## Requirements this covers
 

@@ -97,7 +97,7 @@ decoration.
 
 | Use | URL |
 |---|---|
-| Icon 512 (opaque) | <https://spacedust.cc/dapp-icon-v6-512.png> — 80,495 B |
+| Icon 512 (opaque) | <https://spacedust.cc/dapp-icon-v7-512.png> — 18,770 B |
 | Banner 1200×600 | <https://spacedust.cc/press/banner-1200x600.png> — 143,568 B |
 | Screenshot — landing | <https://spacedust.cc/press/screenshot-1-landing.jpg> — 187,766 B |
 | Screenshot — read-only scan | <https://spacedust.cc/press/screenshot-2-scan.jpg> — 126,349 B |
@@ -227,7 +227,7 @@ The form, field by field:
 | **Project name** | Spacedust |
 | **Description** | max 300 words — the Standard or Long copy above both fit |
 | **Status** | Launched |
-| **Logo** | `https://spacedust.cc/dapp-icon-v6-512.png` — PNG, which they accept |
+| **Logo** | `https://spacedust.cc/dapp-icon-v7-512.png` — PNG, which they accept |
 | **Categories (up to 3)** | **Wallet**, then Infrastructure. Not DeFi, which implies a protocol with liquidity |
 | Website | <https://spacedust.cc> |
 | Twitter, Discord, Telegram | optional — leave blank rather than inventing handles |

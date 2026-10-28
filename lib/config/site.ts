@@ -31,31 +31,42 @@ export const DAPP_DESCRIPTION =
   "Non-custodial Solana wallet tools: batch swap, send, reclaim rent, revoke approvals, and scan any address read-only.";
 
 /**
- * The square dApp icon, deliberately under a fresh filename.
+ * The square icon every web surface shows: the tab, the home screen, the web app
+ * manifest and the `logo` in structured data.
  *
- * Generated from `Logo/logo-.png`, the master square logo: the full planet and
- * the full speed trails, contained with the source's own padding. The earlier
- * `/logo-512.png` remains as the legacy filename, so an old bookmark or a
- * cached metadata entry can still resolve.
+ * v7 — the flat-black tile, and deliberately the same artwork as `/favicon.ico`
+ * and `/favicon-32.png`, which have been black all along. v6 put the mark on the
+ * app's own surface (`space-850` #0a0d1f under the two washes `body` carries),
+ * which is the right tile on a dark sheet and the wrong one everywhere these
+ * icons actually land: a light tab strip, a white directory page, an iOS home
+ * screen. Sampled at the corner, v6 is #0c0e22 and v7 is #000000. The measurement
+ * history behind the two sets — including why an earlier black tile was rejected
+ * — is in `docs/listing-assets.md`.
  *
- * v6 — THE TILE MATCHES THE APP. v3 put the artwork on a bright violet-to-cyan
- * tile: legible, but the brightest object on the page and not the colour of
- * anything in the product. v6 uses the app's own surface: `space-850` (#0a0d1f)
- * under the two washes `body` carries, plus a white bloom behind the saucer so it
- * reads as lit. Measured at 29/255 mean luminance — a third of v3, and more than
- * three times the 8.6 that made the v2 black tile read as an empty square in a
- * wallet list. That band is the whole point: darker than this starts losing the
- * icon at 40px, which is the size a wallet draws it.
+ * The wallet handshake stays on v6 on purpose: see `DAPP_WALLET_ICON_PATH`.
  *
- * New filenames each time, because a wallet holding the previous artwork cached
- * must be forced to refetch.
+ * New filenames each time, because a browser or wallet holding the previous
+ * artwork cached must be forced to refetch.
  */
-export const DAPP_ICON_PATH = "/dapp-icon-v6-512.png";
-export const DAPP_ICON_192_PATH = "/dapp-icon-v6-192.png";
-export const DAPP_ICON_180_PATH = "/dapp-icon-v6-180.png";
-export const DAPP_MASKABLE_ICON_PATH = "/dapp-icon-v6-512-maskable.png";
+export const DAPP_ICON_PATH = "/dapp-icon-v7-512.png";
+export const DAPP_ICON_192_PATH = "/dapp-icon-v7-192.png";
+export const DAPP_ICON_180_PATH = "/dapp-icon-v7-180.png";
+export const DAPP_MASKABLE_ICON_PATH = "/dapp-icon-v7-512-maskable.png";
 /** Small PNG for icon loaders that ask for a tab-sized image. */
 export const DAPP_FAVICON_32_PATH = "/favicon-32.png";
+
+/**
+ * The tile the wallet handshake carries: the Android app-identity prompt and the
+ * WalletConnect sheet.
+ *
+ * v6, deliberately not the v7 black the web icons use. Both are the same mark on
+ * a different tile, and the difference only matters at the size a wallet draws
+ * it: on a dark sheet a #000000 tile with a white saucer loses its edge and reads
+ * as an empty square — the v2 black tile measured 8.6 and that is why v6 exists.
+ * The web icons could move to black because a tab strip and a directory page are
+ * light; a wallet sheet is not.
+ */
+export const DAPP_WALLET_ICON_PATH = "/dapp-icon-v6-256.png";
 
 /**
  * The copies the wallet handshake carries.

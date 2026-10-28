@@ -82,9 +82,11 @@ export const metadata: Metadata = {
   icons: {
     // PNG first. Several in-wallet browsers render `<link rel="icon">` with an
     // image loader that cannot display SVG, and `/favicon.ico` alone leaves them
-    // with a 16px bitmap. The v3 tile carries its own colour — see
-    // `lib/config/site.ts` for why the black version read as "no logo" — and the
-    // fresh filenames force a wallet holding the old blank tile to refetch.
+    // with a 16px bitmap. Every size below is the flat-black tile, matching
+    // `/favicon.ico` and `/favicon-32.png`: a document's icons are drawn on a
+    // light tab strip, a white directory page or a home screen, where the navy
+    // tile that suits a wallet sheet turns into a smudge. See
+    // `lib/config/site.ts`, and note that the wallet handshake still uses v6.
     icon: [
       {
         url: `${SITE_URL}${DAPP_FAVICON_32_PATH}`,
