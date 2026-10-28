@@ -385,8 +385,8 @@ emails sit unanswered.
    with the DNS TXT record it gives you, then submit
    <https://spacedust.cc/sitemap.xml>.
 2. **Bing Webmaster Tools** — verified on 28 October 2026 with the XML file
-   rather than "Import from Search Console", then submit the same sitemap URL.
-   The file has to stay; see the note below.
+   rather than "Import from Search Console", and the same sitemap URL was read
+   the same day. The file has to stay; see the note below.
 3. **Request indexing** for `/compare`, `/scan` and each tool page once the
    sitemap is accepted. A new page on a new domain otherwise takes days to weeks.
 
@@ -417,6 +417,6 @@ Fill this in as each goes out, so the follow-up dates are not a memory test.
 | Solana ecosystem directory | 26 Oct 2026 | Airtable form submitted: Wallet + Infrastructure, status Launched, 300-word description, flat-black v7 logo | Await review |
 | DappRadar | — | Form page renders empty; closed | — |
 | Reown / WalletConnect Explorer | — | Not applicable — indexes wallets, not dApps | — |
-| Search Console | 26 Oct 2026 | Property added; sitemap submitted, showing "couldn't fetch" on first attempt | Re-check the "Last read" column in 24 h |
-| Bing Webmaster | 28 Oct 2026 | Verified with the XML file at `/BingSiteAuth.xml` — served from `public/`, 200 with no redirect. The sitemap URL is the same one Search Console was given | Re-check the Sitemaps tab in 48 h |
+| Search Console | 26 Oct 2026 | Property added. Sitemap has read "couldn't fetch" with no last-read date across three delete-and-resubmit cycles, while URL Inspection returns 200 and Bing read the identical URL — a Search Console stall, not the file | Re-check once, then treat the `robots.txt` declaration and Request Indexing as the working path |
+| Bing Webmaster | 28 Oct 2026 | Verified with the XML file at `/BingSiteAuth.xml` — served from `public/`, 200 with no redirect. Sitemap confirmed, on the same URL Search Console was given | Watch the discovered-URL count as it settles |
 
