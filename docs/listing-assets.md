@@ -81,10 +81,15 @@ reasons.
   same way, same density of one star per 9,000 px² (80 at this size), same faint
   halo on the nearest few. Measured against a background-only crop of
   `screenshot-1-landing.jpg`: 15.3/16.3/30.5 against 18.5/19.0/37.4.
-  - **Wordmark only.** `public/logo-text-transp.png` is the whole lockup — the
-    same file `components/layout/brand-logo.tsx` renders in the header. An
-    earlier version stacked `logo-mark.png` above it, which printed the saucer
-    twice.
+  - **Wordmark only.** The banner is the wordmark, not the mark: an earlier
+    version stacked `logo-mark.png` above it, which printed the saucer twice.
+    `public/logo-text-transp.png` is the lockup the header carried at the time, and
+    is kept because this recipe names it — the header itself now renders
+    `public/logo-saturn-transp.png`, taken from
+    `Logo/Spacedust Saturn Emblem Logo.png`, knocked out of its black plate (the
+    source is 2172 × 724 with no alpha channel, 94% of it background) and trimmed
+    to 1986 × 273. The banner and the store screenshots still show the previous
+    wordmark; re-run the capture below before a listing is submitted again.
   - **No meteor,** though the app draws them: a meteor is a motion cue, and
     frozen in a still it reads as a scratch on the artwork.
 - Verified after generation: the clip is 540×960 or 540×1560 CSS at 2×, so every
