@@ -384,13 +384,23 @@ emails sit unanswered.
 1. **Google Search Console** — add `spacedust.cc` as a *Domain* property, verify
    with the DNS TXT record it gives you, then submit
    <https://spacedust.cc/sitemap.xml>.
-2. **Bing Webmaster Tools** — "Import from Search Console", which copies the
-   verification and the sitemap in one step.
+2. **Bing Webmaster Tools** — verified on 28 October 2026 with the XML file
+   rather than "Import from Search Console", then submit the same sitemap URL.
+   The file has to stay; see the note below.
 3. **Request indexing** for `/compare`, `/scan` and each tool page once the
    sitemap is accepted. A new page on a new domain otherwise takes days to weeks.
 
 The sitemap is generated from `app/sitemap.ts`, so every tool route is already in
 it and a new tool cannot be forgotten.
+
+The Bing verification, by contrast, *is* a file, and a permanent one.
+`public/BingSiteAuth.xml` is served at the root of the site — 200,
+`application/xml`, no redirect — and that is what Bing re-fetches to re-confirm
+ownership. Deleting it after verification returns the property to unverified the
+next time Bing looks, and nothing in the app would report that: indexing would
+simply stop being attributed to a site nobody owns. It lives in `public/`
+because that is the only directory whose contents are served as-is; the copy
+Bing hands you is downloaded to the repository root, where nothing deploys it.
 
 Pre-flight, checked on 26 October 2026 so the submission is not wasted:
 `robots.txt` allows everything except `/api/` and names the sitemap; the sitemap
@@ -408,5 +418,5 @@ Fill this in as each goes out, so the follow-up dates are not a memory test.
 | DappRadar | — | Form page renders empty; closed | — |
 | Reown / WalletConnect Explorer | — | Not applicable — indexes wallets, not dApps | — |
 | Search Console | 26 Oct 2026 | Property added; sitemap submitted, showing "couldn't fetch" on first attempt | Re-check the "Last read" column in 24 h |
-| Bing Webmaster | | | — |
+| Bing Webmaster | 28 Oct 2026 | Verified with the XML file at `/BingSiteAuth.xml` — served from `public/`, 200 with no redirect. The sitemap URL is the same one Search Console was given | Re-check the Sitemaps tab in 48 h |
 
