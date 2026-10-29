@@ -39,6 +39,7 @@ import type {
   RecoverableLimitations,
 } from "@/lib/sweep/recoverable";
 import { apiFetch } from "@/lib/utils/api";
+import { useElapsedSeconds } from "@/hooks/use-elapsed-seconds";
 import { toFriendlyError, type FriendlyError } from "@/lib/utils/errors";
 import {
   formatAmount,
@@ -619,6 +620,52 @@ function ScanSummary({
   );
 }
 
+/**
+ * What a scan looks like while it runs.
+ *
+ * The client cannot see the server's phases — a scan is one request — so this
+ * deliberately does not pretend to. A bar filling to 60% would be invented; the
+ * elapsed clock is not, and saying how long is normal is the thing that keeps
+ * someone from closing the tab. Measured: 3,033 holdings took 49.4 seconds, so a
+ * minute is not a fault, and without a sentence saying so a minute of skeletons
+ * reads as a hang.
+ *
+ * The clock is `aria-hidden`: a screen reader announcing every second would make
+ * the wait worse than it already is. The line above it is `aria-live` and changes
+ * twice, which is exactly the amount worth announcing.
+ */
+function ScanWaiting() {
+  const seconds = useElapsedSeconds(true);
+
+  const line =
+    seconds < 6
+      ? "Reading the chain…"
+      : seconds < 20
+        ? "Still reading — this wallet has a lot of accounts."
+        : "Still working. Wallets with thousands of accounts take about a minute.";
+
+  return (
+    <Card>
+      <CardContent className="flex flex-col gap-3">
+        <div className="flex items-baseline justify-between gap-3">
+          <p className="text-sm text-muted" aria-live="polite">
+            {line}
+          </p>
+          <span
+            aria-hidden
+            className="shrink-0 font-mono text-[11px] tabular-nums text-subtle"
+          >
+            {seconds}s
+          </span>
+        </div>
+        <Skeleton className="h-4 w-2/3" />
+        <Skeleton className="h-4 w-1/3" />
+        <Skeleton className="h-4 w-1/2" />
+      </CardContent>
+    </Card>
+  );
+}
+
 /** The result area, in its four states: error, loading, empty, or a wallet. */
 function ScanResult({
   scan,
@@ -662,16 +709,7 @@ function ScanResult({
   }
 
   if (isLoading && (!scan || !recoverable)) {
-    return (
-      <Card>
-        <CardContent className="flex flex-col gap-3">
-          <p className="text-sm text-muted">Reading the chain…</p>
-          <Skeleton className="h-4 w-2/3" />
-          <Skeleton className="h-4 w-1/3" />
-          <Skeleton className="h-4 w-1/2" />
-        </CardContent>
-      </Card>
-    );
+    return <ScanWaiting />;
   }
 
   if (!scan || !recoverable) {

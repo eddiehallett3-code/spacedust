@@ -12,6 +12,7 @@ import {
   EmptyWalletError,
   FeeShortfallError,
 } from "@/lib/solana/fee-shortfall";
+import { refusalReport } from "@/lib/security/refusal-report";
 
 /** One error message plus optional recovery guidance. */
 export interface FriendlyError {
@@ -19,6 +20,13 @@ export interface FriendlyError {
   message: string;
   /** Optional next step shown as secondary text. */
   hint?: string;
+  /**
+   * The full machine-readable account of a failure, when there is one worth
+   * copying — currently the instruction audit's findings. Rendered behind a
+   * "copy details" control rather than shown, so the message above stays the
+   * sentence a person reads.
+   */
+  detail?: string;
 }
 
 interface Rule {
@@ -256,6 +264,22 @@ export function toFriendlyError(error: unknown): FriendlyError {
   }
   if (error instanceof FeeShortfallError) {
     return describeFeeShortfall(error.shortfall);
+  }
+
+  // A refusal from the instruction audit already knows precisely what stopped it:
+  // which rule, which program, which instruction. Without this branch the sentence
+  // went through the rules below, matched nothing, and landed in the 240-character
+  // fallback — so the most diagnosable failure in the app arrived as "Something
+  // went wrong" with the detail thrown away. The detail is kept for the copy
+  // control and the sentence stays the sentence.
+  const detail = refusalReport(error);
+  if (detail) {
+    return {
+      title: "That plan was refused",
+      message: raw,
+      hint: "Nothing was signed and nothing was sent. You can copy exactly what failed.",
+      detail,
+    };
   }
 
   for (const rule of RULES) {

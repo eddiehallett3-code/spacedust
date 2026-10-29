@@ -16,6 +16,7 @@ import { needsWalletReconnect, type FriendlyError } from "@/lib/utils/errors";
 import type { EmptyTokenAccount } from "@/types/token";
 import type { useSweep } from "@/hooks/use-sweep";
 import { SweepHistoryPanel } from "@/components/sweep/sweep-history-panel";
+import { CopyDetails } from "@/components/security/copy-details";
 import { OUTPUT_ASSETS } from "@/lib/utils/constants";
 import { baseAmountToNumber, parseBaseAmount } from "@/lib/utils/sanitize";
 import { pluralize } from "@/lib/utils/format";
@@ -248,6 +249,7 @@ export function SweepError({ error }: { error: FriendlyError | null }) {
               {error.hint}
             </p>
           ) : null}
+          {error.detail ? <CopyDetails detail={error.detail} /> : null}
           {canReconnect ? (
             // The action itself, not directions to it. A stale wallet session
             // shows a connected address while every request is refused, and
