@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { WalletScan } from "@/types/token";
+import { STORAGE_KEYS } from "@/lib/utils/constants";
 import {
   MAX_CACHED_SCAN_CHARS,
   describeAge,
@@ -138,6 +139,17 @@ describe("fitsInStorage", () => {
 });
 
 describe("readLastScan and writeLastScan", () => {
+  it("stores under the shared key, so the clear-site-data button finds it", () => {
+    // The security page promises that clearing site data removes everything the
+    // app keeps, and that button iterates `STORAGE_KEYS`. A record written under a
+    // private key would survive it, which is the one failure this test can see
+    // from here.
+    const storage = fakeStorage();
+    writeLastScan({ summary: summary(), scan: null }, storage);
+
+    expect(storage.getItem(STORAGE_KEYS.lastScan)).not.toBeNull();
+  });
+
   it("round-trips a record", () => {
     const storage = fakeStorage();
     writeLastScan({ summary: summary(), scan: scanWith({ tokens: 3 }) }, storage);

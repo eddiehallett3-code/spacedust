@@ -1,4 +1,5 @@
 import type { WalletScan } from "@/types/token";
+import { STORAGE_KEYS } from "@/lib/utils/constants";
 
 /**
  * The last scan, kept so a return visit does not pay for it twice.
@@ -20,7 +21,7 @@ import type { WalletScan } from "@/types/token";
  * summary is what "what changed since you last looked" needs, and it is tiny.
  */
 
-const STORAGE_KEY = "spacedust.lastScan.v1";
+const STORAGE_KEY = STORAGE_KEYS.lastScan;
 
 /**
  * Roughly where a full result stops being safe to persist.

@@ -377,6 +377,15 @@ export const STORAGE_KEYS = {
   smartFilter: "spacedust:v1:smartFilter",
   sweepHistory: "spacedust:v1:sweepHistory",
   /**
+   * The last Wallet Scan result, so a return visit does not pay for it twice.
+   *
+   * Listed here rather than held privately by the scanner for one reason: the
+   * security page promises that clearing site data removes everything this app
+   * keeps, and that promise is kept by iterating this object. A key that lives
+   * outside it is a key the clear button misses.
+   */
+  lastScan: "spacedust.lastScan.v1",
+  /**
    * Assets this browser should stop showing.
    *
    * Two sources, and the difference matters. A **burn the app watched** is a
