@@ -417,6 +417,6 @@ Fill this in as each goes out, so the follow-up dates are not a memory test.
 | Solana ecosystem directory | 26 Oct 2026 | Airtable form submitted: Wallet + Infrastructure, status Launched, 300-word description, flat-black v7 logo | Await review |
 | DappRadar | — | Form page renders empty; closed | — |
 | Reown / WalletConnect Explorer | — | Not applicable — indexes wallets, not dApps | — |
-| Search Console | 26 Oct 2026 | Property added. Sitemap has read "couldn't fetch" with no last-read date across three delete-and-resubmit cycles, while URL Inspection returns 200 and Bing read the identical URL — a Search Console stall, not the file | Re-check once, then treat the `robots.txt` declaration and Request Indexing as the working path |
+| Search Console | 26 Oct 2026 | Property added. Sitemap still reads "couldn't fetch" — Google has never read it — but Googlebot crawled the homepage on 27 Oct and indexed it on 28 Oct, so discovery is coming through the `robots.txt` declaration and internal links instead | Request indexing for `/compare` and `/scan`; the tool pages follow the homepage's cards |
 | Bing Webmaster | 28 Oct 2026 | Verified with the XML file at `/BingSiteAuth.xml` — served from `public/`, 200 with no redirect. Sitemap confirmed, on the same URL Search Console was given | Watch the discovered-URL count as it settles |
 
