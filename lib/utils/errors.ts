@@ -277,7 +277,9 @@ export function toFriendlyError(error: unknown): FriendlyError {
     return {
       title: "That plan was refused",
       message: raw,
-      hint: "Nothing was signed and nothing was sent. You can copy exactly what failed.",
+      // The refusal sentence already ends by saying nothing was signed, so the
+      // hint says only what the control below it is for.
+      hint: "The full check is available to copy, if you want to report it.",
       detail,
     };
   }
