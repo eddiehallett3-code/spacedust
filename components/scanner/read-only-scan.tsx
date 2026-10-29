@@ -40,6 +40,14 @@ import type {
 } from "@/lib/sweep/recoverable";
 import { apiFetch } from "@/lib/utils/api";
 import { useElapsedSeconds } from "@/hooks/use-elapsed-seconds";
+import {
+  describeAge,
+  describeChange,
+  fitsInStorage,
+  readLastScan,
+  summariseScan,
+  writeLastScan,
+} from "@/lib/scanner/last-scan";
 import { toFriendlyError, type FriendlyError } from "@/lib/utils/errors";
 import {
   formatAmount,
@@ -87,6 +95,12 @@ export function ReadOnlyScan({ initialOwner }: { initialOwner: string | null }) 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<FriendlyError | null>(null);
   const [copied, setCopied] = useState(false);
+  /**
+   * When the result on screen came from storage rather than this visit, and what
+   * moved since the last one. Both are `null` for a scan that just finished.
+   */
+  const [cachedAt, setCachedAt] = useState<number | null>(null);
+  const [change, setChange] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const lookUp = useCallback(async (address: string): Promise<void> => {
@@ -128,6 +142,18 @@ export function ReadOnlyScan({ initialOwner }: { initialOwner: string | null }) 
       );
       if (controller.signal.aborted) return;
       setScan(result);
+      setCachedAt(null);
+      // Read before writing: the comparison is against the *previous* scan, and
+      // writing first would compare the result with itself.
+      const previous = readLastScan();
+      const summary = summariseScan(result, Date.now());
+      setChange(describeChange(previous?.summary ?? null, summary));
+      writeLastScan({
+        summary,
+        // A wallet with thousands of holdings serialises to more than the origin
+        // will store; the summary alone still makes a return visit cheaper.
+        scan: fitsInStorage(result) ? result : null,
+      });
       // Keep the address bar in step, so the current result is the current URL.
       // `replaceState` rather than a router push: this is a query change, not a
       // navigation, and it must not scroll or re-render the page.
@@ -139,15 +165,31 @@ export function ReadOnlyScan({ initialOwner }: { initialOwner: string | null }) 
     } catch (caught) {
       if (controller.signal.aborted) return;
       setScan(null);
+      setCachedAt(null);
       setError(toFriendlyError(caught));
     } finally {
       if (!controller.signal.aborted) setIsLoading(false);
     }
   }, []);
 
-  // A shared link scans itself on load.
+  /**
+   * A shared link paints from the last scan of that wallet, then refreshes.
+   *
+   * Storage is read here rather than in render because the server has none: doing
+   * it during render would hydrate a different first frame than the one that was
+   * sent. The refresh still runs — a cached result is a head start, not a
+   * substitute — and it replaces the cache the moment it lands.
+   */
   useEffect(() => {
-    if (validInitial) void lookUp(validInitial);
+    if (!validInitial) return () => abortRef.current?.abort();
+
+    const stored = readLastScan();
+    if (stored?.scan && stored.summary.owner === validInitial) {
+      setScan(stored.scan);
+      setCachedAt(stored.summary.at);
+    }
+
+    void lookUp(validInitial);
     return () => abortRef.current?.abort();
   }, [validInitial, lookUp]);
 
@@ -185,6 +227,17 @@ export function ReadOnlyScan({ initialOwner }: { initialOwner: string | null }) 
           void lookUp(address);
         }}
       />
+
+      {cachedAt !== null && !error ? (
+        <p className="text-[11px] leading-relaxed text-subtle">
+          Showing your last scan, {describeAge(cachedAt)}.
+          {isLoading ? " Refreshing…" : ""}
+        </p>
+      ) : null}
+
+      {change ? (
+        <p className="text-[11px] leading-relaxed text-subtle">{change}</p>
+      ) : null}
 
       <ScanResult
         scan={scan}

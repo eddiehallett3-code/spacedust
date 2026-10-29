@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   ArrowUpRight,
@@ -81,6 +81,12 @@ export function SuccessSummary({
     [summary.tokenCount, summary.successCount],
   );
 
+  const headingRef = useRef<HTMLHeadingElement>(null);
+
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, []);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 16, scale: 0.98 }}
@@ -125,7 +131,18 @@ export function SuccessSummary({
           )}
         </motion.span>
 
-        <h2 className="text-xl font-semibold tracking-tight">
+        <h2
+          ref={headingRef}
+          // Focus lands here when the summary mounts. A sweep ends behind a wallet
+          // modal, so focus goes back to whatever opened it — a button that is now
+          // gone or disabled — and a screen reader hears nothing at all. This is
+          // the difference between "it worked" and "did anything happen?".
+          tabIndex={-1}
+          // `role="status"` announces the outcome and the count beneath it without
+          // stealing the announcement from the rest of the page.
+          role="status"
+          className="text-xl font-semibold tracking-tight outline-none"
+        >
           {isDryRun
             ? "Dry run complete"
             : perfect
