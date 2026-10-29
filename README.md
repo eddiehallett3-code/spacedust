@@ -1,5 +1,8 @@
 # Spacedust
 
+Live at **<https://spacedust.cc>** — every flow described below is deployed there,
+and nothing here is a roadmap.
+
 A non-custodial Solana dust sweeper, in two flows. **Slingshot** swaps what has a
 market — any leftover token dust — into **SOL**, **USDC** or **JUP** in as few
 transactions as possible, reclaiming the locked rent from every emptied token
