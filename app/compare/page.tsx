@@ -11,7 +11,18 @@ export const metadata: Metadata = {
   // declare this page a duplicate of the home page, and the site answers on two
   // hosts.
   alternates: { canonical: "/compare" },
-  title: "Solana wallet cleaner comparison — Spacedust and Sol Incinerator",
+  /**
+   * `absolute`, so the layout's ` · Spacedust` template is not appended.
+   *
+   * This is the one page that carries the brand in its own title — it names both
+   * products by design — so the template printed it twice and pushed the result to
+   * 78 characters. Google truncates around 60, which meant the visible title
+   * ended at "Sol Incinerator" with the brand cut off, on the page that is
+   * supposed to win "solana wallet cleaner comparison".
+   */
+  title: {
+    absolute: "Solana wallet cleaner comparison: Spacedust vs Sol Incinerator",
+  },
   description:
     "A dated comparison of two Solana wallet cleaners: what each charges, what it will close, what it will not touch, and where one is ahead of the other.",
 };
