@@ -241,6 +241,29 @@ git-branch alias open and keeps every preview and per-deployment URL behind Verc
 Authentication. That split is deliberate: preview builds can contain work that is
 not ready to be seen, and their URLs are guessable.
 
+### The two hosts, and the one setting that can take the site down
+
+`spacedust.cc` is the origin. `www.spacedust.cc` is an alias that redirects to it,
+and `https://spacedust.cc` is what every canonical, the sitemap, `robots.txt` and
+the icons name.
+
+That arrangement depends on **one flag**: on `spacedust.cc` being the project's
+**primary** domain (*Settings → Domains → ⋮ → Set as Primary*). Adding `www` and
+marking *it* as production makes Vercel redirect the apex to `www`, while `www`
+redirects to the apex — both permanent — and the site returns
+`ERR_TOO_MANY_REDIRECTS` for every visitor, apex included. It is a two-click
+misconfiguration that produces a total outage, and it presents identically to
+"the deployment is broken", so it is written down here rather than discovered
+again.
+
+Each host needs its own certificate. They are issued per domain in Vercel
+(`CN=spacedust.cc` and `CN=www.spacedust.cc`), which means **`www` has to be a
+domain on the project** even though it only ever redirects: without it, `www`
+resolves to Vercel and is offered a certificate that does not carry its name, and
+browsers refuse the connection outright. Cloudflare's proxy used to hide exactly
+that, which is why the DNS record is **DNS only** (grey cloud) and Cloudflare
+never sits in the request path.
+
 It is project state rather than repository state, so it is written down here — a
 redeploy will not restore it, and "why does spacedust.cc ask for a login" has
 exactly one cause:
