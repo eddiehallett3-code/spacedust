@@ -106,13 +106,15 @@ export default async function HomePage() {
         >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-subtle">
-                The toolkit
-              </p>
+              {/* No uppercase eyebrow above this heading. It said "The toolkit"
+                  directly above "Six tools for a cleaner wallet", which is the same
+                  sentence twice, and it was one of four identical 11px tracked
+                  labels on the page — the repetition is what makes them read as
+                  chrome rather than as structure. */}
               <h2
                 id="tools-heading"
                 style={DISPLAY_FONT_STYLE}
-                className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl"
+                className="text-2xl font-semibold tracking-tight sm:text-3xl"
               >
                 Six tools for a cleaner wallet.
               </h2>

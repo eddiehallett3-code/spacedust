@@ -310,12 +310,17 @@ export function StarfieldBackground() {
       style={{ height: "100lvh" }}
     >
       <canvas ref={canvasRef} className="size-full" />
-      {/* Nebula washes use radial gradients rather than large blurred circles:
-          the gradient is smooth already, and it avoids a full-screen filter
-          repaint on every frame. */}
+      {/* Nebula wash: one, not three.
+          There used to be a violet orb top-left, a cyan one right and an indigo one
+          bottom-left, all drifting on different delays. Against frosted cards that
+          read as three differently-tinted surfaces and, on a page with one accent
+          colour, as decoration for its own sake. One slow violet behind the copy
+          lights the hero and leaves the rest of the page dark, which is what makes
+          the saucer and the cards the bright things on screen.
+
+          Radial gradients rather than large blurred circles: the gradient is smooth
+          already, and it avoids a full-screen filter repaint every frame. */}
       <div className="absolute -left-[25%] top-[-20%] size-[85vw] rounded-full bg-[radial-gradient(circle,rgba(109,40,217,0.20),rgba(109,40,217,0.06)_45%,transparent_70%)] animate-drift will-change-transform" />
-      <div className="absolute -right-[20%] top-[18%] size-[70vw] rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.12),rgba(34,211,238,0.03)_48%,transparent_72%)] animate-drift will-change-transform [animation-delay:-8s]" />
-      <div className="absolute bottom-[-30%] left-[15%] size-[60vw] rounded-full bg-[radial-gradient(circle,rgba(99,102,241,0.12),transparent_68%)] animate-drift will-change-transform [animation-delay:-16s]" />
       {/* Vignette keeps focus on the centre of the page. */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_35%,rgba(4,5,12,0.65)_100%)]" />
     </div>
