@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   // page. It matters because the site answers on two hosts — the custom domain and
   // the *.vercel.app one — and a crawler finding both is free to choose either.
   alternates: { canonical: "/approvals" },
-  title: "Approvals — revoke who else can move your balance",
+  title: "Approvals — revoke stale delegations",
   description:
     "See every token account that has granted a delegate permission to move its balance — from NFT listings and old dApp approvals — and revoke them. Non-custodial: the transactions are built and simulated locally, and you sign them.",
 };

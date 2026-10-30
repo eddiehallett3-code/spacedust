@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   // page. It matters because the site answers on two hosts — the custom domain and
   // the *.vercel.app one — and a crawler finding both is free to choose either.
   alternates: { canonical: "/void" },
-  title: "The Void — send unwanted tokens, NFTs and cNFTs into the void",
+  title: "The Void — send or burn what has no market",
   description: `Send unswappable Solana tokens into The Void — and unwanted NFTs and cNFTs with them. Burning a balance that has no route to SOL, USDC or JUP empties its account, and closing that account returns the rent it was holding. Pro mode adds a Deep cNFTs tab for proofs that need a lookup table. Non-custodial, with a ${(VOID_FEE_BPS / 100).toFixed(1)}% fee on reclaimed rent.`,
 };
 

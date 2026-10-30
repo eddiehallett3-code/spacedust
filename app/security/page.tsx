@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   // page. It matters because the site answers on two hosts — the custom domain and
   // the *.vercel.app one — and a crawler finding both is free to choose either.
   alternates: { canonical: "/security" },
-  title: "Security — what Spacedust can and cannot do with your funds",
+  title: "Security — what it can and cannot do",
   description:
     "How Spacedust protects your funds: it never holds your keys, every transaction is simulated and checked before you sign, and no API key reaches the browser.",
 };

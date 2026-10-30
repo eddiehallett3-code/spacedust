@@ -37,7 +37,7 @@ export const metadata: Metadata = {
   // page. It matters because the site answers on two hosts — the custom domain and
   // the *.vercel.app one — and a crawler finding both is free to choose either.
   alternates: { canonical: "/how-it-works" },
-  title: "How it works — what each of the six tools actually does",
+  title: "How it works — what each tool does",
   description:
     "Exactly what each of the six tools does: how a sweep finds dust, sells part of a balance and packs twenty swaps into one transaction, how The Void takes the tokens, NFTs and cNFTs you no longer want, how a batch send proves its destination, how closing an empty account, refunding surplus rent and unwrapping wSOL really work, how approvals are read and revoked, and what the read-only scan counts and refuses.",
 };

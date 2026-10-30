@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   // page. It matters because the site answers on two hosts — the custom domain and
   // the *.vercel.app one — and a crawler finding both is free to choose either.
   alternates: { canonical: "/salvage" },
-  title: "Salvage — rent, rent refunds, wSOL and .sns names",
+  title: "Salvage — reclaim rent, wSOL and .sns names",
   description: `Retrieve rent from empty token accounts, refund the surplus rent held by Token-2022 accounts, unwrap wSOL, and close unused .sns names in Pro. ${RECLAIM_RATE} of reclaimed rent.`,
 };
 
