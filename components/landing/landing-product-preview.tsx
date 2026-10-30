@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, ScanLine } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -35,11 +34,10 @@ export function LandingProductPreview() {
       aria-labelledby="scan-preview-title"
       className="relative mx-auto mt-14 w-full max-w-4xl scroll-mt-24 sm:mt-16"
     >
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -inset-4 -z-10 rounded-[2rem] bg-violet-core/10 blur-2xl"
-      />
-
+      {/* The violet halo that used to sit behind this card is gone: a coloured
+          blur behind a coloured border behind a coloured button was three accents
+          doing one job, and the card reads better with the page showing through
+          than with a glow it did not earn. */}
       <Card className="glass-sheen overflow-hidden rounded-2xl border-border/70">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 px-4 py-3 sm:px-5">
           <div className="flex items-center gap-2.5">
@@ -55,12 +53,6 @@ export function LandingProductPreview() {
               </p>
             </div>
           </div>
-          <Badge
-            size="sm"
-            className="border-cyan-500/25 bg-cyan-500/10 text-cyan-300"
-          >
-            Read-only
-          </Badge>
         </div>
 
         <div className="grid gap-5 p-4 sm:grid-cols-[1.15fr_0.85fr] sm:p-5">
