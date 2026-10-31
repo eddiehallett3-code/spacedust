@@ -288,12 +288,52 @@ that their directory is indexed from the Solana Ecosystem Directory appears
 nowhere in their documentation. Their Discord
 (<https://discord.com/invite/solflare>) is the only human channel.
 
-**Jupiter — not applicable.** The Strict List is a *token* list: it exists so
-holders do not see "unknown token" warnings. Spacedust issues no token, and its
-swap routing already goes through Jupiter's API. Nothing to apply for.
+**Jupiter — the Strict List answers a different question.** The Strict List is a
+*token* list: it exists so holders do not see "unknown token" warnings. Spacedust
+issues no token, and its swap routing already goes through Jupiter's API, so
+there is nothing to apply for there. That is a settled answer to "should our
+token be verified", not to "does a website appear in Jupiter's search" — and only
+the second question is the one the Backpack finding raised.
 
-**Backpack — xNFTs.** Unlike the others, Backpack runs apps natively as xNFTs
-rather than cataloguing websites, so a plain web app has no entry there.
+What is actually verifiable today:
+
+- **jup.ag has no dApps/Discover directory.** Its navigation is Trade, Earn and
+  Manage (spot, perps, lend, portfolio, bridge, mobile) and nothing that lists
+  third-party sites. Checked 31 October 2026. There is no entry to apply for on
+  the web app.
+- **Jupiter publishes no in-app browse deep link.** `walletBrowseLink` in
+  `lib/solana/wallet-diagnostics.ts` returns null for Jupiter because its
+  `apple-app-site-association` declares `/swap/*`, `/tokens/*`, `/portfolio/*` and
+  its game paths, and no `/ul/*` — which is the same declaration iOS reads to
+  decide an app may open a link. A wallet with no browse link may simply have no
+  address-bar browser to be listed in, which would make the Backpack case not
+  apply here at all.
+
+So: apply the **same test** rather than the same conclusion. If Jupiter Mobile
+has a browser with a search box, type `spacedust.cc` into it exactly as for
+Backpack and let the result decide. If it has no browser — only WalletConnect or
+MWA, both of which already work — then there is nothing to surface into and the
+question does not arise.
+
+**Backpack — not xNFTs only.** This was recorded as "xNFTs, so a plain web app has
+no entry there", and the evidence now says that is too strong. On 31 October 2026
+the owner searched "sol incinerator" inside Backpack's in-app browser and a
+result appeared — a plain web app, not an xNFT. So *something* surfaces websites
+there, and the only open question is what feeds it.
+
+Two candidate mechanisms, and one search tells them apart:
+
+- **A general web search behind the box.** Then appearing is a ranking problem,
+  not a listing problem, and the lever is the search work in "Search indexing"
+  below rather than any submission or email.
+- **A curated or aggregated app list.** Then a named curator — or a directory
+  that feeds them, plausibly the Solana Ecosystem Directory — is the route in,
+  and the ask is *who curates it, and how does a site get in*.
+
+**The test:** in Backpack's browser search, type `spacedust.cc`. If the site
+appears as a result, the box is web-backed and SEO is the whole game. If it only
+loads when typed as a full URL, while recognised apps appear on a bare word,
+there is a list to get onto. Record the date and both outcomes here either way.
 
 ## Wallet outreach status
 
@@ -301,8 +341,8 @@ rather than cataloguing websites, so a plain web app has no entry there.
 |---|---|---|
 | Phantom | Portal submissions **paused** per their docs | Re-check in a few months; nothing else possible |
 | Solflare | DM sent on X, 26 Oct 2026 | If no reply in 3–5 days, use <https://www.solflare.com/contact/> (a ticket with an owner) and/or their Discord |
-| Jupiter | Strict List is tokens only | Nothing to apply for |
-| Backpack | xNFTs, not web apps | Nothing; never applicable |
+| Jupiter | Strict List is tokens only; jup.ag has no dApps directory (31 Oct 2026) | Run the `spacedust.cc` search test in Jupiter Mobile **if** it has a browser; with no browse deep link published, likely nothing to apply for |
+| Backpack | In-app search surfaces plain web apps — Sol Incinerator seen 31 Oct 2026 | Run the `spacedust.cc` search test above; if the box is web-backed there is no channel to chase |
 
 The ask, when a channel opens, is a question rather than a request: *who curates
 the featured apps in the in-app browser, and what is the route in?* A named person
