@@ -5,42 +5,38 @@ import { cn } from "@/lib/utils/cn";
  * The header brand.
  *
  * One asset at every breakpoint: the lockup supplied as
- * `Logo/Spacedust Saturn Emblem Logo.png`, knocked out of its black plate and
- * trimmed to its ink, then served from `public/logo-saturn-transp.png`. The
- * previous version swapped to a mark plus a live "Spacedust" label on phones,
- * which meant the two breakpoints were not showing the same wordmark. This is the
- * same lockup everywhere, and the live text is gone.
+ * `Logo/header logo text.png`, served from `public/logo-header-text-transp.png`.
+ * Unlike the asset it replaced, this file arrives already transparent — no black
+ * plate to knock out, no trim needed — so it is copied to `public/` byte for byte
+ * and nothing here depends on an edit outside the repository.
  *
- * The source arrives as 2172 × 724 with **no alpha channel** — a solid black
- * plate with the art floating in the middle of it, 94% of the file. Dropped into
- * the header as-is that is a black rectangle sitting in a translucent bar, and
- * about a fifth of the visible width would be empty. So the plate is flood-filled
- * away from the border inward (`Logo/` keeps the original; the knockout is
- * recorded in the note at the top of `public/logo-saturn-transp.png`'s history,
- * not reproducible by a script in this repository) and the rest is trimmed to
- * 1986 × 273, a 7.27:1 lockup against the old one's 7.87:1.
+ * The file is 1422 × 198 with its ink inset from every edge: 1332 × 138 of
+ * artwork, roughly 14% clear above and below and 2.4% either side. Those margins
+ * are part of the artwork and are rendered rather than cropped — the supplied
+ * proportions are the design, and trimming them would silently enlarge the mark
+ * by about a fifth. `width`/`height` below are the file's real dimensions, which
+ * is what Next uses for the intrinsic aspect ratio; a lie there squashes the art.
  *
- * Enclosed black deliberately survives that knockout — the counters in the
- * letters and the shadow band across the saucer — because the fill only travels
- * through pixels reaching it from outside. A global black key would hollow the
- * mark out.
+ * `h-6` / `sm:h-9` carried over unchanged, and the measurement is why. The
+ * wordmark's letters are 66px in a 198px box — 33.6% of it — against 97px in
+ * 273px, or 35.7%, for the lockup this replaced. At the same rendered height the
+ * lettering lands within about 6% of what the header had, and the aspect ratios
+ * are 7.18:1 against 7.27:1, so the bar's layout does not move. A new file that
+ * is 4px narrower at every breakpoint is not worth re-tuning the header for.
  *
- * The rendered heights are taller than the old asset's `h-4`/`h-7` because the
- * two lockups do not put the same proportion of their height into lettering: in
- * this one the saucer spans the full 273px while the wordmark's cap height is
- * only ~42% of it, against ~62% in the old file. At the old heights the wordmark
- * would have shrunk by a third. `h-6`/`sm:h-9` restores a cap height within a
- * pixel of what the header had, and keeps the whole mark inside the 3.5rem bar.
+ * The white-on-transparent artwork is keyed light — mean ink `rgb(170,225,249)`
+ * against `rgb(152,207,230)` for the previous lockup — so it reads on the dark
+ * bar without a plate behind it.
  */
 export function BrandLogo({ className }: { className?: string }) {
   return (
     <span className={cn("flex items-center", className)}>
       <Image
-        src="/logo-saturn-transp.png"
+        src="/logo-header-text-transp.png"
         alt=""
-        width={1986}
-        height={273}
-        sizes="(min-width: 640px) 262px, 174px"
+        width={1422}
+        height={198}
+        sizes="(min-width: 640px) 258px, 172px"
         decoding="async"
         draggable={false}
         className="h-6 w-auto sm:h-9"
