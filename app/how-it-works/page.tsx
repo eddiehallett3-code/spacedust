@@ -966,7 +966,10 @@ export default function HowItWorksPage() {
           prices. Others <strong>cannot be moved</strong>: an account the
           mint&rsquo;s freeze authority has locked, and a mint whose transfer hook
           runs code on every transfer — refused rather than attempted, because this
-          app does not sign instructions whose effects it cannot see. The rest are
+          app does not sign instructions whose effects it cannot see. Some of
+          these have the extension with no program behind it — those are listed
+          above and can still be burned in The Void to reclaim their rent. The
+          rest are
           holdings whose <strong>rent cannot come back</strong>: a Token-2022
           transfer fee leaves a residue, so the account can never be closed; a
           balance whose token account the scanner could not name gets no derived

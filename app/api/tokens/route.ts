@@ -22,6 +22,7 @@ import { readSnsDomains } from "@/lib/salvage/sns.server";
 import { readPumpAccumulator } from "@/lib/salvage/pump-accumulator.server";
 import { readExcessRentAccounts } from "@/lib/salvage/excess-rent.server";
 import { reconcileDustTokenAccounts } from "@/lib/token-source/live-accounts.server";
+import { readHookFacts } from "@/lib/token-source/hook-facts.server";
 import { listWrappedSolAccounts } from "@/lib/token-source/wrapped-sol.server";
 import { fetchRentMinimums } from "@/lib/solana/rent";
 import { OUTPUT_ASSETS } from "@/lib/utils/constants";
@@ -299,6 +300,37 @@ export async function GET(request: Request) {
         staked: stakedTokenFor(holding.mint),
       };
     });
+
+    // ── Hook tokens ──────────────────────────────────────────────────────────
+    // The scanner only flags a mint as having a transfer-hook extension. Whether
+    // that extension actually points at a program decides whether the holding is
+    // recoverable (inert: no program runs, so The Void can still burn it) or
+    // stuck (active: no swapper will move it, and neither will we). Read that
+    // from the mint once, for the hook tokens only, and attach it so the UI can
+    // say which is which instead of hiding both behind one vague sentence.
+    const hookMints = tokens
+      .filter((token) => token.hasTransferHook)
+      .map((token) => token.mint);
+    if (hookMints.length > 0) {
+      const frozenByMint = new Map<string, boolean>(
+        tokens.map((token) => [token.mint, token.frozen]),
+      );
+      let facts: Awaited<ReturnType<typeof readHookFacts>> | null = null;
+      try {
+        facts = await readHookFacts(connection, hookMints, frozenByMint);
+      } catch {
+        // A failed read leaves the tokens without hook facts. Nothing worse
+        // happens than the UI showing them as hooks with no verdict.
+        facts = null;
+      }
+      if (facts) {
+        const byMint = facts;
+        tokens = tokens.map((token) => {
+          const hookFacts = byMint.get(token.mint);
+          return hookFacts ? { ...token, hookFacts } : token;
+        });
+      }
+    }
 
     // Largest dust first. Users care about the biggest wins, and this keeps the
     // highest-value tokens inside the first transaction's byte budget.

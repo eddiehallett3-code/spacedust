@@ -20,6 +20,37 @@ import type {
 export type TokenProgramKind = "legacy" | "token2022";
 
 /**
+ * What we can honestly say about a transfer-hook token.
+ *
+ * A Token-2022 mint can carry a transfer-hook extension. `inert` means the
+ * extension exists but no program id is set, so nothing runs on a transfer —
+ * the token can still be burned in The Void. `active` means a program runs on
+ * every transfer, which is why no swapper will touch it. `frozen` outranks
+ * both, and `unknown` is what we say when the mint could not be read.
+ *
+ * The classification lives in `lib/token-source/hook-tokens.ts`; this is only
+ * the shape it travels in.
+ */
+export type HookVerdict = "inert" | "active" | "frozen" | "unknown";
+
+/** Facts about one transfer-hook holding, as best we could read them. */
+export interface HookTokenFacts {
+  /** The mint this describes. */
+  mint: string;
+  /** Which token program owns the mint. */
+  program: TokenProgramKind;
+  /** The hook program the extension points at, or null when none is set. */
+  hookProgram: string | null;
+  /**
+   * The authority allowed to update the hook, or null. All-zeros means the
+   * hook is immutable — nobody can change it, the issuer included.
+   */
+  hookAuthority: string | null;
+  /** The verdict. */
+  verdict: HookVerdict;
+}
+
+/**
  * A staking position we can name, carried on the holding that represents it.
  *
  * A liquid staking token is an ordinary SPL token, so nothing on the mint says
@@ -119,6 +150,13 @@ export interface DustToken {
    * We therefore skip rent reclaim for these rather than let a sweep die.
    */
   hasTransferFee: boolean;
+  /**
+   * On-chain facts for transfer-hook tokens, read from the chain by the scan
+   * route. Present only when the scanner flagged `hasTransferHook`; absent on
+   * every other holding so the payload stays lean. Optional so a hand-built
+   * token in a test needs no hook data.
+   */
+  hookFacts?: HookTokenFacts | null;
   /**
    * True when the mint's freeze authority has frozen this holding.
    *

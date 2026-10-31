@@ -16,6 +16,7 @@ import {
   QrCode,
   ScanLine,
   Search,
+  ShieldAlert,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +33,10 @@ import { WalletInsights } from "@/components/scanner/wallet-insights";
 import { QrScanner } from "@/components/payload/qr-scanner";
 import { ConnectWalletCta } from "@/components/wallet/wallet-button";
 import { summariseRecoverable, totalLimitations } from "@/lib/sweep/recoverable";
+import {
+  describeHookVerdict,
+  partitionHookTokens,
+} from "@/lib/token-source/hook-tokens";
 import { POOL_POSITION_NOTE } from "@/lib/sweep/pool-positions";
 import { STAKED_POSITION_NOTE } from "@/lib/staking/staked-tokens";
 import type {
@@ -794,6 +799,8 @@ function ScanResult({
           scan is opened to answer. The recoverable and security details follow. */}
       <TokenRows tokens={scan.tokens} />
 
+      <HookTokensCard tokens={scan.tokens.filter((token) => token.hasTransferHook)} />
+
       {nfts > 0 ? <CollectiblesCard assets={scan.nonFungibles} /> : null}
 
       <WalletInsights scan={scan} recoverable={recoverable} />
@@ -1312,6 +1319,90 @@ function CollectiblesCard({ assets }: { assets: NonFungibleAsset[] }) {
 }
 
 /**
+ * Transfer-hook tokens, named and explained.
+ *
+ * Two holdings can both show `hasTransferHook` and mean completely different
+ * things: an extension with no program behind it is a token swappers refuse but
+ * that The Void can still burn for its rent, while a live hook program is one
+ * nothing here will move. The scanner cannot tell them apart, and until it
+ * could, both vanished behind a single "transfer-hook mints" count — which is
+ * no answer to "what are these two tokens in my wallet".
+ */
+function HookTokensCard({ tokens }: { tokens: DustToken[] }) {
+  if (tokens.length === 0) return null;
+
+  const { recoverable } = partitionHookTokens(tokens);
+  const recoverableMints = new Set(recoverable.map((token) => token.mint));
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted">
+          <ShieldAlert className="size-4 text-violet-glow" aria-hidden />
+          {pluralize(tokens.length, "transfer-hook token")}
+        </CardTitle>
+        <p className="mt-1 text-xs leading-relaxed text-subtle">
+          Tokens whose mint carries a Token-2022 transfer-hook extension.
+          Swappers refuse them; what can be done with each depends on whether a
+          hook program is actually set.
+        </p>
+      </CardHeader>
+      <CardContent>
+        <ul className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60">
+          {tokens.map((token) => {
+            const verdict =
+              token.hookFacts?.verdict ?? (token.frozen ? "frozen" : "inert");
+            const description = describeHookVerdict(verdict);
+            const canVoid = recoverableMints.has(token.mint) && !token.frozen;
+
+            return (
+              <li key={token.mint} className="flex flex-col gap-1.5 px-3 py-3">
+                <div className="flex items-center gap-3">
+                  <TokenLogo
+                    src={token.logoUri}
+                    symbol={token.symbol}
+                    size={28}
+                    className="shrink-0"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="truncate text-sm font-medium">
+                        {token.symbol}
+                      </span>
+                      <Badge
+                        variant={description.alarming ? "danger" : canVoid ? "warning" : "muted"}
+                        size="sm"
+                      >
+                        {description.label}
+                      </Badge>
+                    </div>
+                    <p className="truncate text-[11px] text-subtle">
+                      {token.name} · {truncateAddress(token.mint, 4, 4)}
+                    </p>
+                  </div>
+                </div>
+                <p className="text-[11px] leading-relaxed text-subtle">
+                  {description.detail}
+                </p>
+                {canVoid ? (
+                  <Link
+                    href="/void"
+                    className="inline-flex w-fit items-center gap-1 text-xs font-medium text-violet-glow transition-colors hover:text-violet-core"
+                  >
+                    Burn in The Void
+                    <ArrowRight className="size-3.5" aria-hidden />
+                  </Link>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
  * What the headline deliberately leaves out.
  *
  * A single "recoverable" number invites the question "recoverable *how*?", and
@@ -1342,7 +1433,7 @@ function LimitationsCard({
     {
       label: "Transfer-hook mints",
       count: limitations.transferHook,
-      why: "These run custom code on every transfer. Spacedust refuses them rather than sign an instruction whose effects it cannot see.",
+      why: "A Token-2022 extension that can run a program on every transfer. Where a program is actually set, nothing here will move the token. Some of these have the extension with no program behind it — those are listed above and can still be burned in The Void.",
     },
     {
       label: "Transfer-fee mints",
