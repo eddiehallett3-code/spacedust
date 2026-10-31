@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { DISPLAY_FONT_STYLE } from "@/lib/ui/fonts";
 import { LandingProductPreview } from "./landing-product-preview";
+import { HeroSpace } from "./hero-space";
 import { UfoModel } from "./ufo-model";
 
 /**
@@ -114,6 +115,12 @@ export function LandingHero() {
             which keeps it fully above the fold in short in-app wallets such as
             Jupiter's. */}
         <div className="relative flex min-w-0 max-w-full items-center justify-center lg:min-h-[38rem] lg:justify-end">
+          {/* The depth field the saucer sits in: colour, parallax stars and
+              drifting dust, all of which lean toward the pointer. First child
+              on purpose — it paints under the rings and the model without a
+              z-index, and it is scoped to this stage so none of it leaks under
+              the copy on the left. */}
+          <HeroSpace />
           <div
             aria-hidden
             className="pointer-events-none absolute inset-0 flex items-center justify-center"
