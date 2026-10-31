@@ -17,6 +17,29 @@ attachment.
 | [`screenshot-7-payload.jpg`](https://spacedust.cc/press/screenshot-7-payload.jpg) | 1080×1920 | JPEG | Batch send to one address |
 | [`screenshot-8-void.jpg`](https://spacedust.cc/press/screenshot-8-void.jpg) | 1080×1920 | JPEG | Sending or burning what has no market |
 | [`screenshot-9-approvals.jpg`](https://spacedust.cc/press/screenshot-9-approvals.jpg) | 1080×1920 | JPEG | Token approvals and what can be revoked |
+| [`background-3840x2160.png`](https://spacedust.cc/press/background-3840x2160.png) | 3840×2160 | PNG | The site's own backdrop, stars included — master for publicity images |
+| [`background-1920x1080.png`](https://spacedust.cc/press/background-1920x1080.png) | 1920×1080 | PNG | Same backdrop at HD |
+| [`background-2400x1200.png`](https://spacedust.cc/press/background-2400x1200.png) | 2400×1200 | PNG | Wide social header / blog hero |
+| [`background-1200x630.png`](https://spacedust.cc/press/background-1200x630.png) | 1200×630 | PNG | Open Graph card ratio |
+| [`background-clean-1920x1080.png`](https://spacedust.cc/press/background-clean-1920x1080.png) | 1920×1080 | PNG | Same wash with no stars, for laying type over |
+| [`space-subtle-1920x1080.png`](https://spacedust.cc/press/space-subtle-1920x1080.png) | 1920×1080 | PNG | The page's own backdrop with the vignette eased a little |
+| [`space-1920x1080.png`](https://spacedust.cc/press/space-1920x1080.png) | 1920×1080 | PNG | **Stars and a faint hue of space** — the publicity default |
+| [`space-3840x2160.png`](https://spacedust.cc/press/space-3840x2160.png) | 3840×2160 | PNG | The same, at 4K |
+| [`space-rich-1920x1080.png`](https://spacedust.cc/press/space-rich-1920x1080.png) | 1920×1080 | PNG | The same, a little more glow and star density |
+
+### Tool icons
+
+`public/press/icons/` holds one mark per tool — `icon-<tool>.svg` and
+`icon-<tool>-512.png`, in white and in `-ink` (near-black) for light layouts.
+They are exported by `scripts/make-tool-icons.mjs`, which reads the path data
+straight out of `components/layout/tool-emblem.tsx` rather than keeping a second
+copy of the curves:
+
+```
+node scripts/make-tool-icons.mjs
+```
+
+Run it after editing an emblem. A redraw would drift from the page; this cannot.
 
 Icon: https://spacedust.cc/dapp-icon-v7-512.png (512×512, `#000000`, opaque,
 truecolour) — the flat-black tile. It is also what the site serves as its favicon,
@@ -85,11 +108,11 @@ reasons.
     version stacked `logo-mark.png` above it, which printed the saucer twice.
     `public/logo-text-transp.png` is the lockup the header carried at the time, and
     is kept because this recipe names it — the header itself now renders
-    `public/logo-saturn-transp.png`, taken from
-    `Logo/Spacedust Saturn Emblem Logo.png`, knocked out of its black plate (the
-    source is 2172 × 724 with no alpha channel, 94% of it background) and trimmed
-    to 1986 × 273. The banner and the store screenshots still show the previous
-    wordmark; re-run the capture below before a listing is submitted again.
+    `public/logo-header-text-transp.png`, a straight copy of
+    `Logo/header logo text.png` (1422 × 198, already transparent, ink 1332 × 138
+    inset by about 14% above and below). The banner and the store screenshots
+    still show the previous wordmark; re-run the capture below before a listing
+    is submitted again.
   - **No meteor,** though the app draws them: a meteor is a motion cue, and
     frozen in a still it reads as a scratch on the artwork.
 - Verified after generation: the clip is 540×960 or 540×1560 CSS at 2×, so every
