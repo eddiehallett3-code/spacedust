@@ -11,7 +11,7 @@ import { ImageResponse } from "next/og";
  * cannot drift from the app: if a tool is added, this card moves in the same
  * commit as the tool list below it.
  */
-export const alt = "Spacedust — batch tools for a Solana wallet";
+export const alt = "Spacedust — clean up your Solana wallet";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -62,7 +62,7 @@ export default function OpengraphImage() {
             lineHeight: 1.35,
           }}
         >
-          Six non-custodial tools for a Solana wallet.
+          Clean up your Solana wallet.
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 18, marginTop: 56 }}>
