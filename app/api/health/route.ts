@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { allowRequest, rateLimitResponse } from "@/lib/api/rate-limit";
 import { sharedLimiterStatus } from "@/lib/api/rate-limit-store";
+import { readScanCounts } from "@/lib/metrics/scan-counter.server";
 import { describeFailure, redactForLog } from "@/lib/api/redact";
 import {
   getHeliusApiKey,
@@ -197,12 +198,23 @@ export async function GET(request: Request) {
     detail: limiters.detail,
   };
 
+  // The only usage figure the app keeps: how many scans ran today, and ever.
+  // Aggregate by construction — no identifiers to attach to it — so it is safe
+  // to print on a public endpoint.
+  const scans = await readScanCounts();
+
   const anyBlockingIssue =
     !checks.helius.working || !checks.jupiter.working;
 
   return NextResponse.json({
     ok: !anyBlockingIssue,
     checks,
+    usage: {
+      scansToday: scans.today,
+      scansTotal: scans.total,
+      counterStore: scans.source,
+      detail: scans.detail,
+    },
     nextSteps: buildNextSteps(checks),
   });
 }

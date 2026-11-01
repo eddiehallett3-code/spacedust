@@ -19,7 +19,7 @@ ordinary request metadata, local browser preferences, and optional support email
 | **Jupiter CDN / token image hosts** | Browser image requests | IP address, user agent, image URL; no referrer | Display token/NFT logos |
 | **Reown / WalletConnect** | Browser → relay | Wallet address, connection/session metadata, IP/relay metadata | Connect a mobile or WalletConnect wallet |
 | **Vercel** | Hosting/CDN/serverless | IP address, user agent, URL, timestamps, error logs | Serve the site, run API routes, security/logging |
-| **Upstash / Vercel KV** (optional) | Server → Redis HTTP endpoint | Counter key containing IP address + route; no request body or wallet address; 60-second expiry | Shared rate limiting |
+| **Upstash / Vercel KV** (optional) | Server → Redis HTTP endpoint | Counter key containing IP address + route; no request body or wallet address; 60-second expiry. Also holds the scan count: a per-day integer and a running total, with no identifiers attached | Shared rate limiting; one aggregate usage figure |
 | **Wallet apps** (Phantom, Solflare, Backpack, Jupiter, etc.) | User's wallet | Whatever the wallet itself collects; Spacedust never receives keys | Sign transactions |
 | **Solscan** | Outbound link only | Receives a request only when the user clicks a transaction link | Block explorer |
 | **X / GitHub** | Outbound footer links only | Receive a request only when the user clicks the link | Social/source links |

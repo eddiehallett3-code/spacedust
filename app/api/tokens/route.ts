@@ -23,6 +23,7 @@ import { readPumpAccumulator } from "@/lib/salvage/pump-accumulator.server";
 import { readExcessRentAccounts } from "@/lib/salvage/excess-rent.server";
 import { reconcileDustTokenAccounts } from "@/lib/token-source/live-accounts.server";
 import { readHookFacts } from "@/lib/token-source/hook-facts.server";
+import { recordScan } from "@/lib/metrics/scan-counter.server";
 import { listWrappedSolAccounts } from "@/lib/token-source/wrapped-sol.server";
 import { fetchRentMinimums } from "@/lib/solana/rent";
 import { OUTPUT_ASSETS } from "@/lib/utils/constants";
@@ -526,6 +527,10 @@ export async function GET(request: Request) {
             snsTruncated: sns.truncated,
           }),
     };
+
+    // Count the scan before answering — one aggregate increment, no
+    // identifiers, and it cannot fail the request (see `recordScan`).
+    await recordScan();
 
     // Short shared-cache window: repeated rescans of the same wallet are common
     // right after a sweep, and a few seconds of staleness is harmless.

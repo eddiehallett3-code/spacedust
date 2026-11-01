@@ -61,7 +61,9 @@ export default function PrivacyPage() {
             <strong>
               No analytics, advertising, session replay or tracking pixels.
             </strong>{" "}
-            Reown/WalletConnect analytics is switched off.
+            Reown/WalletConnect analytics is switched off. The one usage figure
+            we keep is a daily count of wallet scans — a number with nothing
+            attached to it.
           </li>
           <li>
             <strong>We do not sell personal data.</strong>
@@ -206,6 +208,17 @@ export default function PrivacyPage() {
           We do not use analytics, advertising, session-replay, email-marketing,
           payment-processing or customer-data platforms. No payment card details
           are collected: Spacedust&apos;s fee is an on-chain SOL transfer.
+        </p>
+        <p>
+          <strong>Usage counts.</strong> We keep one number: how many wallet
+          scans ran that day, and how many have ever run. It is incremented on
+          the server when a scan succeeds and stored as a plain integer against
+          a date. There is no IP address, wallet address, browser or device
+          detail, referrer or session attached to it, and no identifier that
+          could join one scan to another — which is why it is a count rather
+          than analytics, and why it needs no consent. You can see the same
+          figures we see at{" "}
+          <code>/api/health</code>.
         </p>
         <h2>Cookies and browser storage</h2>
         <p>

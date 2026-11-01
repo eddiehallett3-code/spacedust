@@ -212,3 +212,20 @@ export async function checkSharedLimit(
     return { allowed: true, retryAfterSeconds: 0 };
   }
 }
+
+/**
+ * The same shared store, for other aggregate counters.
+ *
+ * Exposed so the scan counter does not invent a second way to read the same
+ * four environment conventions — two resolvers would eventually disagree about
+ * which deployment is configured. Returns null when nothing is set, which
+ * callers must read as "no durable counting", not as an error.
+ */
+export function resolveCounterStore(): {
+  url: string;
+  token: string;
+  source: string;
+} | null {
+  return store();
+}
+
