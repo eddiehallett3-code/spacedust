@@ -538,9 +538,9 @@ export async function GET(request: Request) {
       // Null means we did read the mints and found no positions. Set means the
       // read failed, which is a different answer and is shown as one.
       poolLikeError,
-      // How many mints were actually decoded for hazard notes. The UI compares
-      // this with `tokens.length` before saying "nothing found" out loud — an
-      // unread mint and a clean mint must not look the same.
+      // How many mint accounts were decoded for hazard notes. Counts every
+      // holding, including the collectible-shaped ones split out of `tokens`, so
+      // the UI can tell "every listed mint was read" from "the read was skipped".
       mintsChecked: mintFactsByMint.size,
       pages,
       durationMs: Date.now() - startedAt,

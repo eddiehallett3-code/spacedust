@@ -505,12 +505,13 @@ export interface WalletScan {
   /** True when the provider had more results than we fetched. */
   truncated: boolean;
   /**
-   * How many of `tokens` had their mint account actually read during the scan.
+   * How many mint accounts were decoded during the scan.
    *
-   * Hazard notes are only attached where there is something to say, so a wallet
-   * with no notes looks identical to one where the mint read failed — and the
-   * difference decides whether "nothing found" is an answer or an absence. The UI
-   * compares this to `tokens.length` before it claims a clean bill of health.
+   * Not a subset of `tokens`: collectible-shaped holdings are decoded too and
+   * then split out of the list, so this can exceed `tokens.length`. That is the
+   * useful direction — the UI only claims "no issuer powers found" when this is
+   * at least the number of tokens shown, which means every listed mint really
+   * was read rather than skipped.
    */
   mintsChecked?: number;
   /** Which backend produced this scan: Helius DAS, or free core RPC. */
