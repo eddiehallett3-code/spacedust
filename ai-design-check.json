@@ -1,0 +1,35 @@
+{
+    "include": ["app", "components", "hooks", "lib", "types"],
+    "ignore": [".next", "node_modules", "public", "docs", "scripts", "probes", "3d", "Logo"],
+    "i18n": { "files": [], "keysAreSource": true },
+    "properNouns": [
+        "Spacedust",
+        "Slingshot",
+        "Payload",
+        "Salvage",
+        "Approvals",
+        "Wallet Scan",
+        "The Void",
+        "Solana",
+        "Jupiter",
+        "Phantom",
+        "Solflare",
+        "Backpack",
+        "Token-2022",
+        "USDC",
+        "JUP",
+        "SOL",
+        "wSOL",
+        "SNS",
+        "RPC",
+        "NFT",
+        "cNFT"
+    ],
+    "componentDirs": ["**/components/ui/**"],
+    "rules": {},
+    "allow": {
+        "type-scale": [],
+        "radius-scale": [],
+        "glow-in-charts-only": []
+    }
+}

@@ -125,8 +125,8 @@ export function LandingHero() {
             aria-hidden
             className="pointer-events-none absolute inset-0 flex items-center justify-center"
           >
-            <div className="absolute size-[min(80vw,30rem)] rounded-[50%] border border-white/[0.06] [transform:rotate(-18deg)_scaleY(0.42)]" />
-            <div className="absolute size-[min(64vw,24rem)] rounded-[50%] border border-violet-core/15 [transform:rotate(-18deg)_scaleY(0.42)]" />
+            <div className="absolute size-[min(80vw,30rem)] rounded-full border border-white/[0.06] [transform:rotate(-18deg)_scaleY(0.42)]" />
+            <div className="absolute size-[min(64vw,24rem)] rounded-full border border-violet-core/15 [transform:rotate(-18deg)_scaleY(0.42)]" />
             <div className="absolute size-40 rounded-full bg-violet-core/10 blur-3xl" />
           </div>
 

@@ -110,7 +110,7 @@ export function TokenList({
           editors appear rather than after. */}
       {selectedVisible > 0 ? (
         <div className="flex items-center justify-between gap-3 border-b border-border/50 bg-white/2 px-3 py-1.5 sm:px-4">
-          <span className="flex min-w-0 items-center gap-1.5 text-[11px] text-subtle">
+          <span className="flex min-w-0 items-center gap-1.5 text-2xs text-subtle">
             <Coins className="size-3 shrink-0" aria-hidden />
             <span className="truncate">
               {showAmounts
@@ -119,7 +119,7 @@ export function TokenList({
             </span>
           </span>
           {showAmountControl ? (
-            <label className="flex shrink-0 cursor-pointer items-center gap-2 text-[11px] text-muted">
+            <label className="flex shrink-0 cursor-pointer items-center gap-2 text-2xs text-muted">
               Custom
               <Switch
                 checked={showAmounts}
@@ -132,7 +132,7 @@ export function TokenList({
       ) : null}
 
       {hiddenLabel ? (
-        <p className="flex items-center gap-1.5 border-b border-border/50 bg-white/2 px-3 py-1.5 text-[11px] text-subtle sm:px-4">
+        <p className="flex items-center gap-1.5 border-b border-border/50 bg-white/2 px-3 py-1.5 text-2xs text-subtle sm:px-4">
           <Wand2 className="size-3 shrink-0" aria-hidden />
           {hiddenLabel}
         </p>
@@ -171,7 +171,7 @@ function TokenListSkeleton() {
     <ul aria-hidden className="divide-y divide-border/40">
       {Array.from({ length: 6 }, (_, index) => (
         <li key={index} className="flex items-center gap-3 px-3 py-3 sm:px-4">
-          <Skeleton className="size-[18px] rounded-[6px]" />
+          <Skeleton className="size-[18px] rounded-md" />
           <Skeleton className="size-[34px] rounded-full" />
           <div className="flex-1 space-y-1.5">
             <Skeleton className="h-3.5 w-24" />

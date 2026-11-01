@@ -413,7 +413,7 @@ export function VoidApp() {
             }
             onClick={() => setTab(entry.key)}
             className={cn(
-              "flex min-w-0 flex-1 items-center justify-center gap-1 rounded-lg px-2 py-2 text-[11px] font-medium transition-colors sm:gap-1.5 sm:px-3 sm:text-xs",
+              "flex min-w-0 flex-1 items-center justify-center gap-1 rounded-lg px-2 py-2 text-2xs font-medium transition-colors sm:gap-1.5 sm:px-3 sm:text-xs",
               activeTab === entry.key
                 ? "bg-violet-core/15 text-foreground"
                 : "text-muted hover:text-foreground",
@@ -422,7 +422,7 @@ export function VoidApp() {
             {entry.label}
             <span
               className={cn(
-                "font-mono text-[10px] sm:text-[11px]",
+                "font-mono text-2xs sm:text-2xs",
                 entry.key === "table-cnfts" && entry.count > 0
                   ? "text-violet-glow"
                   : "text-subtle",
@@ -435,7 +435,7 @@ export function VoidApp() {
       </div>
 
       {!isPro && activeTab === "cnfts" && tableCnfts.length > 0 ? (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-violet-core/25 bg-violet-core/5 px-3 py-2.5 text-[11px] leading-relaxed text-muted">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-violet-core/25 bg-violet-core/5 px-3 py-2.5 text-2xs leading-relaxed text-muted">
           <p>
             <strong className="font-medium text-foreground">
               {pluralize(tableCnfts.length, "deep cNFT")}

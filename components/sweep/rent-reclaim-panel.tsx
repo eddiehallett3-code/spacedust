@@ -112,7 +112,7 @@ export function RentReclaimPanel({
           />
         </CardHeader>
         <CardContent>
-          <p className="rounded-xl border border-warning/25 bg-warning/8 px-3 py-2.5 text-[11px] leading-relaxed text-warning">
+          <p className="rounded-xl border border-warning/25 bg-warning/8 px-3 py-2.5 text-2xs leading-relaxed text-warning">
             {scanError}
           </p>
         </CardContent>
@@ -133,7 +133,7 @@ export function RentReclaimPanel({
           />
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
-          <p className="rounded-xl border border-border bg-white/2 px-3 py-2.5 text-[11px] leading-relaxed text-muted">
+          <p className="rounded-xl border border-border bg-white/2 px-3 py-2.5 text-2xs leading-relaxed text-muted">
             <strong className="font-medium text-foreground">
               Nothing to close right now.
             </strong>{" "}
@@ -184,13 +184,13 @@ export function RentReclaimPanel({
       <CardContent className="flex flex-col gap-4">
         <div className="grid grid-cols-3 gap-3">
           <div className="rounded-xl border border-border bg-white/2 p-3">
-            <p className="text-[11px] text-subtle">Rent freed</p>
+            <p className="text-2xs text-subtle">Rent freed</p>
             <p className="mt-0.5 font-mono text-base tabular-nums">
               {formatSol(reclaim.summary ? reclaim.summary.rentLamports : plan.lamports)}
             </p>
           </div>
           <div className="rounded-xl border border-border bg-white/2 p-3">
-            <p className="text-[11px] text-subtle">Fee</p>
+            <p className="text-2xs text-subtle">Fee</p>
             <p className="mt-0.5 font-mono text-base tabular-nums">
               {formatSol(
                 reclaim.summary
@@ -202,7 +202,7 @@ export function RentReclaimPanel({
             </p>
           </div>
           <div className="rounded-xl border border-border bg-white/2 p-3">
-            <p className="text-[11px] text-subtle">You receive</p>
+            <p className="text-2xs text-subtle">You receive</p>
             <p className="mt-0.5 font-mono text-base tabular-nums">
               {formatSol(
                 reclaim.summary
@@ -223,10 +223,10 @@ export function RentReclaimPanel({
 
         {plan.closeable.length > 0 ? (
           <details className="rounded-xl border border-border bg-white/2 px-3 py-2">
-            <summary className="cursor-pointer list-none text-[11px] font-medium text-muted [&::-webkit-details-marker]:hidden">
+            <summary className="cursor-pointer list-none text-2xs font-medium text-muted [&::-webkit-details-marker]:hidden">
               {pluralize(plan.closeable.length, "vacant account")} found — review
             </summary>
-            <ul className="mt-2 max-h-40 space-y-1 overflow-auto border-t border-border/50 pt-2 text-[11px]">
+            <ul className="mt-2 max-h-40 space-y-1 overflow-auto border-t border-border/50 pt-2 text-2xs">
               {plan.closeable.map((account) => (
                 <li
                   key={account.address}
@@ -247,7 +247,7 @@ export function RentReclaimPanel({
           </details>
         ) : null}
 
-        <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-subtle">
+        <p className="flex items-start gap-1.5 text-2xs leading-relaxed text-subtle">
           <ShieldCheck className="mt-px size-3.5 shrink-0 text-success" aria-hidden />
           <span>
             {rentFeeConfigured ? (
@@ -289,7 +289,7 @@ export function RentReclaimPanel({
               {pluralize(reclaim.summary.closedCount, "account")} closed ·{" "}
               {formatSol(reclaim.summary.netRentLamports)} back in your wallet
             </p>
-            <p className="mt-1 text-[11px] leading-relaxed text-subtle">
+            <p className="mt-1 text-2xs leading-relaxed text-subtle">
               {reclaim.summary.failedCount > 0
                 ? `${pluralize(reclaim.summary.failedCount, "account")} could not be closed. `
                 : ""}
@@ -311,7 +311,7 @@ export function RentReclaimPanel({
                     href={solscanTxUrl(signature)}
                     target="_blank"
                     rel="noopener noreferrer nofollow"
-                    className="inline-flex items-center gap-1 rounded-lg border border-border bg-white/3 px-2 py-1 font-mono text-[11px] text-muted transition-colors hover:border-violet-core/40 hover:text-foreground"
+                    className="inline-flex items-center gap-1 rounded-lg border border-border bg-white/3 px-2 py-1 font-mono text-2xs text-muted transition-colors hover:border-violet-core/40 hover:text-foreground"
                   >
                     {truncateAddress(signature, 4, 4)}
                     <ExternalLink className="size-3" aria-hidden />

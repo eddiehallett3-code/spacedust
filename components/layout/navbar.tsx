@@ -144,7 +144,7 @@ export function Navbar() {
                             <span className="block text-sm font-medium text-foreground">
                               {tool.name}
                             </span>
-                            <span className="mt-0.5 block line-clamp-3 text-[11px] leading-snug text-muted">
+                            <span className="mt-0.5 block line-clamp-3 text-2xs leading-snug text-muted">
                               {tool.tagline}
                             </span>
                           </span>
@@ -246,7 +246,7 @@ export function Navbar() {
                 </DialogHeader>
 
                 <nav aria-label="Main">
-                  <p className="px-3 pb-1 pt-1 text-[10px] font-medium uppercase tracking-[0.18em] text-subtle">
+                  <p className="px-3 pb-1 pt-1 text-2xs font-medium uppercase tracking-[0.18em] text-subtle">
                     Tools
                   </p>
                   <ul className="flex flex-col">
@@ -276,7 +276,7 @@ export function Navbar() {
                     ))}
                   </ul>
 
-                  <p className="px-3 pb-1 pt-3 text-[10px] font-medium uppercase tracking-[0.18em] text-subtle">
+                  <p className="px-3 pb-1 pt-3 text-2xs font-medium uppercase tracking-[0.18em] text-subtle">
                     Learn
                   </p>
                   <ul className="flex flex-col">
@@ -307,7 +307,7 @@ export function Navbar() {
                 </div>
                 <WalletMenuActions />
 
-                <p className="mt-3 flex items-center gap-1.5 border-t border-border/60 px-3 pt-3 text-[11px] text-subtle">
+                <p className="mt-3 flex items-center gap-1.5 border-t border-border/60 px-3 pt-3 text-2xs text-subtle">
                   <ShieldCheck
                     className="size-3.5 shrink-0 text-violet-glow"
                     aria-hidden

@@ -224,7 +224,7 @@ export default function ComparePage() {
                 { name: "Sol Incinerator", cell: row.them },
               ].map(({ name, cell }) => (
                 <div key={name} className="flex items-start gap-2">
-                  <dt className="w-[104px] shrink-0 pt-px text-[10px] uppercase tracking-wide text-subtle">
+                  <dt className="w-[104px] shrink-0 pt-px text-2xs uppercase tracking-wide text-subtle">
                     {name}
                   </dt>
                   <dd className="text-xs leading-relaxed text-muted">

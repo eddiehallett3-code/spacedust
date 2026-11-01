@@ -245,7 +245,7 @@ export function SweepError({ error }: { error: FriendlyError | null }) {
             {error.message}
           </p>
           {error.hint ? (
-            <p className="mt-1.5 text-[11px] leading-relaxed text-subtle">
+            <p className="mt-1.5 text-2xs leading-relaxed text-subtle">
               {error.hint}
             </p>
           ) : null}
@@ -344,7 +344,7 @@ function VoidPrompt({ count }: { count: number }) {
         Sending {count === 1 ? "it" : "them"} into The Void destroys the balance
         and closes the account, returning whatever rent it was holding.
       </p>
-      <p className="mt-1.5 text-[11px] leading-relaxed text-subtle">
+      <p className="mt-1.5 text-2xs leading-relaxed text-subtle">
         The Void lists everything you hold — including anything Jupiter has no price
         for — so a holding that never appears here can still be offered for its rent.
         Those are flagged on the row rather than hidden.

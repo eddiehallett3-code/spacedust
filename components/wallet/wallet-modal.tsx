@@ -483,7 +483,7 @@ return (
             Hiding the fallback behind "this works" would leave Phantom users with a
             row that dead-ends. */}
         {hasMobileWalletAdapter && !walletLinks ? (
-          <p className="mt-3 rounded-xl border border-success/25 bg-success/8 p-3 text-[11px] leading-relaxed text-muted">
+          <p className="mt-3 rounded-xl border border-success/25 bg-success/8 p-3 text-2xs leading-relaxed text-muted">
             <strong className="font-medium text-foreground">
               Tap “Mobile Wallet Adapter” below
             </strong>{" "}
@@ -504,7 +504,7 @@ return (
             <p className="text-xs font-medium text-foreground">
               Open this page inside your wallet
             </p>
-            <p className="mt-1 text-[11px] leading-relaxed text-muted">
+            <p className="mt-1 text-2xs leading-relaxed text-muted">
               The one route that works from a phone browser for every wallet,
               Phantom included. It runs this whole page inside the wallet, so
               there is nothing to connect afterwards.
@@ -536,7 +536,7 @@ return (
         {/* Proactive: a plain-http origin is the most common reason a mobile
             connection silently dies, so say so before anything is clicked. */}
         {!isSecureContext ? (
-          <p className="mt-3 flex items-start gap-1.5 rounded-xl border border-warning/25 bg-warning/6 p-3 text-[11px] leading-relaxed text-warning">
+          <p className="mt-3 flex items-start gap-1.5 rounded-xl border border-warning/25 bg-warning/6 p-3 text-2xs leading-relaxed text-warning">
             <AlertTriangle className="mt-px size-3.5 shrink-0" aria-hidden />
             <span>
               This page is not on a secure origin, so browsers block the crypto
@@ -564,7 +564,7 @@ return (
                   <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
                   {failure.title}
                 </p>
-                <p className="mt-1 text-[11px] leading-relaxed text-muted">
+                <p className="mt-1 text-2xs leading-relaxed text-muted">
                   {failure.detail}
                 </p>
               </div>
@@ -620,14 +620,14 @@ return (
         )}
 
         {detectedCount === 0 && wallets.length > 0 && !walletLinks ? (
-          <p className="mt-3 flex items-start gap-1.5 text-[11px] leading-relaxed text-subtle">
+          <p className="mt-3 flex items-start gap-1.5 text-2xs leading-relaxed text-subtle">
             <AlertTriangle className="mt-px size-3 shrink-0" aria-hidden />
             None of these wallets are installed. Use the Install links, or try an
             in-app browser such as the one inside Phantom or Backpack on mobile.
           </p>
         ) : null}
 
-        <p className="mt-4 flex items-start gap-1.5 border-t border-border/60 pt-3 text-[11px] leading-relaxed text-subtle">
+        <p className="mt-4 flex items-start gap-1.5 border-t border-border/60 pt-3 text-2xs leading-relaxed text-subtle">
           <ShieldCheck className="mt-px size-3 shrink-0 text-success" aria-hidden />
           Non-custodial. You approve every transaction in your own wallet, and
           Spacedust never sees your private key.
@@ -711,7 +711,7 @@ function WalletRow({
           <span className="block truncate text-sm font-medium">{name}</span>
           <span
             className={cn(
-          "block text-[11px]",
+          "block text-2xs",
           info.tone === "ready" && "text-success",
           info.tone === "missing" && "text-subtle",
         )}
@@ -726,7 +726,7 @@ function WalletRow({
             target="_blank"
             rel="noopener noreferrer nofollow"
             onClick={(event) => event.stopPropagation()}
-            className="shrink-0 rounded-lg border border-border px-2 py-1 text-[11px] text-muted transition-colors hover:border-violet-core/40 hover:text-foreground"
+            className="shrink-0 rounded-lg border border-border px-2 py-1 text-2xs text-muted transition-colors hover:border-violet-core/40 hover:text-foreground"
           >
             {/* "Install" is the wrong word on a phone, where the app is already
                 installed and what is needed is to open it. */}

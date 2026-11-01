@@ -43,7 +43,7 @@ export function UncloseableAccountsPanel({
           />
         </CardHeader>
         <CardContent>
-          <p className="rounded-xl border border-warning/25 bg-warning/8 px-3 py-2.5 text-[11px] leading-relaxed text-warning">
+          <p className="rounded-xl border border-warning/25 bg-warning/8 px-3 py-2.5 text-2xs leading-relaxed text-warning">
             {scanError}
           </p>
         </CardContent>
@@ -67,7 +67,7 @@ export function UncloseableAccountsPanel({
           />
         </CardHeader>
         <CardContent>
-          <p className="rounded-xl border border-border bg-white/2 px-3 py-2.5 text-[11px] leading-relaxed text-muted">
+          <p className="rounded-xl border border-border bg-white/2 px-3 py-2.5 text-2xs leading-relaxed text-muted">
             No empty accounts are currently blocked by a close authority or
             withheld transfer fees.
           </p>
@@ -97,7 +97,7 @@ export function UncloseableAccountsPanel({
               key={account.address}
               className="flex items-start gap-3 rounded-xl px-2 py-2 opacity-80"
             >
-              <span className="mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-[6px] border border-border-strong">
+              <span className="mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-md border border-border-strong">
                 <LockKeyhole className="size-2.5 text-warning" aria-hidden />
               </span>
               <span className="min-w-0 flex-1">
@@ -118,7 +118,7 @@ export function UncloseableAccountsPanel({
                   {EMPTY_ACCOUNT_SKIP_TEXT[reason]}.
                 </span>
                 {reason === "foreign-close-authority" && account.closeAuthority ? (
-                  <span className="mt-0.5 block font-mono text-[10px] text-subtle">
+                  <span className="mt-0.5 block font-mono text-2xs text-subtle">
                     close authority {truncateAddress(account.closeAuthority, 6, 6)}
                   </span>
                 ) : null}
@@ -127,7 +127,7 @@ export function UncloseableAccountsPanel({
           ))}
         </div>
 
-        <p className="text-[11px] leading-relaxed text-subtle">
+        <p className="text-2xs leading-relaxed text-subtle">
           A close authority can only be changed by that authority, and withheld
           transfer fees can only be harvested by the mint. Spacedust does not
           attempt either: no instruction this app can sign would succeed.

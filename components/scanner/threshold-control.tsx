@@ -114,13 +114,13 @@ export function ThresholdControl({
         />
       </div>
 
-      <div className="mt-1 flex items-center justify-between text-[11px] text-subtle">
+      <div className="mt-1 flex items-center justify-between text-2xs text-subtle">
         <span>{formatUsd(THRESHOLD_MIN_USD)}</span>
         {value !== THRESHOLD_DEFAULT_USD ? (
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-[11px]"
+            className="h-6 px-2 text-2xs"
             onClick={() => onChange(THRESHOLD_DEFAULT_USD)}
           >
             Reset to {formatUsd(THRESHOLD_DEFAULT_USD)}

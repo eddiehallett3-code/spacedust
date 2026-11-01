@@ -676,7 +676,7 @@ export function DustApp() {
                 {/* A holding this list refuses is still a holding the wallet has,
                     so its absence is stated rather than left to be noticed. */}
                 {notListedTokens.length > 0 ? (
-                  <p className="mt-3 flex items-start gap-1.5 text-[11px] leading-relaxed text-subtle">
+                  <p className="mt-3 flex items-start gap-1.5 text-2xs leading-relaxed text-subtle">
                     <Info className="mt-px size-3.5 shrink-0" aria-hidden />
                     <span>
                       {pluralize(notListedTokens.length, "holding")} in this wallet{" "}

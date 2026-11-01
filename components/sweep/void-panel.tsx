@@ -351,7 +351,7 @@ export function VoidPanel({
             <SweepError error={error} />
 
             {selectedSwappable.length > 0 ? (
-              <p className="flex items-start gap-1.5 rounded-lg border border-danger/25 bg-danger/8 px-2.5 py-2 text-[11px] leading-relaxed text-danger">
+              <p className="flex items-start gap-1.5 rounded-lg border border-danger/25 bg-danger/8 px-2.5 py-2 text-2xs leading-relaxed text-danger">
                 <AlertTriangle className="mt-px size-3.5 shrink-0" aria-hidden />
                 <span>
                   <strong className="font-semibold">
@@ -381,7 +381,7 @@ export function VoidPanel({
                      one switch away, never the outcome. */
                   <p
                     className={cn(
-                      "flex items-start gap-1.5 rounded-lg border px-2.5 py-2 text-[11px] leading-relaxed",
+                      "flex items-start gap-1.5 rounded-lg border px-2.5 py-2 text-2xs leading-relaxed",
                       failedSimulations > 0
                         ? "border-warning/25 bg-warning/8 text-warning"
                         : "border-success/20 bg-success/6 text-muted",
@@ -427,7 +427,7 @@ export function VoidPanel({
               </div>
             ) : null}
 
-            <p className="flex items-start gap-1.5 rounded-lg border border-warning/25 bg-warning/8 px-2.5 py-2 text-[11px] leading-relaxed text-warning">
+            <p className="flex items-start gap-1.5 rounded-lg border border-warning/25 bg-warning/8 px-2.5 py-2 text-2xs leading-relaxed text-warning">
               <AlertTriangle className="mt-px size-3.5 shrink-0" aria-hidden />
               <span>
                 <strong className="font-semibold">
@@ -439,7 +439,7 @@ export function VoidPanel({
               </span>
             </p>
 
-            <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-subtle">
+            <p className="flex items-start gap-1.5 text-2xs leading-relaxed text-subtle">
               <Info className="mt-px size-3 shrink-0" aria-hidden />
               <span>
                 Sends into The Void are built and signed separately from swaps —
@@ -543,7 +543,7 @@ function VoidResult({
 
       {/* Failed tokens are never quietly swallowed. */}
       {outcomes.some((outcome) => outcome.status === "failed") ? (
-        <ul className="space-y-1 rounded-xl border border-warning/25 bg-warning/6 px-3 py-2 text-[11px] text-muted">
+        <ul className="space-y-1 rounded-xl border border-warning/25 bg-warning/6 px-3 py-2 text-2xs text-muted">
           {outcomes
             .filter((outcome) => outcome.status === "failed")
             .map((outcome) => (
@@ -562,7 +562,7 @@ function VoidResult({
 
       {summary.signatures.length > 0 ? (
         <div className="space-y-1.5">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-subtle">
+          <p className="text-2xs font-medium uppercase tracking-wide text-subtle">
             Transactions
           </p>
           <div className="flex flex-wrap gap-1.5">
@@ -572,7 +572,7 @@ function VoidResult({
                 href={solscanTxUrl(signature)}
                 target="_blank"
                 rel="noopener noreferrer nofollow"
-                className="inline-flex items-center gap-1 rounded-lg border border-border bg-white/3 px-2 py-1 font-mono text-[11px] text-muted transition-colors hover:border-violet-core/40 hover:text-foreground"
+                className="inline-flex items-center gap-1 rounded-lg border border-border bg-white/3 px-2 py-1 font-mono text-2xs text-muted transition-colors hover:border-violet-core/40 hover:text-foreground"
               >
                 {truncateAddress(signature, 4, 4)}
                 <ExternalLink className="size-3" aria-hidden />
@@ -604,7 +604,7 @@ function Stat({
 }) {
   return (
     <div className="rounded-xl border border-border bg-white/2 p-2.5">
-      <p className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-subtle">
+      <p className="flex items-center gap-1 text-2xs uppercase tracking-wide text-subtle">
         {accent ? <Orbit className="size-3" aria-hidden /> : null}
         <span className="truncate">{label}</span>
       </p>
@@ -617,7 +617,7 @@ function Stat({
       >
         {value}
       </p>
-      {hint ? <p className="truncate text-[10px] text-subtle">{hint}</p> : null}
+      {hint ? <p className="truncate text-2xs text-subtle">{hint}</p> : null}
     </div>
   );
 }

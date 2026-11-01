@@ -141,7 +141,14 @@ export function SuccessSummary({
           // `role="status"` announces the outcome and the count beneath it without
           // stealing the announcement from the rest of the page.
           role="status"
-          className="text-xl font-semibold tracking-tight outline-none"
+          // Focus is moved here programmatically, which is why this used to carry
+          // `outline-none`: a ring flashing around "Slingshot complete" the moment
+          // the dialog mounts looks like a fault. But suppressing the outline
+          // outright also removes it for anyone who reaches this heading by
+          // keyboard. `focus-visible` gives exactly the behaviour wanted — the UA
+          // already skips it for programmatic and pointer focus, and keeps it for
+          // keyboard — so the ring is restyled rather than deleted.
+          className="text-xl font-semibold tracking-tight focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet-glow"
         >
           {isDryRun
             ? "Dry run complete"
@@ -218,20 +225,20 @@ export function SuccessSummary({
                   <p className="truncate text-xs font-medium">
                     {outcome.symbol}
                     {outcome.rentReclaimed ? (
-                      <span className="ml-1.5 text-[10px] font-normal text-success">
+                      <span className="ml-1.5 text-2xs font-normal text-success">
                         rent reclaimed
                       </span>
                     ) : null}
                   </p>
                   {outcome.error ? (
                     <p
-                      className="truncate text-[10px] text-danger/80"
+                      className="truncate text-2xs text-danger/80"
                       title={outcome.error}
                     >
                       {outcome.error}
                     </p>
                   ) : (
-                    <p className="truncate text-[10px] text-subtle">
+                    <p className="truncate text-2xs text-subtle">
                       {outcome.priceImpactPct != null
                         ? `${formatPercent(outcome.priceImpactPct, 2)} impact`
                         : "—"}
@@ -247,7 +254,7 @@ export function SuccessSummary({
                       ? formatAmount(outcome.outputAmountFormatted, 6)
                       : "—"}
                   </p>
-                  <p className="text-[10px] text-subtle">
+                  <p className="text-2xs text-subtle">
                     {formatUsd(outcome.valueUsd)}
                   </p>
                 </div>
@@ -325,7 +332,7 @@ export function SuccessSummary({
               </li>
             ))}
           </ul>
-          <p className="mt-2 text-[11px] leading-relaxed text-subtle">
+          <p className="mt-2 text-2xs leading-relaxed text-subtle">
             Nothing was signed for these, so nothing was spent. Where the reason
             is a missing route, The Void can still burn the balance and return
             the rent its account is holding.
@@ -342,7 +349,7 @@ export function SuccessSummary({
       {/* Transaction links */}
       {summary.signatures.length > 0 ? (
         <div className="relative mt-4 space-y-1.5">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-subtle">
+          <p className="text-2xs font-medium uppercase tracking-wide text-subtle">
             Transactions
           </p>
           <div className="flex flex-wrap gap-1.5">
@@ -352,7 +359,7 @@ export function SuccessSummary({
                 href={solscanTxUrl(signature)}
                 target="_blank"
                 rel="noopener noreferrer nofollow"
-                className="inline-flex items-center gap-1 rounded-lg border border-border bg-white/3 px-2 py-1 font-mono text-[11px] text-muted transition-colors hover:border-violet-core/40 hover:text-foreground"
+                className="inline-flex items-center gap-1 rounded-lg border border-border bg-white/3 px-2 py-1 font-mono text-2xs text-muted transition-colors hover:border-violet-core/40 hover:text-foreground"
               >
                 {truncateAddress(signature, 4, 4)}
                 <ArrowUpRight className="size-3" aria-hidden />
@@ -364,7 +371,7 @@ export function SuccessSummary({
       ) : null}
 
       {summary.routeLabels.length > 0 ? (
-        <p className="relative mt-3 flex flex-wrap items-center gap-1.5 text-[11px] text-subtle">
+        <p className="relative mt-3 flex flex-wrap items-center gap-1.5 text-2xs text-subtle">
           <span>Routed via</span>
           {summary.routeLabels.map((label) => (
             <Badge key={label} variant="muted" size="sm">
@@ -439,7 +446,7 @@ function BigStat({
 }) {
   return (
     <div className="rounded-xl border border-border bg-white/2 p-3">
-      <p className="text-[10px] uppercase tracking-wide text-subtle">{label}</p>
+      <p className="text-2xs uppercase tracking-wide text-subtle">{label}</p>
       <p
         className={
           accent
@@ -450,7 +457,7 @@ function BigStat({
         {value}
         {unit ? <span className="ml-1 text-xs text-muted">{unit}</span> : null}
       </p>
-      {hint ? <p className="mt-0.5 text-[10px] text-subtle">{hint}</p> : null}
+      {hint ? <p className="mt-0.5 text-2xs text-subtle">{hint}</p> : null}
     </div>
   );
 }

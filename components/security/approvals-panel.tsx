@@ -251,7 +251,7 @@ export function ApprovalsPanel() {
               ))}
             </ul>
             {frozen.length > 0 ? (
-              <p className="border-t border-border/60 px-5 py-2.5 text-[11px] leading-relaxed text-subtle sm:px-6">
+              <p className="border-t border-border/60 px-5 py-2.5 text-2xs leading-relaxed text-subtle sm:px-6">
                 {pluralize(frozen.length, "frozen account")} cannot be revoked
                 yet. The token program rejects a revoke while an account is
                 frozen, so this permission stays live until the mint&apos;s
@@ -429,7 +429,7 @@ function ApprovalRow({
             ) : null}
           </div>
 
-          <p className="mt-0.5 truncate text-[11px] text-subtle">
+          <p className="mt-0.5 truncate text-2xs text-subtle">
             Delegate{" "}
             <span className="font-mono text-muted">
               {truncateAddress(approval.delegate, 4, 4)}
@@ -447,7 +447,7 @@ function ApprovalRow({
           </p>
           <p
             className={cn(
-              "text-[11px]",
+              "text-2xs",
               approval.unlimited ? "text-danger" : "text-subtle",
             )}
           >

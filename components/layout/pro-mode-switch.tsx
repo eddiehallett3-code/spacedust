@@ -28,7 +28,7 @@ export function ProModeSwitch({ className }: { className?: string }) {
       <label
         htmlFor="pro-mode"
         className={cn(
-          "cursor-pointer select-none text-[11px] font-medium leading-none transition-colors",
+          "cursor-pointer select-none text-2xs font-medium leading-none transition-colors",
           isPro ? "text-violet-glow" : "text-muted",
         )}
       >

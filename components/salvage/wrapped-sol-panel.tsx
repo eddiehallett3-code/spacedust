@@ -165,7 +165,7 @@ export function WrappedSolPanel({
         />
       </CardHeader>
       <CardContent className="space-y-4">
-        <p className="flex items-start gap-1.5 rounded-xl border border-violet-core/20 bg-violet-core/6 p-3 text-[11px] leading-relaxed text-muted">
+        <p className="flex items-start gap-1.5 rounded-xl border border-violet-core/20 bg-violet-core/6 p-3 text-2xs leading-relaxed text-muted">
           <AlertTriangle className="mt-px size-3.5 shrink-0 text-violet-glow" aria-hidden />
           <span>
             This is an unwrap, not a sale. The close returns the wrapped SOL and
@@ -188,7 +188,7 @@ export function WrappedSolPanel({
                   skip ? "opacity-70" : "hover:bg-white/4"
                 }`}
               >
-                <span className="mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-[6px] border border-border-strong">
+                <span className="mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-md border border-border-strong">
                   {!skip ? (
                     <span className="size-2 rounded-full bg-emerald-400" />
                   ) : null}
@@ -234,25 +234,25 @@ export function WrappedSolPanel({
           <>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div className="rounded-xl border border-border bg-white/2 p-3">
-                <p className="text-[11px] text-subtle">Wrapped SOL</p>
+                <p className="text-2xs text-subtle">Wrapped SOL</p>
                 <p className="mt-0.5 font-mono text-base tabular-nums">
                   {formatSol(unwrap.wrappedLamports || plan.wrappedLamports)}
                 </p>
               </div>
               <div className="rounded-xl border border-border bg-white/2 p-3">
-                <p className="text-[11px] text-subtle">Rent returned</p>
+                <p className="text-2xs text-subtle">Rent returned</p>
                 <p className="mt-0.5 font-mono text-base tabular-nums">
                   {formatSol(unwrap.rentLamports || plan.rentLamports)}
                 </p>
               </div>
               <div className="rounded-xl border border-border bg-white/2 p-3">
-                <p className="text-[11px] text-subtle">Our fee</p>
+                <p className="text-2xs text-subtle">Our fee</p>
                 <p className="mt-0.5 font-mono text-base tabular-nums">
                   {formatSol(hasPreview ? unwrap.reclaimFeeLamports : estimatedFee)}
                 </p>
               </div>
               <div className="rounded-xl border border-border bg-white/2 p-3">
-                <p className="text-[11px] text-subtle">You receive</p>
+                <p className="text-2xs text-subtle">You receive</p>
                 <p className="mt-0.5 font-mono text-base tabular-nums">
                   {formatSol(
                     hasPreview
@@ -268,7 +268,7 @@ export function WrappedSolPanel({
               repaymentLamports={unwrap.sponsorRepaymentLamports}
             />
 
-            <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-subtle">
+            <p className="flex items-start gap-1.5 text-2xs leading-relaxed text-subtle">
               <ShieldCheck className="mt-px size-3.5 shrink-0 text-success" aria-hidden />
               <span>
                 {getPublicFeeWallet() === null
@@ -318,7 +318,7 @@ export function WrappedSolPanel({
               {pluralize(unwrap.summary.closedCount, "account")} closed ·{" "}
               {formatSol(unwrap.summary.netReturnedLamports)} back in your wallet
             </p>
-            <p className="mt-1 text-[11px] leading-relaxed text-subtle">
+            <p className="mt-1 text-2xs leading-relaxed text-subtle">
               {unwrap.summary.failedCount > 0
                 ? `${pluralize(unwrap.summary.failedCount, "account")} could not be closed. `
                 : ""}
@@ -339,7 +339,7 @@ export function WrappedSolPanel({
                     href={solscanTxUrl(signature)}
                     target="_blank"
                     rel="noopener noreferrer nofollow"
-                    className="inline-flex items-center gap-1 rounded-lg border border-border bg-white/3 px-2 py-1 font-mono text-[11px] text-muted transition-colors hover:border-violet-core/40 hover:text-foreground"
+                    className="inline-flex items-center gap-1 rounded-lg border border-border bg-white/3 px-2 py-1 font-mono text-2xs text-muted transition-colors hover:border-violet-core/40 hover:text-foreground"
                   >
                     {truncateAddress(signature, 4, 4)}
                     <ExternalLink className="size-3" aria-hidden />

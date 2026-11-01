@@ -24,7 +24,7 @@ export function SponsorAdvanceNote({
   if (repaymentLamports <= 0) return null;
 
   return (
-    <p className="flex items-start gap-1.5 rounded-xl border border-violet-core/25 bg-violet-core/6 px-3 py-2.5 text-[11px] leading-relaxed text-muted">
+    <p className="flex items-start gap-1.5 rounded-xl border border-violet-core/25 bg-violet-core/6 px-3 py-2.5 text-2xs leading-relaxed text-muted">
       <HandCoins
         className="mt-px size-3.5 shrink-0 text-violet-glow"
         aria-hidden

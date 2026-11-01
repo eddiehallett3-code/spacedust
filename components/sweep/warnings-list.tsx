@@ -30,11 +30,11 @@ export function WarningsList({
       <summary className="flex cursor-pointer list-none items-center gap-2 text-xs font-medium text-warning">
         <FileWarning className="size-3.5 shrink-0" aria-hidden />
         {pluralize(warnings.length, "item")} to review
-        <span className="ml-auto text-[11px] font-normal text-subtle">
+        <span className="ml-auto text-2xs font-normal text-subtle">
           details
         </span>
       </summary>
-      <ul className="mt-2 space-y-1 border-t border-warning/15 pt-2 text-[11px] text-muted">
+      <ul className="mt-2 space-y-1 border-t border-warning/15 pt-2 text-2xs text-muted">
         {warnings.slice(0, 12).map((warning, index) => (
           <li key={index} className="flex gap-1.5">
             <span aria-hidden>•</span>

@@ -207,7 +207,7 @@ export function AssetPicker({
                       <button
                         type="button"
                         onClick={() => onSolAmountChange("")}
-                        className="shrink-0 text-[11px] text-violet-glow transition-colors hover:text-violet-core"
+                        className="shrink-0 text-2xs text-violet-glow transition-colors hover:text-violet-core"
                       >
                         Max
                       </button>
@@ -216,7 +216,7 @@ export function AssetPicker({
                 ) : null}
               </div>
               {solSelected && solProblem ? (
-                <p className="mt-1 text-[11px] leading-relaxed text-warning">
+                <p className="mt-1 text-2xs leading-relaxed text-warning">
                   {solProblem}
                 </p>
               ) : null}
@@ -306,7 +306,7 @@ export function AssetPicker({
                           <button
                             type="button"
                             onClick={() => onAmountChange(token.mint, "")}
-                            className="shrink-0 text-[11px] text-violet-glow transition-colors hover:text-violet-core"
+                            className="shrink-0 text-2xs text-violet-glow transition-colors hover:text-violet-core"
                           >
                             Max
                           </button>
@@ -347,7 +347,7 @@ export function AssetPicker({
                   key={asset.id}
                   className="flex items-start gap-3 rounded-xl px-2 py-2 opacity-70"
                 >
-                  <span className="mt-0.5 size-[18px] shrink-0 rounded-[6px] border border-border-strong" />
+                  <span className="mt-0.5 size-[18px] shrink-0 rounded-md border border-border-strong" />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm">
                       {asset.name || truncateAddress(asset.id)}

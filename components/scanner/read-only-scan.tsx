@@ -234,14 +234,14 @@ export function ReadOnlyScan({ initialOwner }: { initialOwner: string | null }) 
       />
 
       {cachedAt !== null && !error ? (
-        <p className="text-[11px] leading-relaxed text-subtle">
+        <p className="text-2xs leading-relaxed text-subtle">
           Showing your last scan, {describeAge(cachedAt)}.
           {isLoading ? " Refreshing…" : ""}
         </p>
       ) : null}
 
       {change ? (
-        <p className="text-[11px] leading-relaxed text-subtle">{change}</p>
+        <p className="text-2xs leading-relaxed text-subtle">{change}</p>
       ) : null}
 
       <ScanResult
@@ -304,7 +304,7 @@ function ScanForm({
                 autoCorrect="off"
                 spellCheck={false}
                 aria-describedby="scan-owner-hint"
-                className="min-w-0 flex-1 font-mono text-[0.8rem]"
+                className="min-w-0 flex-1 font-mono text-xs"
               />
               <Button
                 type="button"
@@ -365,7 +365,7 @@ function Metric({
 }) {
   return (
     <div className="rounded-xl border border-border/60 bg-white/[0.02] p-2.5">
-      <dt className="text-[10px] leading-tight text-subtle">{label}</dt>
+      <dt className="text-2xs leading-tight text-subtle">{label}</dt>
       <dd
         title={hint}
         className={
@@ -403,7 +403,7 @@ function ScanWindow({
   return (
     <div className="rounded-xl border border-border/60 bg-white/[0.02] p-3">
       <div className="flex items-center justify-between gap-2">
-        <p className="flex items-center gap-1.5 text-[11px] font-medium text-muted">
+        <p className="flex items-center gap-1.5 text-2xs font-medium text-muted">
           {icon}
           {title}
         </p>
@@ -412,7 +412,7 @@ function ScanWindow({
       <p className="mt-2 font-mono text-lg font-semibold tabular-nums">
         {value}
       </p>
-      <p className="mt-1 text-[11px] leading-relaxed text-subtle">{hint}</p>
+      <p className="mt-1 text-2xs leading-relaxed text-subtle">{hint}</p>
     </div>
   );
 }
@@ -499,7 +499,7 @@ function ScanSummary({
           </span>
           <div>
             <p className="text-sm font-medium">Wallet Scan</p>
-            <p className="text-[11px] text-subtle">
+            <p className="text-2xs text-subtle">
               Read-only · no wallet connection
             </p>
           </div>
@@ -512,14 +512,14 @@ function ScanSummary({
       <div className="grid gap-3 p-4 sm:grid-cols-[1.15fr_0.85fr] sm:p-5">
         <div>
           <div className="rounded-xl border border-border/60 bg-black/20 p-3">
-            <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-subtle">
+            <p className="text-2xs font-medium uppercase tracking-[0.16em] text-subtle">
               Wallet address
             </p>
             <div className="mt-1 flex items-center gap-2">
               <span className="font-mono text-sm text-foreground">
                 {owner ? truncateAddress(owner, 4, 4) : "—"}
               </span>
-              <span className="rounded-full border border-success/20 bg-success/8 px-2 py-0.5 text-[10px] text-emerald-300">
+              <span className="rounded-full border border-success/20 bg-success/8 px-2 py-0.5 text-2xs text-emerald-300">
                 Read-only
               </span>
             </div>
@@ -552,7 +552,7 @@ function ScanSummary({
             />
           </dl>
 
-          <p className="mt-2 px-0.5 text-[10px] leading-snug text-subtle">
+          <p className="mt-2 px-0.5 text-2xs leading-snug text-subtle">
             Native {scan.native.sol.toFixed(4)} SOL
             {scan.wrappedSol && scan.wrappedSol.length > 0
               ? ` · Wrapped ${formatSol(wrappedSolAmountLamports ?? 0)}`
@@ -561,7 +561,7 @@ function ScanSummary({
         </div>
         <div className="rounded-xl border border-border/60 bg-white/[0.02] p-3">
           <div className="flex items-baseline justify-between gap-2 border-b border-border/60 pb-2">
-            <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-subtle">
+            <p className="text-2xs font-medium uppercase tracking-[0.16em] text-subtle">
               Wallet total
             </p>
             <p className="font-mono text-sm font-semibold">
@@ -569,7 +569,7 @@ function ScanSummary({
             </p>
           </div>
           <div className="mt-3 flex items-baseline justify-between gap-2">
-            <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-subtle">
+            <p className="text-2xs font-medium uppercase tracking-[0.16em] text-subtle">
               Potential reclaim
             </p>
             <p className="text-sm font-semibold text-success">+{totalRent}</p>
@@ -588,7 +588,7 @@ function ScanSummary({
               style={{ width: `${(rentShare ?? 0) * 100}%` }}
             />
           </div>
-          <ul className="mt-3 space-y-1.5 text-[11px] text-muted">
+          <ul className="mt-3 space-y-1.5 text-2xs text-muted">
             <li className="flex justify-between gap-2">
               <span>Dust positions</span>
               <span className="text-foreground">{scan.tokens.length}</span>
@@ -614,7 +614,7 @@ function ScanSummary({
               <span className="text-foreground">{snsCount ?? "—"}</span>
             </li>
           </ul>
-          <p className="mt-3 text-[10px] leading-snug text-subtle">
+          <p className="mt-3 text-2xs leading-snug text-subtle">
             {scan.approvalsError
               ? "Approvals could not be read. That is not a clean bill of health."
               : "Read-only result. Nothing is signed."}
@@ -632,7 +632,7 @@ function ScanSummary({
             recoverable.excessRentLamports > 0 ? (
               <Link
                 href="/salvage"
-                className="inline-flex items-center gap-0.5 text-[11px] font-medium text-violet-glow transition-colors hover:text-violet-core"
+                className="inline-flex items-center gap-0.5 text-2xs font-medium text-violet-glow transition-colors hover:text-violet-core"
               >
                 Withdraw
                 <ArrowRight className="size-3" aria-hidden />
@@ -653,7 +653,7 @@ function ScanSummary({
             !scan.wrappedSolError ? (
               <Link
                 href="/salvage"
-                className="inline-flex items-center gap-0.5 text-[11px] font-medium text-violet-glow transition-colors hover:text-violet-core"
+                className="inline-flex items-center gap-0.5 text-2xs font-medium text-violet-glow transition-colors hover:text-violet-core"
               >
                 Unwrap
                 <ArrowRight className="size-3" aria-hidden />
@@ -665,7 +665,7 @@ function ScanSummary({
 
 
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 px-4 py-3 sm:px-5">
-        <p className="text-[11px] text-subtle">
+        <p className="text-2xs text-subtle">
           Read {Math.round(scan.durationMs)}ms ago through {source}, across{" "}
           {pluralize(scan.pages, "page")}.
         </p>
@@ -711,7 +711,7 @@ function ScanWaiting() {
           </p>
           <span
             aria-hidden
-            className="shrink-0 font-mono text-[11px] tabular-nums text-subtle"
+            className="shrink-0 font-mono text-2xs tabular-nums text-subtle"
           >
             {seconds}s
           </span>
@@ -934,7 +934,7 @@ function EmptyAccountsCard({
                         </Badge>
                       ) : null}
                     </div>
-                    <p className="truncate text-[11px] text-subtle">
+                    <p className="truncate text-2xs text-subtle">
                       {truncateAddress(account.address, 4, 4)}
                     </p>
                   </div>
@@ -1015,19 +1015,19 @@ function WrappedSolCard({
           <>
             <dl className="grid grid-cols-3 gap-2">
               <div className="rounded-xl border border-border/60 bg-white/[0.02] p-2.5">
-                <dt className="text-[10px] leading-tight text-subtle">Wrapped</dt>
+                <dt className="text-2xs leading-tight text-subtle">Wrapped</dt>
                 <dd className="mt-1 font-mono text-sm tabular-nums">
                   {formatSol(amountLamports)}
                 </dd>
               </div>
               <div className="rounded-xl border border-border/60 bg-white/[0.02] p-2.5">
-                <dt className="text-[10px] leading-tight text-subtle">Rent</dt>
+                <dt className="text-2xs leading-tight text-subtle">Rent</dt>
                 <dd className="mt-1 font-mono text-sm tabular-nums">
                   {formatSol(rentLamports)}
                 </dd>
               </div>
               <div className="rounded-xl border border-border/60 bg-white/[0.02] p-2.5">
-                <dt className="text-[10px] leading-tight text-subtle">Accounts</dt>
+                <dt className="text-2xs leading-tight text-subtle">Accounts</dt>
                 <dd className="mt-1 font-mono text-sm tabular-nums">
                   {accounts.length}
                 </dd>
@@ -1057,7 +1057,7 @@ function WrappedSolCard({
                         </Badge>
                       ) : null}
                     </div>
-                    <p className="truncate text-[11px] text-subtle">
+                    <p className="truncate text-2xs text-subtle">
                       {truncateAddress(account.address, 4, 4)} ·{" "}
                       {formatSol(account.rentLamports)} rent
                     </p>
@@ -1148,7 +1148,7 @@ function ApprovalsCard({
                         </Badge>
                       ) : null}
                     </div>
-                    <p className="truncate text-[11px] text-subtle">
+                    <p className="truncate text-2xs text-subtle">
                       delegate {truncateAddress(approval.delegate, 4, 4)}
                     </p>
                   </div>
@@ -1234,7 +1234,7 @@ function SnsNamesCard({
                       </Badge>
                     ) : null}
                   </div>
-                  <p className="truncate text-[11px] text-subtle">
+                  <p className="truncate text-2xs text-subtle">
                     {truncateAddress(domain.address, 4, 4)}
                   </p>
                 </div>
@@ -1247,7 +1247,7 @@ function SnsNamesCard({
         ) : null}
 
         {truncated ? (
-          <p className="text-[11px] leading-relaxed text-subtle">
+          <p className="text-2xs leading-relaxed text-subtle">
             Showing the first 250 names. Open Salvage to see the full list.
           </p>
         ) : null}
@@ -1376,12 +1376,12 @@ function HookTokensCard({ tokens }: { tokens: DustToken[] }) {
                         {description.label}
                       </Badge>
                     </div>
-                    <p className="truncate text-[11px] text-subtle">
+                    <p className="truncate text-2xs text-subtle">
                       {token.name} · {truncateAddress(token.mint, 4, 4)}
                     </p>
                   </div>
                 </div>
-                <p className="text-[11px] leading-relaxed text-subtle">
+                <p className="text-2xs leading-relaxed text-subtle">
                   {description.detail}
                 </p>
                 {canVoid ? (
@@ -1473,7 +1473,7 @@ function LimitationsCard({
               </Badge>
               <div className="min-w-0">
                 <p className="text-xs font-medium">{row.label}</p>
-                <p className="mt-0.5 text-[11px] leading-relaxed text-subtle">
+                <p className="mt-0.5 text-2xs leading-relaxed text-subtle">
                   {row.why}
                 </p>
               </div>
@@ -1588,8 +1588,8 @@ function TokenRows({
                         title={hazard.detail}
                         className={
                           hazard.severity === "danger"
-                            ? "text-[11px] leading-none text-danger"
-                            : "text-[11px] leading-none text-warning"
+                            ? "text-2xs leading-none text-danger"
+                            : "text-2xs leading-none text-warning"
                         }
                       >
                         {hazard.label}

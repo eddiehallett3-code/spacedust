@@ -142,7 +142,7 @@ export function SendPreview({
 
             {signatures.length > 0 ? (
               <>
-                <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+                <p className="mt-1.5 text-2xs leading-relaxed text-muted">
                   {pluralize(signatures.length, "transaction")} — open one on
                   Solscan to see exactly what moved, or copy its id.
                 </p>
@@ -193,7 +193,7 @@ export function SendPreview({
         {/* A disabled button with no reason leaves the user guessing whether they
             missed a step — and the reason is usually something they can act on. */}
         {blockedReason ?? sendBlockedReason ? (
-          <p className="text-[11px] leading-relaxed text-muted">
+          <p className="text-2xs leading-relaxed text-muted">
             {blockedReason ?? sendBlockedReason}
           </p>
         ) : null}
@@ -235,13 +235,13 @@ function TransactionId({ signature }: { signature: string }) {
         {truncateAddress(signature, 8, 8)}
       </button>
       {copied ? (
-        <span className="text-[11px] text-success">copied</span>
+        <span className="text-2xs text-success">copied</span>
       ) : null}
       <a
         href={solscanTxUrl(signature)}
         target="_blank"
         rel="noreferrer"
-        className="inline-flex items-center gap-1 text-[11px] text-violet-glow transition-colors hover:text-violet-core hover:underline"
+        className="inline-flex items-center gap-1 text-2xs text-violet-glow transition-colors hover:text-violet-core hover:underline"
       >
         Solscan
         <ExternalLink className="size-3" aria-hidden />

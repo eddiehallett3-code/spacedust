@@ -48,7 +48,7 @@ export function LandingProductPreview() {
               <p id="scan-preview-title" className="text-sm font-medium">
                 Wallet Scan
               </p>
-              <p className="text-[11px] text-subtle">
+              <p className="text-2xs text-subtle">
                 Read-only · no wallet connection
               </p>
             </div>
@@ -59,7 +59,7 @@ export function LandingProductPreview() {
           <form action="/scan" method="get" className="min-w-0">
             <label
               htmlFor="landing-wallet"
-              className="text-[10px] font-medium uppercase tracking-[0.16em] text-subtle"
+              className="text-2xs font-medium uppercase tracking-[0.16em] text-subtle"
             >
               Wallet address
             </label>
@@ -89,21 +89,21 @@ export function LandingProductPreview() {
             </div>
             <p
               id="landing-wallet-note"
-              className="mt-2 text-[11px] leading-relaxed text-subtle"
+              className="mt-2 text-2xs leading-relaxed text-subtle"
             >
               No wallet connection. Nothing is signed.
             </p>
           </form>
 
           <div className="rounded-xl border border-border/60 bg-white/[0.02] p-3">
-            <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-subtle">
+            <p className="text-2xs font-medium uppercase tracking-[0.16em] text-subtle">
               What the scan returns
             </p>
             <ul className="mt-3 space-y-2.5">
               {OUTPUTS.map((item) => (
                 <li
                   key={item}
-                  className="flex items-start gap-2 text-[11px] leading-relaxed text-muted"
+                  className="flex items-start gap-2 text-2xs leading-relaxed text-muted"
                 >
                   <CheckCircle2
                     className="mt-0.5 size-3.5 shrink-0 text-cyan-glow"
@@ -113,14 +113,14 @@ export function LandingProductPreview() {
                 </li>
               ))}
             </ul>
-            <p className="mt-3 text-[10px] leading-snug text-subtle">
+            <p className="mt-3 text-2xs leading-snug text-subtle">
               The result is a link you can share.
             </p>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 px-4 py-3 sm:px-5">
-          <p className="text-[11px] text-subtle">
+          <p className="text-2xs text-subtle">
             Read-only lookup. No wallet needed.
           </p>
           <Link

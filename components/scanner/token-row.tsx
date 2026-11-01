@@ -232,7 +232,7 @@ export const TokenRow = memo(function TokenRow({
           <div className="flex items-center gap-2">
             <label
               htmlFor={`amount-${token.mint}`}
-              className="shrink-0 text-[11px] text-muted"
+              className="shrink-0 text-2xs text-muted"
             >
               Amount
             </label>
@@ -247,7 +247,7 @@ export const TokenRow = memo(function TokenRow({
                 aria-label={`Amount of ${token.symbol} to swap, of a balance of ${formatAmount(token.balance, 4)}`}
                 className="h-8 pr-16 font-mono text-xs"
               />
-              <span className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-[10px] text-subtle">
+              <span className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-2xs text-subtle">
                 {token.symbol}
               </span>
             </div>
@@ -262,7 +262,7 @@ export const TokenRow = memo(function TokenRow({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-7 flex-1 px-1.5 text-[10px] tabular-nums"
+                className="h-7 flex-1 px-1.5 text-2xs tabular-nums"
                 onClick={() => applyPercent(percent)}
                 aria-label={`Swap ${percent}% of ${token.symbol}`}
               >
@@ -270,7 +270,7 @@ export const TokenRow = memo(function TokenRow({
               </Button>
             ))}
           </div>
-          <p className="mt-1.5 text-[11px] leading-relaxed text-subtle">
+          <p className="mt-1.5 text-2xs leading-relaxed text-subtle">
             {partial
               ? `Swapping ${formatAmount(chosen, 4)} of ${formatAmount(token.balance, 4)} ${token.symbol}. The account keeps a balance, so its rent is not reclaimed this time.`
               : `Swapping the whole ${formatAmount(token.balance, 4)} ${token.symbol}. The emptied account is closed and its rent comes back.`}

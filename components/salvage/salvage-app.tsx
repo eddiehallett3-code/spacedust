@@ -91,7 +91,7 @@ export function SalvageApp() {
         <section className="space-y-5" aria-label="SNS names">
           <div className="rounded-xl border border-violet-core/20 bg-violet-core/6 px-4 py-3">
             <p className="text-sm font-medium text-violet-glow">Pro cleanup</p>
-            <p className="mt-1 text-[11px] leading-relaxed text-muted">
+            <p className="mt-1 text-2xs leading-relaxed text-muted">
               Give unused <code>.sns</code> names back to the open namespace. Name deletion
               is previewed and simulated before anything is signed.
             </p>
@@ -100,7 +100,7 @@ export function SalvageApp() {
           <DomainsPanel />
         </section>
       ) : (
-        <p className="rounded-xl border border-border bg-white/2 px-4 py-3 text-[11px] leading-relaxed text-subtle">
+        <p className="rounded-xl border border-border bg-white/2 px-4 py-3 text-2xs leading-relaxed text-subtle">
           Pro mode adds <code>.sns</code> name deletion. Turn it on in the navbar
           when you need it.
         </p>

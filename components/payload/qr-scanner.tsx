@@ -403,7 +403,7 @@ export function QrScanner({
                   {/* The branch taken, in tiny type. A message that does not add
                       up is the one worth reporting, and "it didn't work" cannot
                       be acted on. */}
-                  <p className="font-mono text-[10px] break-all text-subtle">
+                  <p className="font-mono text-2xs break-all text-subtle">
                     {problem.code}
                   </p>
                 </>
@@ -429,7 +429,7 @@ export function QrScanner({
         ) : null}
 
         <div className="mt-4 flex items-center justify-between gap-3">
-          <p className="text-[11px] leading-relaxed text-subtle">
+          <p className="text-2xs leading-relaxed text-subtle">
             The camera is used on this device only, and stops when this closes.
           </p>
           <div className="flex shrink-0 items-center gap-2">

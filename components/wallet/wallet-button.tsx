@@ -63,7 +63,7 @@ export function WalletButton({ className }: { className?: string }) {
           className="ml-1 size-1.5 shrink-0 rounded-full bg-success shadow-[0_0_8px] shadow-success/60"
         />
         <span
-          className="px-0.5 font-mono text-[11px] font-medium tracking-tight sm:text-xs"
+          className="px-0.5 font-mono text-2xs font-medium tracking-tight sm:text-xs"
           title={address}
         >
           {truncateAddress(address, 4, 4)}

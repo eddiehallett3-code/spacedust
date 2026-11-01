@@ -92,11 +92,11 @@ export function SweepHistoryPanel({ onResweep }: { onResweep: () => void }) {
                     {formatAmount(entry.totalOutput, 6)}{" "}
                     <span className="text-muted">{entry.outputAsset}</span>
                   </p>
-                  <p className="shrink-0 text-[10px] text-subtle">
+                  <p className="shrink-0 text-2xs text-subtle">
                     {formatRelativeTime(entry.createdAt)}
                   </p>
                 </div>
-                <p className="mt-1 text-[11px] text-subtle">
+                <p className="mt-1 text-2xs text-subtle">
                   {pluralize(entry.tokenCount, "token")} ·{" "}
                   {formatUsd(entry.totalValueUsd)} recovered
                   {entry.failedCount > 0 ? (
@@ -110,7 +110,7 @@ export function SweepHistoryPanel({ onResweep }: { onResweep: () => void }) {
                       href={solscanTxUrl(signature)}
                       target="_blank"
                       rel="noopener noreferrer nofollow"
-                      className="inline-flex items-center gap-0.5 rounded-md border border-border px-1.5 py-0.5 font-mono text-[10px] text-subtle transition-colors hover:text-foreground"
+                      className="inline-flex items-center gap-0.5 rounded-md border border-border px-1.5 py-0.5 font-mono text-2xs text-subtle transition-colors hover:text-foreground"
                     >
                       {truncateAddress(signature, 3, 3)}
                       <ExternalLink className="size-2.5" aria-hidden />

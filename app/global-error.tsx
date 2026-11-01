@@ -89,7 +89,7 @@ export default function GlobalError({
             <button
               type="button"
               onClick={reset}
-              className="h-12 rounded-xl bg-linear-to-r from-violet-deep via-violet-core to-indigo-core px-6 text-[0.95rem] font-medium text-white shadow-[0_8px_28px_-10px_rgba(139,92,246,0.85)] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-glow"
+              className="h-12 rounded-xl bg-linear-to-r from-violet-deep via-violet-core to-indigo-core px-6 text-base font-medium text-white shadow-[0_8px_28px_-10px_rgba(139,92,246,0.85)] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-glow"
             >
               Try again
             </button>

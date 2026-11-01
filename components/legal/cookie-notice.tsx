@@ -78,7 +78,7 @@ export function CookieNotice() {
       aria-label="Browser storage notice"
       className="fixed inset-x-3 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-[60] mx-auto flex max-w-2xl items-center gap-3 rounded-full border border-border/70 bg-space-850/95 px-3 py-2 shadow-xl backdrop-blur-xl sm:inset-x-6 sm:bottom-5 sm:px-4"
     >
-      <p className="min-w-0 flex-1 text-[11px] leading-snug text-muted">
+      <p className="min-w-0 flex-1 text-2xs leading-snug text-muted">
         Essential storage only. No tracking.{" "}
         <Link
           href="/privacy"

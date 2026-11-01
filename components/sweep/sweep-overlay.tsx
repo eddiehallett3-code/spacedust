@@ -114,7 +114,7 @@ export function SweepOverlay({
             {/* Transaction progress, once we know how many there are. */}
             {progress.total > 0 ? (
               <div className="mt-4 border-t border-border/60 pt-4">
-                <div className="flex items-center justify-between text-[11px] text-muted">
+                <div className="flex items-center justify-between text-2xs text-muted">
                   <span>
                     {formatTransactionProgress(
                       progress.completed,
@@ -143,7 +143,7 @@ export function SweepOverlay({
               </div>
             ) : null}
 
-            <p className="mt-4 text-center text-[11px] text-subtle">
+            <p className="mt-4 text-center text-2xs text-subtle">
               Do not close this tab — your wallet approval is required to
               continue.
             </p>

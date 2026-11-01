@@ -123,7 +123,7 @@ export function SweepPanel({
             : "border-border bg-white/2",
         )}
       >
-        <p className="text-[10px] uppercase tracking-wide text-subtle">
+        <p className="text-2xs uppercase tracking-wide text-subtle">
           {hasPreview ? "You'll receive" : "Dust selected"}
         </p>
         <p className="mt-1 flex items-baseline gap-1.5 font-mono tabular-nums">
@@ -134,7 +134,7 @@ export function SweepPanel({
             <span className="text-sm text-muted">{output.symbol}</span>
           ) : null}
         </p>
-        <p className="mt-1 text-[11px] leading-relaxed text-muted">
+        <p className="mt-1 text-2xs leading-relaxed text-muted">
           {hasPreview
             ? outputAsset === "SOL"
               ? `${formatAmount(swapOutput, 5)} from swaps · ${formatSol(rentLamports)} rent back, after fees`
@@ -144,7 +144,7 @@ export function SweepPanel({
       </div>
 
       {hasPreview ? (
-        <p className="flex flex-wrap items-center gap-x-1.5 text-[11px] text-subtle">
+        <p className="flex flex-wrap items-center gap-x-1.5 text-2xs text-subtle">
           <span>{pluralize(selectedTokens, "token")}</span>
           <span aria-hidden>·</span>
           <span>{pluralize(packed.length, "approval")}</span>
@@ -198,7 +198,7 @@ export function SweepPanel({
         ) : null}
       </AnimatePresence>
 
-      <p className="flex items-start gap-2 rounded-xl border border-success/20 bg-success/6 px-3 py-2.5 text-[11px] leading-relaxed text-emerald-200/90">
+      <p className="flex items-start gap-2 rounded-xl border border-success/20 bg-success/6 px-3 py-2.5 text-2xs leading-relaxed text-emerald-200/90">
         <ShieldCheck className="mt-px size-3.5 shrink-0" aria-hidden />
         <span>
           Non-custodial — you sign every transaction in your own wallet, and
@@ -266,7 +266,7 @@ export function SweepPanel({
         </div>
       </div>
 
-      <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-subtle">
+      <p className="flex items-start gap-1.5 text-2xs leading-relaxed text-subtle">
         <Info className="mt-px size-3 shrink-0" aria-hidden />
         <span>
           {rentFeeConfigured ? (

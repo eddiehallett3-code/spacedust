@@ -56,7 +56,7 @@ export function PumpAccumulatorPanel({
           />
         </CardHeader>
         <CardContent>
-          <p className="rounded-xl border border-warning/25 bg-warning/8 px-3 py-2.5 text-[11px] leading-relaxed text-warning">
+          <p className="rounded-xl border border-warning/25 bg-warning/8 px-3 py-2.5 text-2xs leading-relaxed text-warning">
             {scanError}
           </p>
         </CardContent>
@@ -87,7 +87,7 @@ export function PumpAccumulatorPanel({
       </CardHeader>
 
       <CardContent className="flex flex-col gap-4">
-        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-subtle">
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-2xs text-subtle">
           <span>Account</span>
           <span className="font-mono text-muted" title={account.address}>
             {truncateAddress(account.address, 4, 4)}
@@ -102,7 +102,7 @@ export function PumpAccumulatorPanel({
               Pump.fun account closed ·{" "}
               {formatSol(summary.netRentLamports)} back in your wallet
             </p>
-            <p className="mt-1 text-[11px] leading-relaxed text-subtle">
+            <p className="mt-1 text-2xs leading-relaxed text-subtle">
               {formatSol(summary.rentLamports)} freed
               {summary.reclaimFeeLamports > 0
                 ? `, our ${RECLAIM_RATE} fee ${formatSol(summary.reclaimFeeLamports)}`
@@ -118,7 +118,7 @@ export function PumpAccumulatorPanel({
                 href={solscanTxUrl(summary.signature)}
                 target="_blank"
                 rel="noopener noreferrer nofollow"
-                className="mt-2 inline-flex items-center gap-1 rounded-lg border border-border bg-white/3 px-2 py-1 font-mono text-[11px] text-muted transition-colors hover:border-violet-core/40 hover:text-foreground"
+                className="mt-2 inline-flex items-center gap-1 rounded-lg border border-border bg-white/3 px-2 py-1 font-mono text-2xs text-muted transition-colors hover:border-violet-core/40 hover:text-foreground"
               >
                 {truncateAddress(summary.signature, 4, 4)}
                 <ExternalLink className="size-3" aria-hidden />
@@ -129,19 +129,19 @@ export function PumpAccumulatorPanel({
         ) : (
           <div className="grid grid-cols-3 gap-3">
             <div className="rounded-xl border border-border bg-white/2 p-3">
-              <p className="text-[11px] text-subtle">Rent freed</p>
+              <p className="text-2xs text-subtle">Rent freed</p>
               <p className="mt-0.5 font-mono text-base tabular-nums">
                 {formatSol(rentLamports)}
               </p>
             </div>
             <div className="rounded-xl border border-border bg-white/2 p-3">
-              <p className="text-[11px] text-subtle">Fee</p>
+              <p className="text-2xs text-subtle">Fee</p>
               <p className="mt-0.5 font-mono text-base tabular-nums">
                 {formatSol(reclaimFeeLamports)}
               </p>
             </div>
             <div className="rounded-xl border border-border bg-white/2 p-3">
-              <p className="text-[11px] text-subtle">You receive</p>
+              <p className="text-2xs text-subtle">You receive</p>
               <p className="mt-0.5 font-mono text-base tabular-nums">
                 {formatSol(netRentLamports)}
               </p>
@@ -154,7 +154,7 @@ export function PumpAccumulatorPanel({
           repaymentLamports={close.sponsorRepaymentLamports}
         />
 
-        <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-subtle">
+        <p className="flex items-start gap-1.5 text-2xs leading-relaxed text-subtle">
           <Flame className="mt-px size-3.5 shrink-0 text-violet-glow" aria-hidden />
           <span>
             This returns only the rent the account holds. Your Pump.fun tokens and

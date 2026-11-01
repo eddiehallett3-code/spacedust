@@ -46,7 +46,7 @@ export function InstructionAuditPanel({ audit }: { audit: AuditResult }) {
             <span className="min-w-0 flex-1">
               <span className="font-medium">{call.programName}</span>
               {call.notes.length > 0 ? (
-                <span className="block text-[11px] leading-relaxed text-muted">
+                <span className="block text-2xs leading-relaxed text-muted">
                   {call.notes.join(" · ")}
                 </span>
               ) : null}
@@ -58,7 +58,7 @@ export function InstructionAuditPanel({ audit }: { audit: AuditResult }) {
         ))}
       </ul>
 
-      <p className="border-t border-border/60 px-3 py-2 text-[11px] leading-relaxed text-muted">
+      <p className="border-t border-border/60 px-3 py-2 text-2xs leading-relaxed text-muted">
         Checked against what this plan said it would do, before your wallet was
         asked: every program above is one this flow uses, nothing here can grant
         a delegation or change an authority, and{" "}
@@ -80,7 +80,7 @@ export function InstructionAuditPanel({ audit }: { audit: AuditResult }) {
           {warnings.map((finding, index) => (
             <li
               key={`${finding.code}-${index}`}
-              className="flex items-start gap-2 text-[11px] leading-relaxed text-warning"
+              className="flex items-start gap-2 text-2xs leading-relaxed text-warning"
             >
               <AlertTriangle
                 className="mt-0.5 size-3 shrink-0"

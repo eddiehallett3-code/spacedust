@@ -42,6 +42,21 @@
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 
+  /*
+   * The smallest step in the scale, named rather than written inline.
+   *
+   * Dense rows — badges, hazard notes under a token, the sub-line of a list item
+   * — need something below text-xs (12px), and 11px is the floor before
+   * legibility goes. It was `text-[11px]` in ~175 places, which is not a scale,
+   * it is the same value hoping nobody notices it is arbitrary. As a token it is
+   * one decision that can be changed once.
+   *
+   * 10px is deliberately NOT a step: it was used in 36 places and is too small
+   * to read on a laptop, so those move up to this one.
+   */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+
   /* Motion. Durations are short — this is a tool, not a landing page. */
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -113,6 +128,22 @@
     }
   }
 }
+/*
+ * Smallest text step, one notch up on a narrow screen.
+ *
+ * 11px is fine for a badge on a desktop row, where it sits beside a 14px label
+ * that carries the meaning. At 320-380px the same label is often the only copy
+ * on screen, and at that width 11px is not a caption, it is a squint. The token
+ * stays the smallest step in the scale — it just steps up where the viewport is
+ * narrow, so the call sites do not each need a breakpoint.
+ */
+@media (width < 380px) {
+  .text-2xs {
+    font-size: 0.75rem;
+    line-height: 1.0625rem;
+  }
+}
+
 
 @layer base {
   * {

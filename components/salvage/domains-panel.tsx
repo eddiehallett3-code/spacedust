@@ -179,7 +179,7 @@ export function DomainsPanel() {
 
       <CardContent className="flex flex-col gap-4">
         {domains.length > 0 ? (
-          <p className="flex items-start gap-1.5 rounded-xl border border-warning/25 bg-warning/6 p-3 text-[11px] leading-relaxed text-warning">
+          <p className="flex items-start gap-1.5 rounded-xl border border-warning/25 bg-warning/6 p-3 text-2xs leading-relaxed text-warning">
             <AlertTriangle className="mt-px size-3.5 shrink-0" aria-hidden />
             <span>
               <strong className="font-semibold">
@@ -194,7 +194,7 @@ export function DomainsPanel() {
           </p>
         ) : null}
 
-        <p className="text-[11px] leading-relaxed text-subtle">
+        <p className="text-2xs leading-relaxed text-subtle">
           SNS now displays existing names with a <code>.sns</code> suffix; legacy{" "}
           <code>.sol</code> resolution is paused during the migration. The delete
           acts on the name account itself, so the suffix is a label rather than a
@@ -237,7 +237,7 @@ export function DomainsPanel() {
                 key={domain.address}
                 className="flex items-start gap-3 rounded-xl px-2 py-2 opacity-70"
               >
-                <span className="mt-0.5 size-[18px] shrink-0 rounded-[6px] border border-border-strong" />
+                <span className="mt-0.5 size-[18px] shrink-0 rounded-md border border-border-strong" />
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2">
                     <span className="truncate font-mono text-sm">
@@ -270,7 +270,7 @@ export function DomainsPanel() {
         </div>
 
         {truncated ? (
-          <p className="text-[11px] text-subtle">
+          <p className="text-2xs text-subtle">
             Showing the first 250 domains. Delete some, then rescan for the rest.
           </p>
         ) : null}
@@ -279,19 +279,19 @@ export function DomainsPanel() {
           <>
             <div className="grid grid-cols-3 gap-3">
               <div className="rounded-xl border border-border bg-white/2 p-3">
-                <p className="text-[11px] text-subtle">Rent freed</p>
+                <p className="text-2xs text-subtle">Rent freed</p>
                 <p className="mt-0.5 font-mono text-base tabular-nums">
                   {formatSol(prepared ? salvage.rentLamports : selectedRent)}
                 </p>
               </div>
               <div className="rounded-xl border border-border bg-white/2 p-3">
-                <p className="text-[11px] text-subtle">Fee</p>
+                <p className="text-2xs text-subtle">Fee</p>
                 <p className="mt-0.5 font-mono text-base tabular-nums">
                   {formatSol(prepared ? salvage.reclaimFeeLamports : selectedFee)}
                 </p>
               </div>
               <div className="rounded-xl border border-border bg-white/2 p-3">
-                <p className="text-[11px] text-subtle">You receive</p>
+                <p className="text-2xs text-subtle">You receive</p>
                 <p className="mt-0.5 font-mono text-base tabular-nums">
                   {formatSol(
                     prepared
@@ -307,7 +307,7 @@ export function DomainsPanel() {
               repaymentLamports={salvage.sponsorRepaymentLamports}
             />
 
-            <p className="text-[11px] leading-relaxed text-subtle">
+            <p className="text-2xs leading-relaxed text-subtle">
               {getPublicFeeWallet() === null ? (
                 <>
                   No fee is taken — the rent these deletes return comes back to you
@@ -366,7 +366,7 @@ export function DomainsPanel() {
               {pluralize(salvage.summary.deletedCount, "domain")} deleted ·{" "}
               {formatSol(salvage.summary.netRentLamports)} back in your wallet
             </p>
-            <p className="mt-1 text-[11px] leading-relaxed text-subtle">
+            <p className="mt-1 text-2xs leading-relaxed text-subtle">
               {salvage.summary.failedCount > 0
                 ? `${pluralize(salvage.summary.failedCount, "domain")} could not be deleted. `
                 : ""}
@@ -388,7 +388,7 @@ export function DomainsPanel() {
                     href={solscanTxUrl(signature)}
                     target="_blank"
                     rel="noopener noreferrer nofollow"
-                    className="inline-flex items-center gap-1 rounded-lg border border-border bg-white/3 px-2 py-1 font-mono text-[11px] text-muted transition-colors hover:border-violet-core/40 hover:text-foreground"
+                    className="inline-flex items-center gap-1 rounded-lg border border-border bg-white/3 px-2 py-1 font-mono text-2xs text-muted transition-colors hover:border-violet-core/40 hover:text-foreground"
                   >
                     {truncateAddress(signature, 4, 4)}
                     <ExternalLink className="size-3" aria-hidden />

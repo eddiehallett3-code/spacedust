@@ -37,7 +37,7 @@ export function WalletMenuActions() {
 
   return (
     <div className="mt-3 border-t border-border/60 px-3 pt-3">
-      <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-subtle">
+      <p className="text-2xs font-medium uppercase tracking-[0.18em] text-subtle">
         Wallet
       </p>
       <p className="mt-1 font-mono text-sm" title={address}>

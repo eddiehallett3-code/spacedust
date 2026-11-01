@@ -26,7 +26,7 @@ export function SmartFilterToggle({
           Hide tokens with no reliable price, a transfer hook, or a price impact
           above {Math.round(SMART_FILTER_MAX_PRICE_IMPACT * 100)}%.
         </p>
-        <p className="mt-1.5 flex items-center gap-1 text-[11px] text-success">
+        <p className="mt-1.5 flex items-center gap-1 text-2xs text-success">
           <ShieldCheck className="size-3" aria-hidden />
           Prevents most failed slingshots
         </p>

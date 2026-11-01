@@ -119,7 +119,7 @@ export function SetupNotice() {
 
         {health.nextSteps.length > 0 ? (
           <div className="rounded-xl border border-border bg-white/3 p-3">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-subtle">
+            <p className="text-2xs font-medium uppercase tracking-wide text-subtle">
               What to do
             </p>
             <ol className="mt-1.5 list-decimal space-y-1 pl-4 text-xs text-muted">
@@ -127,7 +127,7 @@ export function SetupNotice() {
                 <li key={step}>{step}</li>
               ))}
             </ol>
-            <p className="mt-2 text-[11px] text-subtle">
+            <p className="mt-2 text-2xs text-subtle">
               Edit <code className="text-cyan-glow">.env.local</code>, then
               restart the dev server — environment variables are read at
               startup, not per request.
@@ -136,7 +136,7 @@ export function SetupNotice() {
         ) : null}
 
         {failing.length === 0 ? null : (
-          <p className="flex items-center gap-1.5 text-[11px] text-subtle">
+          <p className="flex items-center gap-1.5 text-2xs text-subtle">
             <Loader2 className="size-3" aria-hidden />
             Diagnosing {failing.length} item
             {failing.length === 1 ? "" : "s"}…

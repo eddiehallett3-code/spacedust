@@ -117,7 +117,7 @@ export function BatchReport({
                 ) : null}
                 {row.signature ? (
                   <>
-                    <span className="font-mono text-[11px] text-subtle">
+                    <span className="font-mono text-2xs text-subtle">
                       {truncateAddress(row.signature, 6, 6)}
                     </span>
                     <a

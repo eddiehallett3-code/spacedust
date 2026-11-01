@@ -17,8 +17,8 @@ const badgeVariants = cva(
         token2022: "border-cyan-500/25 bg-cyan-500/10 text-cyan-300",
       },
       size: {
-        sm: "px-1.5 py-0.5 text-[10px]",
-        md: "px-2 py-0.5 text-[11px]",
+        sm: "px-1.5 py-0.5 text-2xs",
+        md: "px-2 py-0.5 text-2xs",
         lg: "px-2.5 py-1 text-xs",
       },
     },

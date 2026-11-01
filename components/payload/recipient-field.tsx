@@ -136,10 +136,10 @@ export function RecipientField({
               <AlertTriangle className="mt-px size-3.5 shrink-0" aria-hidden />
               {drift.message}
             </p>
-            <p className="mt-1.5 font-mono text-[11px] break-all text-muted">
+            <p className="mt-1.5 font-mono text-2xs break-all text-muted">
               Verified: {drift.from}
             </p>
-            <p className="font-mono text-[11px] break-all text-muted">
+            <p className="font-mono text-2xs break-all text-muted">
               Now: {drift.to}
             </p>
           </div>
@@ -236,7 +236,7 @@ export function RecipientField({
               </p>
             ) : null}
 
-            <p className="flex items-start gap-1.5 border-t border-border/60 pt-2.5 text-[11px] leading-relaxed text-subtle">
+            <p className="flex items-start gap-1.5 border-t border-border/60 pt-2.5 text-2xs leading-relaxed text-subtle">
               <ShieldCheck
                 className="mt-px size-3.5 shrink-0 text-success"
                 aria-hidden

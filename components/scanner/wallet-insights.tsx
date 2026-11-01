@@ -148,7 +148,7 @@ export function WalletInsights({
             </div>
 
             {split > 0.5 ? (
-              <p className="flex items-start gap-1.5 rounded-xl border border-border bg-white/2 px-3 py-2.5 text-[11px] leading-relaxed text-muted">
+              <p className="flex items-start gap-1.5 rounded-xl border border-border bg-white/2 px-3 py-2.5 text-2xs leading-relaxed text-muted">
                 <Sparkles
                   className="mt-px size-3.5 shrink-0 text-violet-glow"
                   aria-hidden
@@ -270,7 +270,7 @@ export function WalletInsights({
             ))}
 
             {restValue > 0 ? (
-              <p className="text-[11px] text-subtle">
+              <p className="text-2xs text-subtle">
                 {pluralize(byValue.length - shown.length, "smaller holding")} worth{" "}
                 {formatUsd(restValue)} between them, not shown.
               </p>
@@ -310,7 +310,7 @@ export function WalletInsights({
               sweep would refuse to sell, which is the gap between everything held
               and what it can actually move. */}
           {recoverable.heldValueUsd > recoverable.sweepableValueUsd ? (
-            <p className="rounded-xl border border-border bg-white/2 px-3 py-2.5 text-[11px] leading-relaxed text-muted">
+            <p className="rounded-xl border border-border bg-white/2 px-3 py-2.5 text-2xs leading-relaxed text-muted">
               <span className="font-mono text-foreground">
                 {formatUsd(recoverable.heldValueUsd - recoverable.sweepableValueUsd)}
               </span>{" "}
@@ -321,7 +321,7 @@ export function WalletInsights({
           ) : null}
 
           {recoverable.excessRentLamports > 0 ? (
-            <p className="rounded-xl border border-success/20 bg-success/6 px-3 py-2.5 text-[11px] leading-relaxed text-success">
+            <p className="rounded-xl border border-success/20 bg-success/6 px-3 py-2.5 text-2xs leading-relaxed text-success">
               <span className="font-mono">
                 {formatSol(recoverable.excessRentLamports)}
               </span>{" "}
@@ -393,7 +393,7 @@ export function WalletInsights({
       {/* Where these numbers came from. Worth stating on a page whose whole point
           is being checkable: the source, how long ago, and the basis every rent
           figure was priced at. */}
-      <p className="px-1 text-[11px] leading-relaxed text-subtle">
+      <p className="px-1 text-2xs leading-relaxed text-subtle">
         Read {Math.round(scan.durationMs)}ms ago through{" "}
         {scan.source === "helius-das" ? "Helius's DAS index" : "the free core RPC"},
         across {pluralize(scan.pages, "page")}
@@ -421,9 +421,9 @@ function Count({
 }) {
   return (
     <div className="rounded-xl border border-border bg-white/2 p-3">
-      <p className="text-[11px] text-subtle">{label}</p>
+      <p className="text-2xs text-subtle">{label}</p>
       <p className="mt-0.5 font-mono text-base tabular-nums">{value}</p>
-      <p className="mt-0.5 text-[11px] leading-relaxed text-muted">{hint}</p>
+      <p className="mt-0.5 text-2xs leading-relaxed text-muted">{hint}</p>
     </div>
   );
 }
@@ -446,7 +446,7 @@ function Legend({
       <span className="min-w-0">
         <span className="block text-xs text-muted">{label}</span>
         <span className="block font-mono text-sm tabular-nums">{value}</span>
-        <span className="block text-[11px] text-subtle">{hint}</span>
+        <span className="block text-2xs text-subtle">{hint}</span>
       </span>
     </div>
   );

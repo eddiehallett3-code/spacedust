@@ -44,7 +44,7 @@ export function CopyDetails({
     <button
       type="button"
       onClick={copy}
-      className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-border/70 px-2 py-1 text-[11px] text-muted transition-colors hover:border-border hover:text-foreground"
+      className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-border/70 px-2 py-1 text-2xs text-muted transition-colors hover:border-border hover:text-foreground"
     >
       <Icon className="size-3" aria-hidden />
       {text}

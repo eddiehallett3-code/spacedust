@@ -405,7 +405,7 @@ export function NftBurnPanel({
   return (
     <div className="flex flex-col gap-4">
       {queue ? (
-        <div className="rounded-xl border border-violet-core/25 bg-violet-core/5 px-3 py-2.5 text-[11px] leading-relaxed text-muted">
+        <div className="rounded-xl border border-violet-core/25 bg-violet-core/5 px-3 py-2.5 text-2xs leading-relaxed text-muted">
           <p className="font-medium text-foreground">
             Guided burn · round {queue.round} of {queue.rounds}
           </p>
@@ -460,7 +460,7 @@ export function NftBurnPanel({
           ticked. The per-card warning still appears if one of these is selected
           while this tab is not the one on screen. */}
       {isTableSetup ? (
-        <div className="rounded-xl border border-violet-core/25 bg-violet-core/5 px-3 py-2.5 text-[11px] leading-relaxed text-muted">
+        <div className="rounded-xl border border-violet-core/25 bg-violet-core/5 px-3 py-2.5 text-2xs leading-relaxed text-muted">
           <p className="font-medium text-foreground">
             Needs lookup-table setup
           </p>
@@ -487,14 +487,14 @@ export function NftBurnPanel({
             <p className="text-sm font-medium">
               Nothing on this tab can be sent into The Void in this build
             </p>
-            <ul className="mt-1 space-y-0.5 text-[11px] leading-relaxed text-muted">
+            <ul className="mt-1 space-y-0.5 text-2xs leading-relaxed text-muted">
               {refusals.map(([reason, count]) => (
                 <li key={reason}>
                   {count} × {reason}
                 </li>
               ))}
             </ul>
-            <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+            <p className="mt-1.5 text-2xs leading-relaxed text-muted">
               They are listed so you can see what you hold. Nothing is selected,
               swept or destroyed.
             </p>
@@ -508,7 +508,7 @@ export function NftBurnPanel({
           because `lookupTableAssets` then carries the authoritative list and the
           panel below explains the same thing with the real count. */}
       {isCnft && !isTableSetup && !hasPreview && selectedNeedingLookupTable.length > 0 ? (
-        <div className="rounded-xl border border-violet-core/25 bg-violet-core/5 px-3 py-2.5 text-[11px] leading-relaxed text-muted">
+        <div className="rounded-xl border border-violet-core/25 bg-violet-core/5 px-3 py-2.5 text-2xs leading-relaxed text-muted">
           <p className="font-medium text-foreground">
             {pluralize(selectedNeedingLookupTable.length, "selected cNFT")}{" "}
             {selectedNeedingLookupTable.length === 1 ? "needs" : "need"} an
@@ -631,14 +631,14 @@ export function NftBurnPanel({
                   <CopyMint mint={asset.id} kind={assetKind(asset)} />
                   {asset.collection ? (
                     <p
-                      className="truncate text-[11px] text-subtle"
+                      className="truncate text-2xs text-subtle"
                       title={asset.collection.address}
                     >
                       {asset.collection.name ??
                         truncateAddress(asset.collection.address, 4, 4)}
                     </p>
                   ) : (
-                    <p className="truncate text-[11px] text-subtle">No collection</p>
+                    <p className="truncate text-2xs text-subtle">No collection</p>
                   )}
 
                   {canBurn ? (
@@ -653,7 +653,7 @@ export function NftBurnPanel({
                       ) : null}
                     </div>
                   ) : (
-                    <p className="pt-0.5 text-[10px] leading-snug text-warning">
+                    <p className="pt-0.5 text-2xs leading-snug text-warning">
                       {verdict?.reason}
                     </p>
                   )}
@@ -673,7 +673,7 @@ export function NftBurnPanel({
         <button
           type="button"
           onClick={() => setShowHidden((previous) => !previous)}
-          className="self-start rounded-full border border-border/60 px-2.5 py-1 text-[11px] text-subtle transition-colors hover:border-violet-core/40 hover:text-foreground"
+          className="self-start rounded-full border border-border/60 px-2.5 py-1 text-2xs text-subtle transition-colors hover:border-violet-core/40 hover:text-foreground"
         >
           {showHidden
             ? `Hide ${pluralize(hiddenRows.length, "row")} again`
@@ -697,7 +697,7 @@ export function NftBurnPanel({
       ) : null}
 
       {skipped.length > 0 ? (
-        <ul className="space-y-1 rounded-xl border border-warning/25 bg-warning/6 px-3 py-2 text-[11px] text-muted">
+        <ul className="space-y-1 rounded-xl border border-warning/25 bg-warning/6 px-3 py-2 text-2xs text-muted">
           {skipped.map((entry) => (
             <li key={entry.id} className="flex gap-1.5">
               <span aria-hidden>•</span>
@@ -723,7 +723,7 @@ export function NftBurnPanel({
             />
           ) : null}
           {lookupTableAssets.length > 0 ? (
-            <div className="rounded-xl border border-violet-core/25 bg-violet-core/5 px-3 py-2.5 text-[11px] leading-relaxed text-muted">
+            <div className="rounded-xl border border-violet-core/25 bg-violet-core/5 px-3 py-2.5 text-2xs leading-relaxed text-muted">
               <p className="font-medium text-foreground">
                 {pluralize(lookupTableAssets.length, "cNFT")}{" "}
                 {lookupTableAssets.length === 1 ? "needs" : "need"} an address
@@ -756,7 +756,7 @@ export function NftBurnPanel({
         </div>
       ) : null}
 
-      <p className="flex items-start gap-1.5 rounded-lg border border-danger/25 bg-danger/8 px-2.5 py-2 text-[11px] leading-relaxed text-danger">
+      <p className="flex items-start gap-1.5 rounded-lg border border-danger/25 bg-danger/8 px-2.5 py-2 text-2xs leading-relaxed text-danger">
         <AlertTriangle className="mt-px size-3.5 shrink-0" aria-hidden />
         <span>
           <strong className="font-semibold">
@@ -767,7 +767,7 @@ export function NftBurnPanel({
         </span>
       </p>
 
-      <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-subtle">
+      <p className="flex items-start gap-1.5 text-2xs leading-relaxed text-subtle">
         <Info className="mt-px size-3 shrink-0" aria-hidden />
         <span>
           {isCnft ? (
@@ -886,7 +886,7 @@ function CopyMint({ mint, kind }: { mint: string; kind: string }) {
       }}
       title={`Copy ${kind} mint ${mint}`}
       aria-label={`Copy mint ${mint}`}
-      className="flex w-fit items-center gap-1 font-mono text-[10px] text-subtle transition hover:text-foreground"
+      className="flex w-fit items-center gap-1 font-mono text-2xs text-subtle transition hover:text-foreground"
     >
       {copied ? (
         <Check className="size-2.5 text-success" aria-hidden />
@@ -1000,7 +1000,7 @@ function LookupTableCleanupPanel({
   return (
     <div
       className={cn(
-        "rounded-xl border px-3 py-2.5 text-[11px] leading-relaxed",
+        "rounded-xl border px-3 py-2.5 text-2xs leading-relaxed",
         status === "reclaimed"
           ? "border-success/25 bg-success/6"
           : status === "failed"
@@ -1069,7 +1069,7 @@ function LookupTableCleanupPanel({
               href={solscanTxUrl(signature)}
               target="_blank"
               rel="noopener noreferrer nofollow"
-              className="inline-flex items-center gap-1 rounded-lg border border-border bg-white/3 px-2 py-1 font-mono text-[11px] text-muted transition-colors hover:border-violet-core/40 hover:text-foreground"
+              className="inline-flex items-center gap-1 rounded-lg border border-border bg-white/3 px-2 py-1 font-mono text-2xs text-muted transition-colors hover:border-violet-core/40 hover:text-foreground"
             >
               {truncateAddress(signature, 4, 4)}
               <ExternalLink className="size-3" aria-hidden />
@@ -1144,7 +1144,7 @@ function BurnResult({
         unknown.
       */}
       {summary.burnedCount > 0 ? (
-        <p className="text-[11px] leading-relaxed text-muted">{copy.note}</p>
+        <p className="text-2xs leading-relaxed text-muted">{copy.note}</p>
       ) : null}
 
       {cleanup ? (
@@ -1156,7 +1156,7 @@ function BurnResult({
           onAutoReclaimChange={onAutoReclaimChange}
         />
       ) : summary.lookupTableRentLamports > 0 ? (
-        <p className="rounded-xl border border-border/60 bg-white/2 px-3 py-2 text-[11px] leading-relaxed text-muted">
+        <p className="rounded-xl border border-border/60 bg-white/2 px-3 py-2 text-2xs leading-relaxed text-muted">
           A lookup table was created to fit the long merkle proofs.{" "}
           {formatSol(summary.lookupTableRentLamports)} of rent is locked in that
           table, and this screen could not load its cleanup state.
@@ -1165,7 +1165,7 @@ function BurnResult({
 
       {/* A failure is never swallowed. */}
       {failed.length > 0 ? (
-        <ul className="space-y-1 rounded-xl border border-warning/25 bg-warning/6 px-3 py-2 text-[11px] text-muted">
+        <ul className="space-y-1 rounded-xl border border-warning/25 bg-warning/6 px-3 py-2 text-2xs text-muted">
           {failed.map((outcome) => (
             <li key={outcome.id} className="flex gap-1.5">
               <span aria-hidden>•</span>
@@ -1200,7 +1200,7 @@ function BurnResult({
 
       {/* Refusals are reported too: the user asked for these and did not get them. */}
       {summary.skipped.length > 0 ? (
-        <ul className="space-y-1 rounded-xl border border-border/60 bg-white/2 px-3 py-2 text-[11px] text-subtle">
+        <ul className="space-y-1 rounded-xl border border-border/60 bg-white/2 px-3 py-2 text-2xs text-subtle">
           {summary.skipped.map((entry) => (
             <li key={entry.id} className="flex gap-1.5">
               <span aria-hidden>•</span>
@@ -1217,11 +1217,11 @@ function BurnResult({
 
       {summary.signatures.length > 0 ? (
         <div className="space-y-1.5">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-subtle">
+          <p className="text-2xs font-medium uppercase tracking-wide text-subtle">
             Transactions
           </p>
           {summary.lookupTableRentLamports > 0 ? (
-            <p className="text-[11px] leading-relaxed text-subtle">
+            <p className="text-2xs leading-relaxed text-subtle">
               Includes the lookup-table setup transactions.
             </p>
           ) : null}
@@ -1232,7 +1232,7 @@ function BurnResult({
                 href={solscanTxUrl(signature)}
                 target="_blank"
                 rel="noopener noreferrer nofollow"
-                className="inline-flex items-center gap-1 rounded-lg border border-border bg-white/3 px-2 py-1 font-mono text-[11px] text-muted transition-colors hover:border-violet-core/40 hover:text-foreground"
+                className="inline-flex items-center gap-1 rounded-lg border border-border bg-white/3 px-2 py-1 font-mono text-2xs text-muted transition-colors hover:border-violet-core/40 hover:text-foreground"
               >
                 {truncateAddress(signature, 4, 4)}
                 <ExternalLink className="size-3" aria-hidden />
