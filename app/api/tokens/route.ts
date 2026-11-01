@@ -538,6 +538,10 @@ export async function GET(request: Request) {
       // Null means we did read the mints and found no positions. Set means the
       // read failed, which is a different answer and is shown as one.
       poolLikeError,
+      // How many mints were actually decoded for hazard notes. The UI compares
+      // this with `tokens.length` before saying "nothing found" out loud — an
+      // unread mint and a clean mint must not look the same.
+      mintsChecked: mintFactsByMint.size,
       pages,
       durationMs: Date.now() - startedAt,
       truncated,

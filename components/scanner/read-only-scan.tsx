@@ -797,7 +797,7 @@ function ScanResult({
 
       {/* Tokens and NFTs first, because "what is in here" is the question the
           scan is opened to answer. The recoverable and security details follow. */}
-      <TokenRows tokens={scan.tokens} />
+      <TokenRows tokens={scan.tokens} mintsChecked={scan.mintsChecked} />
 
       <HookTokensCard tokens={scan.tokens.filter((token) => token.hasTransferHook)} />
 
@@ -1496,7 +1496,14 @@ function LimitationsCard({
  * Every token is rendered. The list gets its own scroll container rather than a
  * row cap, because "and 180 more" is not a wallet scan.
  */
-function TokenRows({ tokens }: { tokens: DustToken[] }) {
+function TokenRows({
+  tokens,
+  mintsChecked,
+}: {
+  tokens: DustToken[];
+  /** How many mint accounts were actually decoded, when the scan said. */
+  mintsChecked?: number;
+}) {
   if (tokens.length === 0) return null;
 
   // How many mints keep a power over the balance: a freeze authority, a
@@ -1505,6 +1512,12 @@ function TokenRows({ tokens }: { tokens: DustToken[] }) {
   const constrained = tokens.filter((token) =>
     token.hazards?.some((hazard) => hazard.severity === "danger"),
   ).length;
+
+  // "Nothing found" and "we could not look" are different answers, and only one
+  // of them is a clean bill of health — so this only claims the former when
+  // every mint was actually read.
+  const allMintsChecked =
+    typeof mintsChecked === "number" && mintsChecked >= tokens.length;
 
   return (
     <Card>
@@ -1519,6 +1532,11 @@ function TokenRows({ tokens }: { tokens: DustToken[] }) {
           <p className="mt-1 text-xs text-danger">
             {pluralize(constrained, "token")} of these keeps an issuer power over
             the balance — the note on each row says which.
+          </p>
+        ) : allMintsChecked ? (
+          <p className="mt-1 text-xs text-success">
+            No issuer powers found. The mint account of every token here was
+            checked: no freeze authority, no permanent delegate, no minting.
           </p>
         ) : null}
       </CardHeader>

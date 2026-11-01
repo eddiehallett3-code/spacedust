@@ -504,6 +504,15 @@ export interface WalletScan {
   durationMs: number;
   /** True when the provider had more results than we fetched. */
   truncated: boolean;
+  /**
+   * How many of `tokens` had their mint account actually read during the scan.
+   *
+   * Hazard notes are only attached where there is something to say, so a wallet
+   * with no notes looks identical to one where the mint read failed — and the
+   * difference decides whether "nothing found" is an answer or an absence. The UI
+   * compares this to `tokens.length` before it claims a clean bill of health.
+   */
+  mintsChecked?: number;
   /** Which backend produced this scan: Helius DAS, or free core RPC. */
   source: "helius-das" | "core-rpc";
   /**
