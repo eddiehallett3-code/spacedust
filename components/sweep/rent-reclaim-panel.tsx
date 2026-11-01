@@ -13,6 +13,7 @@ import { solscanTxUrl } from "@/lib/solana/submit";
 import { planEmptyAccountCloses } from "@/lib/sweep/empty-accounts";
 import { feeFromRentLamports } from "@/lib/solana/rent";
 import { SponsorAdvanceNote } from "@/components/salvage/sponsor-advance-note";
+import { HolderWaiverNote } from "@/components/fees/holder-waiver-note";
 import { RECLAIM_RATE } from "@/lib/config/tools";
 import { getPublicFeeWallet } from "@/lib/config/public-env";
 import { RECLAIM_FEE_BPS, TOKEN_ACCOUNT_RENT_LAMPORTS } from "@/lib/utils/constants";
@@ -220,6 +221,8 @@ export function RentReclaimPanel({
           feeLamports={reclaim.estimatedFeeLamports}
           repaymentLamports={reclaim.sponsorRepaymentLamports}
         />
+
+        <HolderWaiverNote className="mt-3" />
 
         {plan.closeable.length > 0 ? (
           <details className="rounded-xl border border-border bg-white/2 px-3 py-2">

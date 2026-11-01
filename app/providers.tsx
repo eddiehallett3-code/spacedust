@@ -13,6 +13,7 @@ import { MobileWalletAdapter } from "@/components/wallet/mobile-wallet-adapter";
 import { WalletModalProvider } from "@/components/wallet/wallet-modal";
 import { CookieNotice } from "@/components/legal/cookie-notice";
 import { ModeProvider } from "@/components/layout/mode-provider";
+import { HolderWaiverSync } from "@/hooks/use-holder-waiver";
 import { preloadSounds, primeSounds } from "@/lib/ui/sound";
 
 /**
@@ -163,6 +164,9 @@ export function Providers({ children }: { children: ReactNode }) {
         ) : null}
         <WalletModalProvider>
           <TooltipProvider delayDuration={200}>
+            {/* Asks once per wallet whether the holder waiver applies, and keeps
+                the fee helpers in step. Renders nothing. */}
+            <HolderWaiverSync />
             <ModeProvider>
               {children}
               {/* Toasts: top-centre on mobile. */}

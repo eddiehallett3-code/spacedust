@@ -149,8 +149,10 @@ export default function PrivacyPage() {
           <li>
             <strong>Helius</strong> — Solana RPC and DAS indexing. Receives your
             wallet address, token/NFT account data and transaction data through
-            our server routes, so we can scan holdings and read the chain. If
-            Helius is not configured, the app uses a public Solana RPC instead.
+            our server routes, so we can scan holdings, read the chain, and check
+            whether a connected wallet holds enough of one collection to qualify
+            for the fee waiver. If Helius is not configured, the app uses a public
+            Solana RPC instead.
           </li>
           <li>
             <strong>Jupiter</strong> — price, quote and swap-build APIs. Receives

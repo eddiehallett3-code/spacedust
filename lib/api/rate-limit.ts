@@ -34,6 +34,7 @@ export type LimitedRoute =
   | "asset-proof"
   | "domains"
   | "wrapped-sol"
+  | "membership"
   | "health"
   | "sponsor";
 
@@ -67,6 +68,10 @@ const BUDGETS: Record<LimitedRoute, number> = {
   "asset-proof": 30,
   domains: 30,
   "wrapped-sol": 30,
+  // The holder check is one index read per wallet per visit, and the reader
+  // caches for five minutes. Thirty a minute covers panel-hopping without
+  // letting a script page the index on our key.
+  membership: 30,
   health: 12,
   // The sponsor pays real lamports, so this is the tightest budget in the app.
   // One run needs one call, occasionally two after a blockhash refresh; 20/min

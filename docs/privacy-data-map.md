@@ -13,7 +13,7 @@ ordinary request metadata, local browser preferences, and optional support email
 
 | Service | Where it runs | Data it receives | Purpose |
 |---|---|---|---|
-| **Helius** | Server routes → Helius RPC/DAS | Wallet address, token/NFT account data, public balances, transaction data, request metadata | Scan holdings, read accounts, simulate/submit/confirm |
+| **Helius** | Server routes → Helius RPC/DAS | Wallet address, token/NFT account data, public balances, transaction data, request metadata | Scan holdings, read accounts, check holder status, simulate/submit/confirm |
 | **Public Solana RPC** (fallback when Helius is unset) | Server route → public RPC | Same public wallet/transaction data | Fallback chain access |
 | **Jupiter** | Server routes → Price/Swap APIs | Mints, amounts, owner/taker wallet address, slippage, quote/build inputs | Prices, routes, swap instructions, token metadata |
 | **Jupiter CDN / token image hosts** | Browser image requests | IP address, user agent, image URL; no referrer | Display token/NFT logos |

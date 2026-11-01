@@ -1,4 +1,5 @@
 import type { Connection } from "@solana/web3.js";
+import { isHolderWaived } from "@/lib/fees/holder-waiver";
 import {
   EMPTY_ACCOUNT_RENT_LAMPORTS,
   HUSK_ACCOUNT_RENT_LAMPORTS,
@@ -100,6 +101,11 @@ export function feeFromRentLamports(
   feeBps: number,
 ): number {
   if (rentLamports <= 0 || feeBps <= 0) return 0;
+  // The holder waiver, applied at the single point every rent fee is priced
+  // through — builders and previews alike, so a preview cannot promise 1.5% while
+  // the transaction charges 0 or the reverse. See `lib/fees/holder-waiver.ts` for
+  // why this is session state rather than an argument.
+  if (isHolderWaived()) return 0;
   return Number(
     (BigInt(Math.trunc(rentLamports)) * BigInt(feeBps)) / 10_000n,
   );

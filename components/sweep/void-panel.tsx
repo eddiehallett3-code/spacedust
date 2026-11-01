@@ -21,6 +21,7 @@ import { SimulationReport } from "@/components/sweep/simulation-report";
 import { WarningsList } from "@/components/sweep/warnings-list";
 import { solscanTxUrl } from "@/lib/solana/submit";
 import { voidFeeFromRentLamports } from "@/lib/solana/rent";
+import { HolderWaiverNote } from "@/components/fees/holder-waiver-note";
 import { sumForMints } from "@/lib/sweep/totals";
 import { getPublicFeeWallet } from "@/lib/config/public-env";
 import { TOAST_BRIEF_MS, TOAST_READ_MS, VOID_FEE_BPS } from "@/lib/utils/constants";
@@ -339,6 +340,7 @@ export function VoidPanel({
                   hint={hasPreview ? "own batch, no swaps" : "run preview"}
                 />
               ) : null}
+              <HolderWaiverNote className="col-span-2 sm:col-span-full" />
               {isPro ? (
                 <Stat
                   label="Network fee"

@@ -1,12 +1,18 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Connection } from "@solana/web3.js";
 import {
+  feeFromRentLamports,
   fetchRentMinimums,
   voidFeeFromRentLamports,
 } from "@/lib/solana/rent";
 import {
+  resetHolderWaiver,
+  setHolderWaiver,
+} from "@/lib/fees/holder-waiver";
+import {
   EMPTY_ACCOUNT_RENT_LAMPORTS,
   HUSK_ACCOUNT_RENT_LAMPORTS,
+  RECLAIM_FEE_BPS,
   TOKEN_ACCOUNT_RENT_LAMPORTS,
 } from "@/lib/utils/constants";
 
@@ -96,3 +102,33 @@ describe("fetchRentMinimums", () => {
  * Core shrinks the account instead of closing it. `isCoreHusk` and the rule that
  * uses it live in `lib/solana/liveness.ts`, with their own tests.
  */
+
+/**
+ * The holder waiver, tested where it is applied rather than where it is decided.
+ *
+ * `feeFromRentLamports` is the single point every rent fee passes through, so one
+ * assertion here covers the four builders and the nine previews that call it.
+ */
+describe("the holder waiver", () => {
+  afterEach(() => {
+    resetHolderWaiver();
+  });
+
+  it("charges the normal fee when nobody is a holder", () => {
+    expect(feeFromRentLamports(TOKEN_ACCOUNT_RENT_LAMPORTS, RECLAIM_FEE_BPS)).toBe(
+      Math.trunc((TOKEN_ACCOUNT_RENT_LAMPORTS * RECLAIM_FEE_BPS) / 10_000),
+    );
+  });
+
+  it("charges nothing for a holder", () => {
+    setHolderWaiver(true);
+    expect(feeFromRentLamports(TOKEN_ACCOUNT_RENT_LAMPORTS, RECLAIM_FEE_BPS)).toBe(0);
+    expect(voidFeeFromRentLamports(TOKEN_ACCOUNT_RENT_LAMPORTS)).toBe(0);
+  });
+
+  it("goes back to charging when the waiver is cleared", () => {
+    setHolderWaiver(true);
+    resetHolderWaiver();
+    expect(voidFeeFromRentLamports(TOKEN_ACCOUNT_RENT_LAMPORTS)).toBeGreaterThan(0);
+  });
+});
