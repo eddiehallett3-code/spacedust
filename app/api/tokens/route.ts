@@ -24,6 +24,9 @@ import { readExcessRentAccounts } from "@/lib/salvage/excess-rent.server";
 import { reconcileDustTokenAccounts } from "@/lib/token-source/live-accounts.server";
 import { readHookFacts } from "@/lib/token-source/hook-facts.server";
 import { recordScan } from "@/lib/metrics/scan-counter.server";
+import { mintFactsFromAccount } from "@/lib/token-source/mint-facts.server";
+import { describeMintHazards } from "@/lib/token-source/mint-hazards";
+import type { MintFacts } from "@/types/token";
 import { listWrappedSolAccounts } from "@/lib/token-source/wrapped-sol.server";
 import { fetchRentMinimums } from "@/lib/solana/rent";
 import { OUTPUT_ASSETS } from "@/lib/utils/constants";
@@ -139,6 +142,10 @@ export async function GET(request: Request) {
     }
 
     const poolLike = new Set<string>();
+    // Filled by the same batched mint read that decides `poolLike`; declared
+    // out here because the hazard notes are attached further down, outside that
+    // block's `try`.
+    const mintFactsByMint = new Map<string, MintFacts>();
     let poolLikeError: string | null = null;
     const connection = new Connection(getServerRpcUrl(), "confirmed");
     const approvalsRead: Promise<{
@@ -184,6 +191,11 @@ export async function GET(request: Request) {
 
       // 100 mints per call, four calls in flight. Sequentially this was ~31
       // round-trips on a 3,000-holding wallet — most of what made the scan slow.
+      //
+      // The same read also answers "what can this mint do to its holders?":
+      // `mintFactsFromAccount` decodes authorities and Token-2022 extensions out
+      // of the account bytes already in hand, so the hazard notes on the scan
+      // cost nothing extra. Collected into `mintFactsByMint` above.
       const authorityReads = await runWithConcurrency(
         authorityBatches,
         async (batch) => {
@@ -193,6 +205,18 @@ export async function GET(request: Request) {
           const flagged: string[] = [];
 
           infos.forEach((info, index) => {
+            const mint = batch[index];
+            if (!mint) return;
+
+            // Independent of the pool check below: one failing must not cost
+            // the other. Both are best-effort and both degrade to "no note".
+            try {
+              const facts = mintFactsFromAccount(mint, info);
+              if (facts) mintFactsByMint.set(mint, facts);
+            } catch {
+              // A mint we cannot decode simply carries no notes.
+            }
+
             // bigint-buffer (via spl-token's u64 layout) has no patched release
             // and overflows on short input (CVE-2025-3194), so never decode a
             // truncated account.
@@ -201,8 +225,6 @@ export async function GET(request: Request) {
               // The same 82 bytes for both token programs, so one decode covers
               // SPL and Token-2022 alike.
               const decoded = MintLayout.decode(info.data);
-              const mint = batch[index];
-              if (!mint) return;
 
               // A price is direct evidence of a market, and a market is what
               // makes a token sellable — a program-controlled mint *with* a price
@@ -301,6 +323,20 @@ export async function GET(request: Request) {
         staked: stakedTokenFor(holding.mint),
       };
     });
+
+    // ── Hazard notes ─────────────────────────────────────────────────────────
+    // What each mint can still do to whoever holds it: a live freeze authority,
+    // a permanent delegate, a transfer fee, a mint that can be closed. Read from
+    // the accounts already fetched above, so this adds no RPC — and attached
+    // only where there is something to say, because most mints have nothing.
+    if (mintFactsByMint.size > 0) {
+      tokens = tokens.map((token) => {
+        const facts = mintFactsByMint.get(token.mint);
+        if (!facts) return token;
+        const hazards = describeMintHazards(facts);
+        return hazards.length > 0 ? { ...token, hazards } : token;
+      });
+    }
 
     // ── Hook tokens ──────────────────────────────────────────────────────────
     // The scanner only flags a mint as having a transfer-hook extension. Whether

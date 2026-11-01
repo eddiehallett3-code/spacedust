@@ -1499,6 +1499,13 @@ function LimitationsCard({
 function TokenRows({ tokens }: { tokens: DustToken[] }) {
   if (tokens.length === 0) return null;
 
+  // How many mints keep a power over the balance: a freeze authority, a
+  // permanent delegate, or non-transferability. Counted here rather than in the
+  // header markup so the sentence can state a real number.
+  const constrained = tokens.filter((token) =>
+    token.hazards?.some((hazard) => hazard.severity === "danger"),
+  ).length;
+
   return (
     <Card>
       <CardHeader>
@@ -1508,6 +1515,12 @@ function TokenRows({ tokens }: { tokens: DustToken[] }) {
         <p className="mt-1 text-xs text-subtle">
           All {pluralize(tokens.length, "fungible token")}, largest first.
         </p>
+        {constrained > 0 ? (
+          <p className="mt-1 text-xs text-danger">
+            {pluralize(constrained, "token")} of these keeps an issuer power over
+            the balance — the note on each row says which.
+          </p>
+        ) : null}
       </CardHeader>
       <CardContent className="p-0 pt-3 sm:p-0 sm:pt-3">
         <ul className="max-h-[32rem] divide-y divide-border/50 overflow-y-auto border-t border-border/60">
@@ -1546,6 +1559,26 @@ function TokenRows({ tokens }: { tokens: DustToken[] }) {
                 <p className="truncate text-xs text-subtle" title={token.name}>
                   {token.name}
                 </p>
+                {/* What this mint can still do to the balance. Every label is a
+                    fact read from the mint account, and the tooltip says which
+                    authority holds the power — no verdicts, no score. */}
+                {token.hazards && token.hazards.length > 0 ? (
+                  <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    {token.hazards.map((hazard) => (
+                      <span
+                        key={hazard.kind}
+                        title={hazard.detail}
+                        className={
+                          hazard.severity === "danger"
+                            ? "text-[11px] leading-none text-danger"
+                            : "text-[11px] leading-none text-warning"
+                        }
+                      >
+                        {hazard.label}
+                      </span>
+                    ))}
+                  </p>
+                ) : null}
               </div>
               <div className="shrink-0 text-right">
                 <p className="font-mono text-sm tabular-nums">

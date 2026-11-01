@@ -34,6 +34,57 @@ export type TokenProgramKind = "legacy" | "token2022";
 export type HookVerdict = "inert" | "active" | "frozen" | "unknown";
 
 /** Facts about one transfer-hook holding, as best we could read them. */
+/**
+ * What a token's mint can still do to whoever holds it.
+ *
+ * Read from the mint account, so every note is a fact rather than a judgement:
+ * "the freeze authority is 4kT…" is checkable, "this is a scam" is not. The
+ * wording lives in `lib/token-source/mint-hazards.ts`, which is pure.
+ */
+export type MintHazardKind =
+  | "freeze-authority"
+  | "permanent-delegate"
+  | "non-transferable"
+  | "default-frozen"
+  | "mint-authority"
+  | "transfer-fee"
+  | "mint-close-authority";
+
+/**
+ * `danger` — the token can be taken from you, or you can be stopped from
+ * selling. `warning` — supply or value can change under you.
+ */
+export type MintHazardSeverity = "danger" | "warning";
+
+export interface MintHazard {
+  kind: MintHazardKind;
+  severity: MintHazardSeverity;
+  /** Two or three words, for the row. */
+  label: string;
+  /** One sentence, plain English, for the tooltip. */
+  detail: string;
+}
+
+/** The mint-level facts a hazard note is derived from. */
+export interface MintFacts {
+  mint: string;
+  program: TokenProgramKind;
+  /** Null means the authority was revoked. */
+  mintAuthority: string | null;
+  /** Null means nobody can freeze this mint's accounts. */
+  freezeAuthority: string | null;
+  /** Token-2022 transfer fee in basis points, or null when there is none. */
+  transferFeeBps: number | null;
+  /** An address that can move or burn any holder's balance, or null. */
+  permanentDelegate: string | null;
+  /** True when tokens can be received but never sent. */
+  nonTransferable: boolean;
+  /** True when new token accounts start frozen. */
+  defaultFrozen: boolean;
+  /** An address that can close the mint itself, or null. */
+  mintCloseAuthority: string | null;
+}
+
 export interface HookTokenFacts {
   /** The mint this describes. */
   mint: string;
@@ -157,6 +208,13 @@ export interface DustToken {
    * token in a test needs no hook data.
    */
   hookFacts?: HookTokenFacts | null;
+  /**
+   * What this mint can still do to the holder: a live freeze authority, a
+   * permanent delegate, a transfer fee, and so on. Present only when there is
+   * something worth saying — most mints carry nothing — and read from the mint
+   * account during the scan, so it costs no extra request.
+   */
+  hazards?: MintHazard[];
   /**
    * True when the mint's freeze authority has frozen this holding.
    *
