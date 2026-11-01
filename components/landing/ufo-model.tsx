@@ -32,6 +32,7 @@ export function UfoModel({ className }: { className?: string }) {
 
     let disposed = false;
     let started = false;
+    let idleHandle: number | undefined;
     let teardown: (() => void) | undefined;
     const size = { width: 0, height: 0 };
     let applySize: ((width: number, height: number) => void) | undefined;
@@ -368,7 +369,39 @@ export function UfoModel({ className }: { className?: string }) {
           navigator as Navigator & { connection?: { saveData?: boolean } }
         ).connection;
         if (connection?.saveData === true) return;
-        void start();
+
+        /*
+         * Wait for the main thread to go quiet before parsing three.js.
+         *
+         * The import used to run as soon as this observer fired its first
+         * entry — which is straight after hydration, inside the window a
+         * browser is still busy becoming interactive. Parsing and compiling
+         * three.js there measured 554ms of one task on a throttled phone, the
+         * single largest blocking task on the landing page, and it bought
+         * nothing: this component's whole design is that the glow and orbit
+         * rings hold the composition until the model arrives, so the saucer
+         * fading in 600ms later is the state it already had a path for.
+         *
+         * `timeout` bounds the wait so a page that never goes idle — a
+         * background tab, a slow device that stays busy — still gets the model.
+         * Safari had no `requestIdleCallback` until 16, so the timer is the
+         * fallback rather than the exception.
+         */
+        const idle = window as Window & {
+          requestIdleCallback?: (
+            cb: () => void,
+            opts?: { timeout?: number },
+          ) => number;
+          cancelIdleCallback?: (handle: number) => void;
+        };
+
+        if (idle.requestIdleCallback) {
+          idleHandle = idle.requestIdleCallback(() => void start(), {
+            timeout: 2500,
+          });
+        } else {
+          idleHandle = window.setTimeout(() => void start(), 1200);
+        }
       } else {
         applySize?.(size.width, size.height);
       }
@@ -378,6 +411,13 @@ export function UfoModel({ className }: { className?: string }) {
     return () => {
       disposed = true;
       observer.disconnect();
+      if (idleHandle !== undefined) {
+        const idle = window as Window & {
+          cancelIdleCallback?: (handle: number) => void;
+        };
+        if (idle.cancelIdleCallback) idle.cancelIdleCallback(idleHandle);
+        else window.clearTimeout(idleHandle);
+      }
       teardown?.();
     };
   }, []);
