@@ -110,6 +110,7 @@ decoration.
 |---|---|---|---|
 | Solana ecosystem directory | **Airtable form**: <https://airtable.com/appNiIyfQFaXNlv1U/pagM20DDyI1xImbzD/form> (guidelines linked) | Contact + founder details (private), project name, 300-word description, status, logo, up to 3 categories, website, socials | **Open — submit this one** |
 | DappRadar | <https://dappradar.com/**submit-a-project**> | Client-rendered form; expect name, website, chain, category, description, logo | Not submitted |
+| What Launched Today | <https://whatlaunched.today> | Name, website, description, icon. Free tier is a **"Standard Launch"**: lifetime do-follow backlink, but it waits in a queue | **Submitted 1 November 2026** — free tier, queued to appear **30 January 2027** |
 | AlternativeTo | <https://alternativeto.net> → "Add app" | Listed as an **alternative to Sol Incinerator**; licence, platforms, description, icon | Not submitted — 403 to curl, open in a browser |
 | Reown / WalletConnect Explorer | <https://cloud.reown.com> | — | **Not applicable** — the Explorer is the WalletGuide: an index of *wallets*, not dApps. See below |
 
@@ -145,6 +146,35 @@ different jobs, they exist, and "alternative to Trust Wallet" reads as spam to
 moderators and searchers alike. Two accurate relations beat eight plausible ones;
 relations are not fixed at submission, so one can be added whenever a counterpart
 appears.
+
+## The queued listing
+
+What Launched Today's free tier is a queue, not a date you pick: submitted on
+1 November 2026, the entry is scheduled to appear on **30 January 2027**. Nothing
+is expected of the site in between and nothing on the site can bring it forward,
+so it is not a launch to prepare for — it is a link that switches on.
+
+**The backlink is the durable part.** A free listing is a "Standard Launch" with a
+lifetime do-follow backlink, which is worth more than the day of traffic it also
+buys: a launch page is read once, a followed link is followed for as long as the
+directory exists, and it is the only part of this submission whose value does not
+depend on the queue date.
+
+**The spike will not be visible, so do not go looking for it.** There is no
+page-view counter on the site — no analytics script at all — and that is a choice,
+not an oversight. Traffic from a directory cannot be separated from any other
+traffic. The closest instrument is `usage.scansToday` in `/api/health`, which
+counts *scans*, not visits, and a launch spike mostly does not scan. Read that
+number as a change in use; never as evidence that a listing worked.
+
+**The card is scraped, so it is whatever the site said last.** Directories render
+their own preview from the page's metadata rather than from what was typed into
+the form. Verified on 1 November 2026: title
+"Clean up your Solana wallet — swap the dust, reclaim the rent", the 1200×630
+`/opengraph-image` (a real 1200×630 PNG, 32 KB), and the icon at
+`/dapp-icon-v7-512.png`. If any of those change between now and 30 January, the
+listing does not follow on its own — revisit the entry afterwards, or it will
+keep advertising the old one.
 
 ## Field-by-field answers
 
