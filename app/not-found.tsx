@@ -8,6 +8,15 @@ import { getSiteUrl } from "@/lib/config/site";
 import { TOOLS } from "@/lib/config/tools";
 
 export const metadata: Metadata = {
+  /**
+   * No `robots: noindex` here.
+   *
+   * Next already adds one to a not-found response — checked on a 404 from the
+   * built app, which carries `noindex` before this file says anything. Adding it
+   * again emitted two `robots` tags saying the same thing, and a tag that
+   * duplicates the framework's is the kind of thing that later reads as
+   * deliberate when it is not.
+   */
   title: "Page not found",
 };
 

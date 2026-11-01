@@ -7,6 +7,7 @@ import { ToolEmblem } from "@/components/layout/tool-emblem";
 import { LandingHero } from "@/components/landing/landing-hero";
 import { Card, CardContent } from "@/components/ui/card";
 import { DISPLAY_FONT_STYLE } from "@/lib/ui/fonts";
+import { CARD_DESCRIPTION, CARD_TITLE } from "@/lib/seo/card-copy";
 import { DAPP_ICON_PATH, getAppName, getSiteUrl } from "@/lib/config/site";
 import { TOOLS } from "@/lib/config/tools";
 import { RECLAIM_FEE_BPS } from "@/lib/utils/constants";
@@ -34,6 +35,22 @@ export const metadata: Metadata = {
   alternates: { canonical: "/" },
   description:
     "Clean up a Solana wallet without handing it over: batch-swap dust, send or burn what has no market, reclaim locked rent, revoke stale approvals.",
+  /**
+   * The one page whose card copy is not its document copy.
+   *
+   * Everywhere else the resolved title and description flow into the card, which
+   * is what a link to a tool should say. The front door is different: it is the
+   * one URL people share as a recommendation, so its card leads with the reason
+   * to click rather than the category. See `lib/seo/card-copy.ts`.
+   */
+  openGraph: {
+    title: CARD_TITLE,
+    description: CARD_DESCRIPTION,
+  },
+  twitter: {
+    title: CARD_TITLE,
+    description: CARD_DESCRIPTION,
+  },
 };
 
 /**

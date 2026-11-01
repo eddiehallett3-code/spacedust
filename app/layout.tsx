@@ -53,24 +53,6 @@ const APP_DESCRIPTION = `Six non-custodial Solana wallet tools: batch-swap dust,
 
 const APP_TITLE = `${APP_NAME} — batch tools for a Solana wallet`;
 
-/**
- * What a link preview says, which is a different job from the document title.
- *
- * The document title has to be findable — brand plus keywords, because that is
- * what a search result and a browser tab show. A card in a timeline has no such
- * job: it is competing with everything else in the feed, so it leads with the
- * benefit instead of the category. "Batch tools for a Solana wallet" describes
- * the product; "Clean up your Solana wallet" describes the reason to click.
- *
- * Kept here rather than inline so the card and the page cannot drift apart: a
- * promise on the card that the landing page does not repeat is the cheapest way
- * to lose the click that was already made.
- */
-const CARD_TITLE = "Clean up your Solana wallet — swap the dust, reclaim the rent";
-/** Shorter than APP_DESCRIPTION on purpose: a card shows about two lines. */
-const CARD_DESCRIPTION =
-  "Six non-custodial tools: batch-swap dust, send or burn what has no market, reclaim the rent in empty accounts, revoke stale approvals, scan any wallet read-only.";
-
 export const metadata: Metadata = {
   // Absolute URLs for the OG card and any canonical link. Without this, Next
   // warns at build time and a relative `og:image` never resolves in a crawler —
@@ -145,14 +127,23 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: "website",
-    title: CARD_TITLE,
-    description: CARD_DESCRIPTION,
+    /**
+     * No `title` or `description` here, deliberately.
+     *
+     * A layout's Open Graph values are inherited by every page, so setting them
+     * meant `/void` and the rest shipped the landing page's headline on their
+     * cards — each tool's own picture under words describing a different page.
+     * Next fills a missing `openGraph.title` from the page's resolved title, so
+     * leaving these out is what lets each page describe itself.
+     *
+     * The front door opts back in with `CARD_TITLE`, which is written for a feed
+     * rather than a search result. See `lib/seo/card-copy.ts`.
+     */
     siteName: APP_NAME,
   },
   twitter: {
     card: "summary_large_image",
-    title: CARD_TITLE,
-    description: CARD_DESCRIPTION,
+    // Same reasoning as `openGraph` above: inherited values, so omitted here.
     // Attribution, so a card posted anywhere carries the account rather than
     // looking like it came from no one. Read from the same config as the footer
     // link and the security page's anti-phishing line, so all three name the same
