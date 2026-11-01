@@ -3,12 +3,13 @@
 import { useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@/components/wallet/wallet-modal";
-import { Check, Copy, LogOut, Wallet } from "lucide-react";
+import { Check, Copy, LogOut, Turtle, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { truncateAddress } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
 import { Tooltip } from "@/components/ui/tooltip";
+import { useHolderWaiver } from "@/hooks/use-holder-waiver";
 
 /**
  * Wallet connect / account button.
@@ -20,6 +21,7 @@ import { Tooltip } from "@/components/ui/tooltip";
 export function WalletButton({ className }: { className?: string }) {
   const { publicKey, connected, connecting, disconnect, wallet } = useWallet();
   const { open } = useWalletModal();
+  const { entitled: isHolder } = useHolderWaiver();
   const [copied, setCopied] = useState(false);
 
   if (!connected || !publicKey) {
@@ -68,6 +70,25 @@ export function WalletButton({ className }: { className?: string }) {
         >
           {truncateAddress(address, 4, 4)}
         </span>
+
+        {/* The holder mark: the only thing a Turtles holder has to see to know the
+            fee is off, and it appears the moment they connect rather than when
+            they build a plan. A tooltip and an `sr-only` line carry the meaning —
+            a turtle on its own is decoration, and this one is a statement about
+            money. */}
+        {isHolder ? (
+          <Tooltip content="Turtles holder — 0% fee">
+            <span
+              tabIndex={0}
+              className="ml-0.5 flex shrink-0 items-center rounded-full p-0.5 text-violet-glow outline-none focus-visible:ring-2 focus-visible:ring-violet-core/60"
+            >
+              <Turtle className="size-3.5" aria-hidden />
+              <span className="sr-only">
+                Turtles holder: the reclaim fee is waived.
+              </span>
+            </span>
+          </Tooltip>
+        ) : null}
 
         <Tooltip content="Copy full address">
           <Button
