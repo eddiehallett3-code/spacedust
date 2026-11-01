@@ -5,46 +5,34 @@ import { useHolderWaiver } from "@/hooks/use-holder-waiver";
 import { cn } from "@/lib/utils/cn";
 
 /**
- * Says why the fee reads zero, and says how to make it zero.
+ * Says why the fee reads zero.
  *
- * A bare `0` next to "Fee" is indistinguishable from a bug, so the number has to
- * be explained where it is shown. Mounted next to the fee rather than in the
- * navbar because that is the moment the question is asked.
+ * A bare `0` next to "Fee" is indistinguishable from a bug, so the number is
+ * explained where it is shown. Mounted next to the fee rather than in the navbar
+ * because that is the moment the question is asked.
  *
- * Three states, and the third is silence:
- *  - entitled — the waiver is applied, and that is the whole message.
- *  - holding some — how many of ten, which is the only actionable version.
- *  - holding none — nothing. A visitor who holds no Turtles is not being sold
- *    anything on this page, and a line about a perk they cannot reach is noise in
- *    a panel about their own wallet.
- *
- * `useHolderWaiver` shares a module cache with the provider-mounted sync, so this
- * costs no extra request.
+ * TWO STATES, AND NO THIRD: entitled, or nothing at all. A wallet holding nine
+ * used to get "hold one more and the fee is 0%", which is a sales pitch in a panel
+ * about someone's own wallet — and the decision was that the perk is a thing you
+ * either have or do not, with nothing said about it otherwise. `held` is still
+ * read so a future surface can use it; nothing here mentions it.
  */
 export function HolderWaiverNote({ className }: { className?: string }) {
-  const { entitled, held, required, loading } = useHolderWaiver();
+  const { entitled, required, loading } = useHolderWaiver();
 
-  if (loading || (!entitled && held === 0)) return null;
+  if (loading || !entitled) return null;
 
   return (
     <p
       className={cn(
-        "flex items-start gap-1.5 text-2xs leading-relaxed",
-        entitled ? "text-success" : "text-subtle",
+        "flex items-start gap-1.5 text-2xs leading-relaxed text-success",
         className,
       )}
     >
       <Turtle className="mt-px size-3 shrink-0" aria-hidden />
-      {entitled ? (
-        <span>
-          Holder waiver applied — 0% fee while you hold {required} Turtles.
-        </span>
-      ) : (
-        <span>
-          You hold {held} of {required} Turtles. Hold {required} and the rent fee
-          is 0%.
-        </span>
-      )}
+      <span>
+        Holder waiver applied — 0% fee while you hold {required} Turtles.
+      </span>
     </p>
   );
 }

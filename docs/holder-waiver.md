@@ -51,7 +51,7 @@ a purchase — and it cannot be sold, because it was never an asset.
 | Session flag | `lib/fees/holder-waiver.ts` |
 | Applied | `feeFromRentLamports` in `lib/solana/rent.ts` — every rent fee passes through it |
 | Client | `hooks/use-holder-waiver.tsx`, mounted once in `app/providers.tsx` |
-| Shown | `components/fees/holder-waiver-note.tsx` |
+| Shown | `components/fees/holder-waiver-note.tsx` — to holders only; nothing is said to anyone else |
 
 The waiver is applied at **one** function because the fee is priced in thirteen
 places — nine display, four transaction builders. A preview that says 1.5% next to
