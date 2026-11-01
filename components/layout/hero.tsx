@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, KeyRound, Layers, Unplug, Zap } from "lucide-react";
 import { ToolEmblem } from "@/components/layout/tool-emblem";
 import { ConnectWalletCta } from "@/components/wallet/wallet-button";
-import { DISPLAY_FONT_STYLE } from "@/lib/ui/fonts";
+import { DISPLAY_FONT_STYLE, DISPLAY_TITLE_CLASS } from "@/lib/ui/fonts";
 import { TOKEN_ACCOUNT_RENT_LAMPORTS } from "@/lib/utils/constants";
 
 /**
@@ -45,7 +45,7 @@ export function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           style={DISPLAY_FONT_STYLE}
-          className="mt-3 text-4xl font-semibold leading-tight tracking-tight sm:text-5xl lg:text-6xl"
+          className={`mt-3 ${DISPLAY_TITLE_CLASS}`}
         >
           Slingshot
         </motion.h1>
