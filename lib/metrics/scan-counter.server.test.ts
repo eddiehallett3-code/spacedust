@@ -134,8 +134,8 @@ describe("readScanCounts", () => {
     fetchMock.mockResolvedValue(reply(null, null));
 
     await expect(readScanCounts()).resolves.toMatchObject({
-      today: null,
-      total: null,
+      today: 0,
+      total: 0,
       detail: null,
     });
   });

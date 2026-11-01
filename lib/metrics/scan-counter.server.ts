@@ -132,8 +132,11 @@ export async function readScanCounts(): Promise<{
       ["GET", TOTAL_KEY],
     ]);
     return {
-      today: asCount(today),
-      total: asCount(total),
+      // A key that does not exist yet is a zero, not a failure: Redis answers
+      // `null` for a missing key, and "null" on a health page reads like an
+      // error when it actually means "nobody has scanned since this shipped".
+      today: asCount(today) ?? 0,
+      total: asCount(total) ?? 0,
       source: endpoint.source,
       detail: null,
     };
