@@ -33,6 +33,28 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ["lucide-react", "framer-motion"],
   },
   /**
+   * Send the complete `<head>` to everyone, not just to crawlers Next assumes
+   * cannot run JavaScript.
+   *
+   * Next 15.5 streams metadata: for a browser it flushes the shell first and
+   * appends `<title>`, the description, the canonical and the Open Graph tags
+   * afterwards, in the middle of `<body>`. Its built-in exception list covers
+   * Bingbot, Twitterbot, Slackbot and the social scrapers — but deliberately
+   * NOT Googlebot, on the grounds that Googlebot executes JavaScript. It does,
+   * and it also reads `<title>` wherever it appears, so this was never a
+   * no-index bug. It is still the wrong document: Lighthouse, and therefore any
+   * audit built on it, reads `document.head` only and scored the site 92 on SEO
+   * with "Document does not have a meta description" — a description that
+   * exists on every page. Anything else that parses the head and does not run
+   * JavaScript sees the same nothing.
+   *
+   * Matching everything makes every response wait for metadata before the first
+   * byte. That is affordable here only because metadata is assembled from
+   * module-level constants: no query, no fetch, nothing to await. Measured at
+   * 20ms server response time with this on.
+   */
+  htmlLimitedBots: /.*/,
+  /**
    * Three dependencies that exist only in Node, pulled in optionally by the
    * WalletConnect/AppKit stack: `pino-pretty` for logger output, `lokijs` and
    * `encoding` for storage. They are never reached in a browser, and Reown's own

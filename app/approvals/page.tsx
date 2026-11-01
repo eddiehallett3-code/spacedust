@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Container } from "@/components/layout/container";
 import { PageHeader } from "@/components/layout/page-header";
+import { ToolJsonLd } from "@/components/seo/tool-json-ld";
 import { ToolEmblem } from "@/components/layout/tool-emblem";
 import { ApprovalsPanel } from "@/components/security/approvals-panel";
 
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/approvals" },
   title: "Approvals — revoke stale delegations",
   description:
-    "See every token account that has granted a delegate permission to move its balance — from NFT listings and old dApp approvals — and revoke them. Non-custodial: the transactions are built and simulated locally, and you sign them.",
+    "See every token account that has granted a delegate permission to move its balance — old dApp approvals and NFT listings — and revoke them.",
 };
 
 /**
@@ -26,6 +27,7 @@ export const metadata: Metadata = {
 export default function ApprovalsPage() {
   return (
     <Container size="narrow">
+      <ToolJsonLd tool="approvals" />
       <PageHeader
         emblem={<ToolEmblem tool="approvals" />}
         title="Approvals"

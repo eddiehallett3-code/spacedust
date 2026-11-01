@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Check, Minus } from "lucide-react";
 import { Container } from "@/components/layout/container";
 import { PageHeader } from "@/components/layout/page-header";
+import { Breadcrumbs } from "@/components/seo/breadcrumbs";
 import { Prose } from "@/components/layout/prose";
 import { RECLAIM_FEE_BPS } from "@/lib/utils/constants";
 
@@ -141,6 +142,7 @@ const CHECKS = [
 export default function ComparePage() {
   return (
     <Container size="narrow">
+      <Breadcrumbs name="Comparing wallet cleaners" path="/compare" />
       <PageHeader
         title="Comparing wallet cleaners"
         description={`What Spacedust and Sol Incinerator each do, from their published documentation and ours. Checked ${CHECKED}.`}

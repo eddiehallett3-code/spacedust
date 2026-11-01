@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { Container } from "@/components/layout/container";
 import { PageHeader } from "@/components/layout/page-header";
+import { Breadcrumbs } from "@/components/seo/breadcrumbs";
 import { ToolEmblem, type ToolKey } from "@/components/layout/tool-emblem";
 import { Prose } from "@/components/layout/prose";
 import { DISPLAY_FONT_STYLE } from "@/lib/ui/fonts";
@@ -39,7 +40,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/how-it-works" },
   title: "How it works — what each tool does",
   description:
-    "Exactly what each of the six tools does: how a sweep finds dust, sells part of a balance and packs twenty swaps into one transaction, how The Void takes the tokens, NFTs and cNFTs you no longer want, how a batch send proves its destination, how closing an empty account, refunding surplus rent and unwrapping wSOL really work, how approvals are read and revoked, and what the read-only scan counts and refuses.",
+    "Exactly what each of the six tools does: how a sweep finds dust and packs twenty swaps into one transaction, how rent comes back, and what a scan refuses.",
 };
 
 /**
@@ -81,6 +82,7 @@ function ToolSection({
 export default function HowItWorksPage() {
   return (
     <Container size="narrow">
+      <Breadcrumbs name="How it works" path="/how-it-works" />
       <PageHeader
         emblem={<ToolEmblem tool="how-it-works" />}
         title="How it works"

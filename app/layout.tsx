@@ -6,7 +6,6 @@ import { Providers } from "./providers";
 import { StarfieldBackground } from "@/components/layout/starfield-background";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
-import { RECLAIM_FEE_BPS } from "@/lib/utils/constants";
 import {
   DAPP_ICON_180_PATH,
   DAPP_ICON_192_PATH,
@@ -16,6 +15,8 @@ import {
   getSiteUrl,
 } from "@/lib/config/site";
 import { getTwitterHandle } from "@/lib/config/social";
+import { JsonLd } from "@/components/seo/json-ld";
+import { organizationSchema, websiteSchema } from "@/lib/seo/structured-data";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -48,7 +49,8 @@ const SITE_URL = getSiteUrl();
 // The rent-reclaim rates are three separate constants so any of them can be
 // repriced alone. This summary states one number because today they are equal —
 // if that ever stops being true, this line has to say so rather than pick one.
-const APP_DESCRIPTION = `Six non-custodial Solana wallet tools: batch swap, send, and send unwanted tokens, NFTs and cNFTs into The Void; reclaim rent; revoke approvals; and scan any address read-only. ${(RECLAIM_FEE_BPS / 100).toFixed(1)}% of reclaimed rent, and nothing on the swap itself.`;
+const APP_DESCRIPTION = `Six non-custodial Solana wallet tools: batch-swap dust, send or burn what has no market, reclaim rent, revoke approvals, scan any wallet read-only.`;
+
 const APP_TITLE = `${APP_NAME} — batch tools for a Solana wallet`;
 
 /**
@@ -207,6 +209,9 @@ export default async function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-dvh font-sans antialiased">
+        {/* Organisation and site, once for the whole origin. Pages add their own
+            blocks on top; these are the two every page can be read against. */}
+        <JsonLd data={[organizationSchema(), websiteSchema()]} />
         <Providers>
           {/* Decorative only: aria-hidden, and never intercepts pointer events. */}
           <StarfieldBackground />

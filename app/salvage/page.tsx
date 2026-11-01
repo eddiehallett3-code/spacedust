@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Container } from "@/components/layout/container";
 import { PageHeader } from "@/components/layout/page-header";
+import { ToolJsonLd } from "@/components/seo/tool-json-ld";
 import { ToolEmblem } from "@/components/layout/tool-emblem";
 import { SalvageApp } from "@/components/salvage/salvage-app";
 import { RECLAIM_RATE } from "@/lib/config/tools";
@@ -12,7 +13,8 @@ export const metadata: Metadata = {
   // the *.vercel.app one — and a crawler finding both is free to choose either.
   alternates: { canonical: "/salvage" },
   title: "Salvage — reclaim rent, wSOL and .sns names",
-  description: `Retrieve rent from empty token accounts, refund the surplus rent held by Token-2022 accounts, unwrap wSOL, and close unused .sns names in Pro. ${RECLAIM_RATE} of reclaimed rent.`,
+  description: `Reclaim rent from empty token accounts, refund surplus rent on Token-2022 accounts, unwrap wSOL and close unused .sns names. ${RECLAIM_RATE} of reclaimed rent.`,
+
 };
 
 /**
@@ -26,6 +28,7 @@ export const metadata: Metadata = {
 export default function SalvagePage() {
   return (
     <Container size="narrow">
+      <ToolJsonLd tool="salvage" />
       <PageHeader
         emblem={<ToolEmblem tool="salvage" />}
         title="Salvage"

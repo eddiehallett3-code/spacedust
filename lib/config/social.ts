@@ -16,6 +16,12 @@ export function getTwitterUrl(): string | null {
   return parse()?.url ?? null;
 }
 
+/** The account as `https://x.com/handle`, for `sameAs` in structured data. */
+export function getTwitterProfileUrl(): string | null {
+  const handle = parse()?.handle;
+  return handle ? `https://x.com/${handle}` : null;
+}
+
 /** The account as `@handle`, for text that names it rather than links to it. */
 export function getTwitterHandle(): string | null {
   const handle = parse()?.handle;

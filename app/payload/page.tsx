@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Container } from "@/components/layout/container";
 import { PageHeader } from "@/components/layout/page-header";
+import { ToolJsonLd } from "@/components/seo/tool-json-ld";
 import { ToolEmblem } from "@/components/layout/tool-emblem";
 import { PayloadApp } from "@/components/payload/payload-app";
 import { PAYLOAD_RATE } from "@/lib/config/tools";
@@ -12,7 +13,8 @@ export const metadata: Metadata = {
   // the *.vercel.app one — and a crawler finding both is free to choose either.
   alternates: { canonical: "/payload" },
   title: "Payload — batch send SOL, tokens, NFTs and cNFTs",
-  description: `Send SOL, tokens, NFTs and cNFTs to one address in as few transactions as the size limit allows, reclaiming the rent the emptied accounts were holding. Verify the destination with a test transfer first. ${PAYLOAD_RATE} of reclaimed rent.`,
+  description: `Send SOL, tokens, NFTs and cNFTs to one address in as few transactions as possible, reclaiming the rent. Test the destination first. ${PAYLOAD_RATE} of reclaimed rent.`,
+
 };
 
 /**
@@ -26,6 +28,7 @@ export const metadata: Metadata = {
 export default function PayloadPage() {
   return (
     <Container size="narrow">
+      <ToolJsonLd tool="payload" />
       <PageHeader
         emblem={<ToolEmblem tool="payload" />}
         title="Payload"

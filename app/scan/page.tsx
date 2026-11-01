@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Container } from "@/components/layout/container";
 import { PageHeader } from "@/components/layout/page-header";
+import { ToolJsonLd } from "@/components/seo/tool-json-ld";
 import { ToolEmblem } from "@/components/layout/tool-emblem";
 import { ReadOnlyScan } from "@/components/scanner/read-only-scan";
 
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/scan" },
   title: "Wallet Scan — read-only wallet lookup",
   description:
-    "Paste any Solana address and see what can be reclaimed: token accounts, empty-account rent, Token-2022 rent refunds, wrapped SOL, standing approvals, .sns names, NFTs and the holdings a sweep would refuse. No wallet connection, nothing signed.",
+    "Paste any Solana address and see what can be reclaimed: token accounts, rent, wrapped SOL, approvals, .sns names and NFTs. No wallet, nothing signed.",
 };
 
 /**
@@ -33,6 +34,7 @@ export default async function ScanPage({
 
   return (
     <Container size="narrow">
+      <ToolJsonLd tool="scan" />
       <PageHeader
         emblem={<ToolEmblem tool="scan" />}
         title="Wallet Scan"

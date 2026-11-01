@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Container } from "@/components/layout/container";
 import { DustApp } from "@/components/dust-app";
 import { Hero, SlingshotHighlights } from "@/components/layout/hero";
+import { ToolJsonLd } from "@/components/seo/tool-json-ld";
 import { SetupNotice } from "@/components/setup-notice";
 import { HowItWorksStrip } from "@/components/layout/how-it-works-strip";
 import { RECLAIM_RATE } from "@/lib/config/tools";
@@ -13,7 +14,8 @@ export const metadata: Metadata = {
   // the *.vercel.app one — and a crawler finding both is free to choose either.
   alternates: { canonical: "/slingshot" },
   title: "Slingshot — sweep dust into SOL, USDC or JUP",
-  description: `Connect your Solana wallet, pick a USD threshold, and let Slingshot swap leftover token dust into SOL, USDC or JUP in as few transactions as possible. Non-custodial. No fee on the swap itself; ${RECLAIM_RATE} of reclaimed rent.`,
+  description: `Swap leftover Solana dust into SOL, USDC or JUP in few transactions and reclaim the locked rent. No fee on the swap; ${RECLAIM_RATE} of rent reclaimed.`,
+
 };
 
 /**
@@ -29,6 +31,7 @@ export const metadata: Metadata = {
 export default function SlingshotPage() {
   return (
     <Container size="wide">
+      <ToolJsonLd tool="slingshot" />
       <Hero />
       {/* Renders nothing at all once the API keys are working. */}
       <SetupNotice />

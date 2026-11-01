@@ -22,6 +22,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${base}/how-it-works`, priority: 0.7 },
     { url: `${base}/compare`, priority: 0.7 },
     { url: `${base}/security`, priority: 0.6 },
+    { url: `${base}/delete-data`, priority: 0.3 },
     { url: `${base}/privacy`, priority: 0.3 },
     { url: `${base}/terms`, priority: 0.3 },
     ...TOOLS.map((tool) => ({

@@ -33,7 +33,7 @@ export const metadata: Metadata = {
   // the *.vercel.app one — and a crawler finding both is free to choose either.
   alternates: { canonical: "/" },
   description:
-    "Six non-custodial tools for a Solana wallet: batch swap, send, and send unwanted tokens, NFTs and cNFTs into The Void; reclaim rent; revoke approvals; and scan any address read-only.",
+    "Clean up a Solana wallet without handing it over: batch-swap dust, send or burn what has no market, reclaim locked rent, revoke stale approvals.",
 };
 
 /**

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AlertTriangle, Globe, KeyRound, Lock, ShieldCheck, Wallet } from "lucide-react";
 import { Container } from "@/components/layout/container";
 import { PageHeader } from "@/components/layout/page-header";
+import { Breadcrumbs } from "@/components/seo/breadcrumbs";
 import { ToolEmblem } from "@/components/layout/tool-emblem";
 import { Prose } from "@/components/layout/prose";
 import { ClearStoredData } from "@/components/security/clear-stored-data";
@@ -66,6 +67,7 @@ export default function SecurityPage() {
 
   return (
     <Container size="narrow">
+      <Breadcrumbs name="Security" path="/security" />
       <PageHeader
         emblem={<ToolEmblem tool="security" />}
         title="Security"

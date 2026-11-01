@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Container } from "@/components/layout/container";
 import { PageHeader } from "@/components/layout/page-header";
+import { Breadcrumbs } from "@/components/seo/breadcrumbs";
 import { Prose } from "@/components/layout/prose";
 import { DeleteData } from "@/components/legal/delete-data";
 import { LEGAL_EMAIL } from "@/lib/config/legal";
@@ -16,6 +17,7 @@ export const metadata: Metadata = {
 export default function DeleteDataPage() {
   return (
     <Container size="narrow">
+      <Breadcrumbs name="Delete my data" path="/delete-data" />
       <PageHeader
         title="Delete my data"
         description="There is no Spacedust account. This removes the local data and wallet connection."
