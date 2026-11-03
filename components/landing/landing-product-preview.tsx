@@ -136,7 +136,7 @@ export function LandingProductPreview() {
           </p>
           <Link
             href="/how-it-works#scan"
-            className="group inline-flex items-center gap-1 text-xs font-medium text-brand-glow transition-colors hover:text-brand-core"
+            className="group -my-3 inline-flex items-center gap-1 py-3 text-xs font-medium text-brand-glow transition-colors hover:text-brand-core"
           >
             How the scan works
             <ArrowRight

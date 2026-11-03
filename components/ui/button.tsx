@@ -56,14 +56,20 @@ const buttonVariants = cva(
         ].join(" "),
       },
       size: {
-        // Touch-first. On a phone these render at 40px — a comfortable thumb
-        // target — and tighten to the denser desktop sizes from `sm` up, where
-        // a precise pointer is doing the clicking.
-        sm: "h-10 rounded-lg px-3 text-xs sm:h-8 [&_svg]:size-3.5",
-        "icon-sm": "size-10 rounded-lg sm:size-8 [&_svg]:size-3.5",
-        md: "h-10 rounded-lg px-4 text-sm [&_svg]:size-4",
+        // Touch-first, and 44px on a phone rather than 40.
+        //
+        // 40 was chosen as "a comfortable thumb target" and is the number most
+        // design systems default to, but the guideline that actually gets tested
+        // is 44: below it, a tap near the edge of a control lands on the gap
+        // beside it. Measured on the built site at 390px, every control sat at
+        // 40 — Connect, the menu button, the primary CTA, and the address input.
+        // The denser desktop sizes still apply from `sm` up, where a precise
+        // pointer is doing the clicking.
+        sm: "h-11 rounded-lg px-3 text-xs sm:h-8 [&_svg]:size-3.5",
+        "icon-sm": "size-11 rounded-lg sm:size-8 [&_svg]:size-3.5",
+        md: "h-11 rounded-lg px-4 text-sm sm:h-10 [&_svg]:size-4",
         lg: "h-12 rounded-lg px-6 text-base [&_svg]:size-[1.15rem]",
-        icon: "size-10 rounded-lg [&_svg]:size-4",
+        icon: "size-11 rounded-lg sm:size-10 [&_svg]:size-4",
       },
     },
     defaultVariants: { variant: "primary", size: "md" },

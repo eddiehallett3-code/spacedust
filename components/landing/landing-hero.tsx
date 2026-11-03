@@ -84,7 +84,7 @@ export function LandingHero() {
             </Button>
             <Link
               href="#tools"
-              className="group inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-sm text-muted transition-colors hover:text-foreground"
+              className="group -my-3 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap py-3 text-sm text-muted transition-colors hover:text-foreground"
             >
               Explore the tools
               <ArrowDown

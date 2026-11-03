@@ -138,7 +138,7 @@ export default async function HomePage() {
             </div>
             <Link
               href="/how-it-works"
-              className="group inline-flex items-center gap-1 text-sm text-muted transition-colors hover:text-foreground"
+              className="group -my-3 inline-flex items-center gap-1 py-3 text-sm text-muted transition-colors hover:text-foreground"
             >
               How each tool works
               <ArrowRight
@@ -164,7 +164,7 @@ export default async function HomePage() {
                   </p>
                   <Link
                     href={tool.href}
-                    className="group mt-auto inline-flex items-center gap-1 pt-1 text-sm font-medium text-brand-glow transition-colors hover:text-brand-core"
+                    className="group -mb-2.5 mt-auto inline-flex items-center gap-1 pb-2.5 pt-1 text-sm font-medium text-brand-glow transition-colors hover:text-brand-core"
                   >
                     {tool.cta}
                     <ArrowRight

@@ -10,7 +10,7 @@ export const Input = React.forwardRef<
       ref={ref}
       type={type}
       className={cn(
-        "flex h-10 w-full rounded-xl border border-border bg-white/4 px-3.5 py-2",
+        "flex h-11 w-full rounded-xl border border-border bg-white/4 px-3.5 py-2 sm:h-10",
         "text-sm text-foreground placeholder:text-subtle",
         "transition-colors duration-200",
         "hover:border-border-strong",

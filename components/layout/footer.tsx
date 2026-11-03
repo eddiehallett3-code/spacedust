@@ -72,55 +72,55 @@ export function Footer() {
           <nav aria-label="Footer" className="grid grid-cols-2 gap-x-12 gap-y-2 text-sm">
             <Link
               href="/slingshot"
-              className="text-muted transition-colors hover:text-foreground"
+              className="-my-1 inline-block py-1 text-muted transition-colors hover:text-foreground"
             >
               Slingshot
             </Link>
             <Link
               href="/void"
-              className="text-muted transition-colors hover:text-foreground"
+              className="-my-1 inline-block py-1 text-muted transition-colors hover:text-foreground"
             >
               The Void
             </Link>
             <Link
               href="/payload"
-              className="text-muted transition-colors hover:text-foreground"
+              className="-my-1 inline-block py-1 text-muted transition-colors hover:text-foreground"
             >
               Payload
             </Link>
             <Link
               href="/salvage"
-              className="text-muted transition-colors hover:text-foreground"
+              className="-my-1 inline-block py-1 text-muted transition-colors hover:text-foreground"
             >
               Salvage
             </Link>
             <Link
               href="/approvals"
-              className="text-muted transition-colors hover:text-foreground"
+              className="-my-1 inline-block py-1 text-muted transition-colors hover:text-foreground"
             >
               Approvals
             </Link>
             <Link
               href="/scan"
-              className="text-muted transition-colors hover:text-foreground"
+              className="-my-1 inline-block py-1 text-muted transition-colors hover:text-foreground"
             >
               Wallet Scan
             </Link>
             <Link
               href="/how-it-works"
-              className="text-muted transition-colors hover:text-foreground"
+              className="-my-1 inline-block py-1 text-muted transition-colors hover:text-foreground"
             >
               How it works
             </Link>
             <Link
               href="/security"
-              className="text-muted transition-colors hover:text-foreground"
+              className="-my-1 inline-block py-1 text-muted transition-colors hover:text-foreground"
             >
               Security
             </Link>
             <Link
               href="/compare"
-              className="text-muted transition-colors hover:text-foreground"
+              className="-my-1 inline-block py-1 text-muted transition-colors hover:text-foreground"
             >
               Compare
             </Link>
@@ -161,19 +161,19 @@ export function Footer() {
           >
             <Link
               href="/privacy"
-              className="text-muted transition-colors hover:text-foreground"
+              className="-my-1 inline-block py-1 text-muted transition-colors hover:text-foreground"
             >
               Privacy
             </Link>
             <Link
               href="/terms"
-              className="text-muted transition-colors hover:text-foreground"
+              className="-my-1 inline-block py-1 text-muted transition-colors hover:text-foreground"
             >
               Terms
             </Link>
             <Link
               href="/delete-data"
-              className="text-muted transition-colors hover:text-foreground"
+              className="-my-1 inline-block py-1 text-muted transition-colors hover:text-foreground"
             >
               Delete my data
             </Link>

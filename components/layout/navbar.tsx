@@ -78,7 +78,7 @@ export function Navbar() {
           {/* Brand */}
           <Link
             href="/"
-            className="group flex shrink-0 items-center rounded-lg"
+            className="group -my-2.5 flex shrink-0 items-center rounded-lg py-2.5"
             aria-label="Spacedust home"
           >
             <BrandLogo className="origin-left transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-[1.02]" />
