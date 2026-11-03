@@ -388,8 +388,8 @@ export function NftBurnPanel({
   ) {
     return (
       <div className="glass rounded-2xl p-8 text-center">
-        <span className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-linear-to-br from-violet-core/20 to-cyan-core/15 ring-1 ring-inset ring-white/10">
-          <CheckCircle2 className="size-6 text-violet-glow" aria-hidden />
+        <span className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-linear-to-br from-brand-core/20 to-cyan-core/15 ring-1 ring-inset ring-white/10">
+          <CheckCircle2 className="size-6 text-brand-glow" aria-hidden />
         </span>
         <h2 className="mt-4 text-lg font-semibold tracking-tight">
           Nothing needs a lookup table
@@ -405,7 +405,7 @@ export function NftBurnPanel({
   return (
     <div className="flex flex-col gap-4">
       {queue ? (
-        <div className="rounded-xl border border-violet-core/25 bg-violet-core/5 px-3 py-2.5 text-2xs leading-relaxed text-muted">
+        <div className="rounded-xl border border-brand-core/25 bg-brand-core/5 px-3 py-2.5 text-2xs leading-relaxed text-muted">
           <p className="font-medium text-foreground">
             Guided burn · round {queue.round} of {queue.rounds}
           </p>
@@ -460,7 +460,7 @@ export function NftBurnPanel({
           ticked. The per-card warning still appears if one of these is selected
           while this tab is not the one on screen. */}
       {isTableSetup ? (
-        <div className="rounded-xl border border-violet-core/25 bg-violet-core/5 px-3 py-2.5 text-2xs leading-relaxed text-muted">
+        <div className="rounded-xl border border-brand-core/25 bg-brand-core/5 px-3 py-2.5 text-2xs leading-relaxed text-muted">
           <p className="font-medium text-foreground">
             Needs lookup-table setup
           </p>
@@ -508,7 +508,7 @@ export function NftBurnPanel({
           because `lookupTableAssets` then carries the authoritative list and the
           panel below explains the same thing with the real count. */}
       {isCnft && !isTableSetup && !hasPreview && selectedNeedingLookupTable.length > 0 ? (
-        <div className="rounded-xl border border-violet-core/25 bg-violet-core/5 px-3 py-2.5 text-2xs leading-relaxed text-muted">
+        <div className="rounded-xl border border-brand-core/25 bg-brand-core/5 px-3 py-2.5 text-2xs leading-relaxed text-muted">
           <p className="font-medium text-foreground">
             {pluralize(selectedNeedingLookupTable.length, "selected cNFT")}{" "}
             {selectedNeedingLookupTable.length === 1 ? "needs" : "need"} an
@@ -563,11 +563,11 @@ export function NftBurnPanel({
                 }
                 className={cn(
                   "flex flex-col gap-2 rounded-2xl border p-2 transition-colors",
-                  "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-violet-glow",
+                  "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-glow",
                   canBurn
                     ? isSelected
                       ? "cursor-pointer border-danger/45 bg-danger/8"
-                      : "cursor-pointer border-border/60 bg-white/2 hover:border-violet-core/40"
+                      : "cursor-pointer border-border/60 bg-white/2 hover:border-brand-core/40"
                     : "border-border/40 bg-white/1",
                   // A hidden row stays visible only because it was asked for, so
                   // it is dimmed to say so rather than passing as a normal one.
@@ -604,8 +604,8 @@ export function NftBurnPanel({
                       title={isHidden ? "Show this row again" : "Hide this row"}
                       className={cn(
                         "absolute right-1.5 top-1.5 rounded-full border border-border/60 bg-background/85 p-1 text-subtle backdrop-blur transition-colors",
-                        "hover:border-violet-core/50 hover:text-foreground",
-                        "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-violet-glow",
+                        "hover:border-brand-core/50 hover:text-foreground",
+                        "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-glow",
                       )}
                     >
                       {isHidden ? (
@@ -673,7 +673,7 @@ export function NftBurnPanel({
         <button
           type="button"
           onClick={() => setShowHidden((previous) => !previous)}
-          className="self-start rounded-full border border-border/60 px-2.5 py-1 text-2xs text-subtle transition-colors hover:border-violet-core/40 hover:text-foreground"
+          className="self-start rounded-full border border-border/60 px-2.5 py-1 text-2xs text-subtle transition-colors hover:border-brand-core/40 hover:text-foreground"
         >
           {showHidden
             ? `Hide ${pluralize(hiddenRows.length, "row")} again`
@@ -723,7 +723,7 @@ export function NftBurnPanel({
             />
           ) : null}
           {lookupTableAssets.length > 0 ? (
-            <div className="rounded-xl border border-violet-core/25 bg-violet-core/5 px-3 py-2.5 text-2xs leading-relaxed text-muted">
+            <div className="rounded-xl border border-brand-core/25 bg-brand-core/5 px-3 py-2.5 text-2xs leading-relaxed text-muted">
               <p className="font-medium text-foreground">
                 {pluralize(lookupTableAssets.length, "cNFT")}{" "}
                 {lookupTableAssets.length === 1 ? "needs" : "need"} an address
@@ -1005,7 +1005,7 @@ function LookupTableCleanupPanel({
           ? "border-success/25 bg-success/6"
           : status === "failed"
             ? "border-warning/30 bg-warning/8"
-            : "border-violet-core/25 bg-violet-core/5",
+            : "border-brand-core/25 bg-brand-core/5",
       )}
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -1041,7 +1041,7 @@ function LookupTableCleanupPanel({
       {status === "waiting" && progress ? (
         <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/10">
           <div
-            className="h-full rounded-full bg-violet-core transition-all"
+            className="h-full rounded-full bg-brand-core transition-all"
             style={{ width: `${progressPercent}%` }}
           />
         </div>
@@ -1069,7 +1069,7 @@ function LookupTableCleanupPanel({
               href={solscanTxUrl(signature)}
               target="_blank"
               rel="noopener noreferrer nofollow"
-              className="inline-flex items-center gap-1 rounded-lg border border-border bg-white/3 px-2 py-1 font-mono text-2xs text-muted transition-colors hover:border-violet-core/40 hover:text-foreground"
+              className="inline-flex items-center gap-1 rounded-lg border border-border bg-white/3 px-2 py-1 font-mono text-2xs text-muted transition-colors hover:border-brand-core/40 hover:text-foreground"
             >
               {truncateAddress(signature, 4, 4)}
               <ExternalLink className="size-3" aria-hidden />
@@ -1232,7 +1232,7 @@ function BurnResult({
                 href={solscanTxUrl(signature)}
                 target="_blank"
                 rel="noopener noreferrer nofollow"
-                className="inline-flex items-center gap-1 rounded-lg border border-border bg-white/3 px-2 py-1 font-mono text-2xs text-muted transition-colors hover:border-violet-core/40 hover:text-foreground"
+                className="inline-flex items-center gap-1 rounded-lg border border-border bg-white/3 px-2 py-1 font-mono text-2xs text-muted transition-colors hover:border-brand-core/40 hover:text-foreground"
               >
                 {truncateAddress(signature, 4, 4)}
                 <ExternalLink className="size-3" aria-hidden />

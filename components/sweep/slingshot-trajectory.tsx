@@ -89,7 +89,7 @@ export function SlingshotTrajectory({ className }: { className?: string }) {
         >
           <stop offset="0%" stopColor="rgba(103,232,249,0)" />
           <stop offset="14%" stopColor="rgba(103,232,249,0.45)" />
-          <stop offset="52%" stopColor="rgba(167,139,250,0.7)" />
+          <stop offset="52%" stopColor="rgba(122,184,221,0.7)" />
           <stop offset="84%" stopColor="rgba(103,232,249,0.8)" />
           <stop offset="100%" stopColor="rgba(103,232,249,0)" />
         </linearGradient>
@@ -102,7 +102,7 @@ export function SlingshotTrajectory({ className }: { className?: string }) {
         */}
         <radialGradient id={atmoId} cx="40%" cy="34%" r="70%">
           <stop offset="0%" stopColor="rgba(103,232,249,0.26)" />
-          <stop offset="45%" stopColor="rgba(139,92,246,0.1)" />
+          <stop offset="45%" stopColor="rgba(70,153,200,0.1)" />
           <stop offset="100%" stopColor="rgba(103,232,249,0)" />
         </radialGradient>
       </defs>
@@ -152,7 +152,7 @@ export function SlingshotTrajectory({ className }: { className?: string }) {
           cx={mote.x}
           cy={mote.y}
           r={mote.r}
-          className={index === 1 ? "fill-violet-glow" : "fill-cyan-glow"}
+          className={index === 1 ? "fill-brand-glow" : "fill-cyan-glow"}
         />
       ))}
       <line

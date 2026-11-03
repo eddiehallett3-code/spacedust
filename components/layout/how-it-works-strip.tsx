@@ -59,13 +59,13 @@ export function HowItWorksStrip() {
             {index < STEPS.length - 1 ? (
               <span
                 aria-hidden
-                className="absolute left-[calc(50%+1.5rem)] top-9 hidden h-px w-[calc(100%-3rem)] bg-linear-to-r from-violet-core/40 to-transparent lg:block"
+                className="absolute left-[calc(50%+1.5rem)] top-9 hidden h-px w-[calc(100%-3rem)] bg-linear-to-r from-brand-core/40 to-transparent lg:block"
               />
             ) : null}
 
             <div className="flex items-center gap-2.5">
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-violet-core/25 to-cyan-core/15 ring-1 ring-inset ring-white/10">
-                <step.icon className="size-4 text-violet-glow" aria-hidden />
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-brand-core/25 to-cyan-core/15 ring-1 ring-inset ring-white/10">
+                <step.icon className="size-4 text-brand-glow" aria-hidden />
               </span>
               <span className="font-mono text-xs text-subtle">
                 0{index + 1}
@@ -82,7 +82,7 @@ export function HowItWorksStrip() {
       <div className="mt-8 text-center">
         <Link
           href="/how-it-works"
-          className="group inline-flex items-center gap-1.5 text-sm text-violet-glow transition-colors hover:text-violet-core"
+          className="group inline-flex items-center gap-1.5 text-sm text-brand-glow transition-colors hover:text-brand-core"
         >
           Read the full explanation
           <ArrowRight

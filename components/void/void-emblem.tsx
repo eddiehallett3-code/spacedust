@@ -68,7 +68,7 @@ function FallingMote({
 }
 
 const CYAN_MOTE = "bg-cyan-glow shadow-[0_0_10px_2px_rgba(103,232,249,0.75)]";
-const VIOLET_MOTE = "bg-violet-glow shadow-[0_0_10px_2px_rgba(167,139,250,0.75)]";
+const VIOLET_MOTE = "bg-brand-glow shadow-[0_0_10px_2px_rgba(122,184,221,0.75)]";
 
 /** Slow, wide infall: matter crossing a lot of space before the horizon. */
 const WIDE_MOTES = [
@@ -127,7 +127,7 @@ export function VoidEmblem({
       aria-hidden
     >
       {/* Violet bloom behind the whole mark. */}
-      <span className="absolute inset-[10%] rounded-full bg-violet-core/25 blur-3xl" />
+      <span className="absolute inset-[10%] rounded-full bg-brand-core/25 blur-3xl" />
 
       {motes.map((mote, index) => (
         <FallingMote key={index} {...mote} spin={spin} />
@@ -139,17 +139,17 @@ export function VoidEmblem({
         className={cn(
           "relative z-10 flex aspect-square items-center justify-center rounded-full bg-space-950 ring-1",
           letter
-            ? "h-[78%] ring-violet-core/55 shadow-[0_0_36px_-6px_rgba(139,92,246,0.95)]"
-            : "h-[36%] ring-white/15 shadow-[0_0_40px_-8px_rgba(139,92,246,0.95)]",
+            ? "h-[78%] ring-brand-core/55 shadow-[0_0_36px_-6px_rgba(70,153,200,0.95)]"
+            : "h-[36%] ring-white/15 shadow-[0_0_40px_-8px_rgba(70,153,200,0.95)]",
         )}
       >
-        <span className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_38%_32%,rgba(139,92,246,0.5),transparent_68%)]" />
+        <span className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_38%_32%,rgba(70,153,200,0.5),transparent_68%)]" />
         {letter ? (
-          <span className="relative leading-none [text-shadow:0_0_18px_rgba(167,139,250,0.5)]">
+          <span className="relative leading-none [text-shadow:0_0_18px_rgba(122,184,221,0.5)]">
             {letter}
           </span>
         ) : (
-          <span className="size-[7%] rounded-full bg-foreground shadow-[0_0_8px_2px_rgba(167,139,250,0.9)]" />
+          <span className="size-[7%] rounded-full bg-foreground shadow-[0_0_8px_2px_rgba(122,184,221,0.9)]" />
         )}
       </span>
 
@@ -162,7 +162,7 @@ export function VoidEmblem({
             style={{ animationDelay: "1.2s" }}
           />
           <span
-            className="absolute bottom-8 right-10 size-1 rounded-full bg-violet-glow/70 animate-twinkle"
+            className="absolute bottom-8 right-10 size-1 rounded-full bg-brand-glow/70 animate-twinkle"
             style={{ animationDelay: "2.4s" }}
           />
         </>

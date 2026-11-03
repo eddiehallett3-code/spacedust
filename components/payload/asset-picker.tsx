@@ -207,7 +207,7 @@ export function AssetPicker({
                       <button
                         type="button"
                         onClick={() => onSolAmountChange("")}
-                        className="shrink-0 text-2xs text-violet-glow transition-colors hover:text-violet-core"
+                        className="shrink-0 text-2xs text-brand-glow transition-colors hover:text-brand-core"
                       >
                         Max
                       </button>
@@ -306,7 +306,7 @@ export function AssetPicker({
                           <button
                             type="button"
                             onClick={() => onAmountChange(token.mint, "")}
-                            className="shrink-0 text-2xs text-violet-glow transition-colors hover:text-violet-core"
+                            className="shrink-0 text-2xs text-brand-glow transition-colors hover:text-brand-core"
                           >
                             Max
                           </button>

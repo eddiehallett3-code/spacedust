@@ -268,7 +268,7 @@ export default function ComparePage() {
         {CHECKS.map((check, index) => (
           <li key={check.title} className="glass rounded-2xl p-4">
             <p className="text-sm font-medium text-foreground">
-              <span className="mr-2 text-violet-glow">{index + 1}.</span>
+              <span className="mr-2 text-brand-glow">{index + 1}.</span>
               {check.title}
             </p>
             <p className="mt-1 text-xs leading-relaxed text-muted">{check.body}</p>
@@ -284,7 +284,7 @@ export default function ComparePage() {
             href="https://sol-incinerator.com"
             target="_blank"
             rel="noopener noreferrer nofollow"
-            className="text-violet-glow underline"
+            className="text-brand-glow underline"
           >
             sol-incinerator.com
           </a>
@@ -302,7 +302,7 @@ export default function ComparePage() {
 
       <p className="mt-8 text-sm leading-relaxed text-muted">
         Want to see what your own wallet is carrying?{" "}
-        <Link href="/scan" className="text-violet-glow underline">
+        <Link href="/scan" className="text-brand-glow underline">
           Scan any address read-only
         </Link>{" "}
         — it needs no wallet connection, and nothing is signed.

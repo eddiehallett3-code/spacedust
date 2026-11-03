@@ -134,10 +134,10 @@ export function Navbar() {
                           onClick={() => setToolsOpen(false)}
                           className="group flex gap-2.5 rounded-xl p-2.5 transition-colors hover:bg-white/6"
                         >
-                          <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-violet-core/12 ring-1 ring-inset ring-violet-core/20">
+                          <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-core/12 ring-1 ring-inset ring-brand-core/20">
                             <ToolEmblem
                               tool={tool.key}
-                              className="size-4 text-violet-glow"
+                              className="size-4 text-brand-glow"
                             />
                           </span>
                           <span className="min-w-0">
@@ -208,7 +208,7 @@ export function Navbar() {
               href="/security"
               className="hidden items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-muted transition-colors hover:text-foreground lg:flex"
             >
-              <ShieldCheck className="size-3.5 text-violet-glow" aria-hidden />
+              <ShieldCheck className="size-3.5 text-brand-glow" aria-hidden />
               Non-custodial
             </Link>
             <ProModeSwitch className="hidden sm:flex" />
@@ -266,7 +266,7 @@ export function Navbar() {
                           <span className="flex items-center gap-2.5">
                             <ToolEmblem
                               tool={tool.key}
-                              className="size-4 text-violet-glow"
+                              className="size-4 text-brand-glow"
                             />
                             {tool.name}
                           </span>
@@ -309,7 +309,7 @@ export function Navbar() {
 
                 <p className="mt-3 flex items-center gap-1.5 border-t border-border/60 px-3 pt-3 text-2xs text-subtle">
                   <ShieldCheck
-                    className="size-3.5 shrink-0 text-violet-glow"
+                    className="size-3.5 shrink-0 text-brand-glow"
                     aria-hidden
                   />
                   Non-custodial. You sign every transaction.

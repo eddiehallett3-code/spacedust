@@ -89,7 +89,7 @@ export default function GlobalError({
             <button
               type="button"
               onClick={reset}
-              className="h-12 rounded-xl bg-linear-to-r from-violet-deep via-violet-core to-indigo-core px-6 text-base font-medium text-white shadow-[0_8px_28px_-10px_rgba(139,92,246,0.85)] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-glow"
+              className="h-12 rounded-xl bg-linear-to-r from-brand-deep via-brand-core to-brand-glow px-6 text-base font-medium text-white shadow-[0_8px_28px_-10px_rgba(70,153,200,0.85)] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-glow"
             >
               Try again
             </button>
@@ -101,7 +101,7 @@ export default function GlobalError({
               <button
                 type="button"
                 onClick={() => window.location.reload()}
-                className="text-muted transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-glow"
+                className="text-muted transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-glow"
               >
                 Reload the page
               </button>
@@ -118,7 +118,7 @@ export default function GlobalError({
               {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
               <a
                 href="/"
-                className="text-muted transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-glow"
+                className="text-muted transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-glow"
               >
                 Go to the home page
               </a>

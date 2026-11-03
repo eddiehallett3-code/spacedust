@@ -195,7 +195,7 @@ export function RecipientField({
                     href={solscanTxUrl(verification.verification.signature)}
                     target="_blank"
                     rel="noreferrer"
-                    className="block text-xs text-violet-glow hover:underline"
+                    className="block text-xs text-brand-glow hover:underline"
                   >
                     View the test transaction
                   </a>

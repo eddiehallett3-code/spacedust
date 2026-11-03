@@ -71,7 +71,7 @@ export function SectionTitle({
     <div className={cn("flex items-start justify-between gap-4", className)}>
       <div className="flex items-start gap-3">
         {icon ? (
-          <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-violet-core/12 text-violet-glow ring-1 ring-inset ring-violet-core/20">
+          <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand-core/12 text-brand-glow ring-1 ring-inset ring-brand-core/20">
             {icon}
           </span>
         ) : null}

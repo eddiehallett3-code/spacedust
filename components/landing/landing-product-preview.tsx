@@ -34,14 +34,14 @@ export function LandingProductPreview() {
       aria-labelledby="scan-preview-title"
       className="relative mx-auto mt-14 w-full max-w-4xl scroll-mt-24 sm:mt-16"
     >
-      {/* The violet halo that used to sit behind this card is gone: a coloured
+      {/* The blue halo that used to sit behind this card is gone: a coloured
           blur behind a coloured border behind a coloured button was three accents
           doing one job, and the card reads better with the page showing through
           than with a glow it did not earn. */}
       <Card className="glass-sheen overflow-hidden rounded-2xl border-border/70">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 px-4 py-3 sm:px-5">
           <div className="flex items-center gap-2.5">
-            <span className="flex size-8 items-center justify-center rounded-lg bg-violet-core/12 text-violet-glow ring-1 ring-inset ring-violet-core/20">
+            <span className="flex size-8 items-center justify-center rounded-lg bg-brand-core/12 text-brand-glow ring-1 ring-inset ring-brand-core/20">
               <ScanLine className="size-4" aria-hidden />
             </span>
             <div>
@@ -125,7 +125,7 @@ export function LandingProductPreview() {
           </p>
           <Link
             href="/how-it-works#scan"
-            className="group inline-flex items-center gap-1 text-xs font-medium text-violet-glow transition-colors hover:text-violet-core"
+            className="group inline-flex items-center gap-1 text-xs font-medium text-brand-glow transition-colors hover:text-brand-core"
           >
             How the scan works
             <ArrowRight

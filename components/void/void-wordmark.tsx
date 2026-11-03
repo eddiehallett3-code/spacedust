@@ -31,7 +31,7 @@ export function VoidWordmark({ className }: { className?: string }) {
       )}
     >
       {/* "The" — small, above the left of the V. */}
-      <span className="absolute bottom-[94%] left-[0.04em] text-[0.2em] font-medium tracking-[0.32em] text-violet-glow/75">
+      <span className="absolute bottom-[94%] left-[0.04em] text-[0.2em] font-medium tracking-[0.32em] text-brand-glow/75">
         The
       </span>
 

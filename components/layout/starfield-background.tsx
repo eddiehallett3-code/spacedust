@@ -35,7 +35,7 @@ interface Meteor {
   length: number;
 }
 
-const STAR_TINTS = ["#e2e8ff", "#bae6fd", "#ddd6fe", "#ffffff"] as const;
+const STAR_TINTS = ["#e2e8ff", "#bae6fd", "#cfe4f5", "#ffffff"] as const;
 const TAU = Math.PI * 2;
 
 export function StarfieldBackground() {
@@ -311,16 +311,16 @@ export function StarfieldBackground() {
     >
       <canvas ref={canvasRef} className="size-full" />
       {/* Nebula wash: one, not three.
-          There used to be a violet orb top-left, a cyan one right and an indigo one
+          There used to be a blue orb top-left, a cyan one right and a third blue one
           bottom-left, all drifting on different delays. Against frosted cards that
           read as three differently-tinted surfaces and, on a page with one accent
-          colour, as decoration for its own sake. One slow violet behind the copy
+          colour, as decoration for its own sake. One slow blue behind the copy
           lights the hero and leaves the rest of the page dark, which is what makes
           the saucer and the cards the bright things on screen.
 
           Radial gradients rather than large blurred circles: the gradient is smooth
           already, and it avoids a full-screen filter repaint every frame. */}
-      <div className="absolute -left-[25%] top-[-20%] size-[85vw] rounded-full bg-[radial-gradient(circle,rgba(109,40,217,0.20),rgba(109,40,217,0.06)_45%,transparent_70%)] animate-drift will-change-transform" />
+      <div className="absolute -left-[25%] top-[-20%] size-[85vw] rounded-full bg-[radial-gradient(circle,rgba(70,153,200,0.20),rgba(70,153,200,0.07)_45%,transparent_70%)] animate-drift will-change-transform" />
       {/* Vignette keeps focus on the centre of the page. */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_35%,rgba(4,5,12,0.65)_100%)]" />
     </div>

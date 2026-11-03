@@ -164,7 +164,7 @@ export default async function HomePage() {
                   </p>
                   <Link
                     href={tool.href}
-                    className="group mt-auto inline-flex items-center gap-1 pt-1 text-sm font-medium text-violet-glow transition-colors hover:text-violet-core"
+                    className="group mt-auto inline-flex items-center gap-1 pt-1 text-sm font-medium text-brand-glow transition-colors hover:text-brand-core"
                   >
                     {tool.cta}
                     <ArrowRight
@@ -182,7 +182,7 @@ export default async function HomePage() {
         <p className="text-sm">
           <Link
             href="/how-it-works"
-            className="text-violet-glow transition-colors hover:text-violet-core hover:underline"
+            className="text-brand-glow transition-colors hover:text-brand-core hover:underline"
           >
             How each tool works
           </Link>
@@ -191,7 +191,7 @@ export default async function HomePage() {
           </span>
           <Link
             href="/security"
-            className="text-violet-glow transition-colors hover:text-violet-core hover:underline"
+            className="text-brand-glow transition-colors hover:text-brand-core hover:underline"
           >
             What Spacedust can and cannot do
           </Link>

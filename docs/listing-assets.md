@@ -96,8 +96,8 @@ reasons.
   address or holding of any real wallet appears in a public listing, and the
   states shown are the ones a first-time visitor sees.
 - **Banner:** the app's own background, not a new one. `space-950` (`#04050c`)
-  under the two washes `app/globals.css` puts on `body` — violet-deep at 22%
-  from `50% -10%`, cyan-core at 10% from `90% 10%` — plus the hero's violet glow
+  under the two washes `app/globals.css` puts on `body` — brand-deep at 22%
+  from `50% -10%`, cyan-core at 10% from `90% 10%` — plus the hero's blue glow
   and a starfield built to the rules in
   `components/layout/starfield-background.tsx`: same four tints
   (`#e2e8ff #bae6fd #ddd6fe #ffffff`), radius and alpha derived from depth the

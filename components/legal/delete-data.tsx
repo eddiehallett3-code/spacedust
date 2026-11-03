@@ -125,7 +125,7 @@ export function DeleteData({ contactEmail }: { contactEmail: string | null }) {
             email{" "}
             <a
               href={`mailto:${contactEmail}`}
-              className="text-violet-glow underline"
+              className="text-brand-glow underline"
             >
               {contactEmail}
             </a>

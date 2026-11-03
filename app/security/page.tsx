@@ -143,7 +143,7 @@ export default function SecurityPage() {
         <p className="text-xs leading-relaxed text-muted">
           To disconnect the wallet and clear every store, including the
           WalletConnect session, use{" "}
-          <Link href="/delete-data" className="text-violet-glow underline">
+          <Link href="/delete-data" className="text-brand-glow underline">
             Delete my data
           </Link>
           .
@@ -198,7 +198,7 @@ export default function SecurityPage() {
                 href={profileUrl}
                 target="_blank"
                 rel="noopener noreferrer nofollow"
-                className="font-medium text-violet-glow transition-colors hover:text-violet-core hover:underline"
+                className="font-medium text-brand-glow transition-colors hover:text-brand-core hover:underline"
               >
                 {handle}
               </a>

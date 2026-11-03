@@ -230,7 +230,7 @@ function TransactionId({ signature }: { signature: string }) {
             // the Solscan link next to it works either way.
           }
         }}
-        className="font-mono text-xs text-foreground transition-colors hover:text-violet-glow"
+        className="font-mono text-xs text-foreground transition-colors hover:text-brand-glow"
       >
         {truncateAddress(signature, 8, 8)}
       </button>
@@ -241,7 +241,7 @@ function TransactionId({ signature }: { signature: string }) {
         href={solscanTxUrl(signature)}
         target="_blank"
         rel="noreferrer"
-        className="inline-flex items-center gap-1 text-2xs text-violet-glow transition-colors hover:text-violet-core hover:underline"
+        className="inline-flex items-center gap-1 text-2xs text-brand-glow transition-colors hover:text-brand-core hover:underline"
       >
         Solscan
         <ExternalLink className="size-3" aria-hidden />

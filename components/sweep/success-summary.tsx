@@ -75,7 +75,7 @@ export function SuccessSummary({
         delay: Math.random() * 0.6,
         duration: 1.6 + Math.random() * 1.4,
         rotate: Math.random() * 360,
-        color: ["#8b5cf6", "#22d3ee", "#a78bfa", "#34d399"][index % 4],
+        color: ["#4699c8", "#22d3ee", "#7ab8dd", "#34d399"][index % 4],
       })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [summary.tokenCount, summary.successCount],
@@ -148,7 +148,7 @@ export function SuccessSummary({
           // keyboard. `focus-visible` gives exactly the behaviour wanted — the UA
           // already skips it for programmatic and pointer focus, and keeps it for
           // keyboard — so the ring is restyled rather than deleted.
-          className="text-xl font-semibold tracking-tight focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet-glow"
+          className="text-xl font-semibold tracking-tight focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-glow"
         >
           {isDryRun
             ? "Dry run complete"
@@ -359,7 +359,7 @@ export function SuccessSummary({
                 href={solscanTxUrl(signature)}
                 target="_blank"
                 rel="noopener noreferrer nofollow"
-                className="inline-flex items-center gap-1 rounded-lg border border-border bg-white/3 px-2 py-1 font-mono text-2xs text-muted transition-colors hover:border-violet-core/40 hover:text-foreground"
+                className="inline-flex items-center gap-1 rounded-lg border border-border bg-white/3 px-2 py-1 font-mono text-2xs text-muted transition-colors hover:border-brand-core/40 hover:text-foreground"
               >
                 {truncateAddress(signature, 4, 4)}
                 <ArrowUpRight className="size-3" aria-hidden />
@@ -389,10 +389,10 @@ export function SuccessSummary({
           failure and directly contradicted the summary above it whenever every
           selected token had in fact swapped. */}
       {!isDryRun && voidCount > 0 ? (
-        <div className="relative mt-4 flex flex-col gap-3 rounded-xl border border-violet-core/30 bg-violet-core/8 p-3 sm:flex-row sm:items-center">
+        <div className="relative mt-4 flex flex-col gap-3 rounded-xl border border-brand-core/30 bg-brand-core/8 p-3 sm:flex-row sm:items-center">
           <div className="min-w-0 flex-1">
             <p className="flex items-center gap-1.5 text-sm font-medium">
-              <Orbit className="size-4 shrink-0 text-violet-glow" aria-hidden />
+              <Orbit className="size-4 shrink-0 text-brand-glow" aria-hidden />
               {pluralize(voidCount, "token")} Slingshot left behind
             </p>
             <p className="mt-0.5 text-xs leading-relaxed text-muted">

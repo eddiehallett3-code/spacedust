@@ -69,7 +69,7 @@ export function Hero() {
         >
           <Link
             href="/security"
-            className="inline-flex items-center gap-1.5 rounded-full border border-violet-core/20 bg-violet-core/6 px-3 py-1 text-xs text-violet-glow transition-colors hover:bg-violet-core/10"
+            className="inline-flex items-center gap-1.5 rounded-full border border-brand-core/20 bg-brand-core/6 px-3 py-1 text-xs text-brand-glow transition-colors hover:bg-brand-core/10"
           >
             <KeyRound className="size-3" aria-hidden />
             Non-custodial · you sign everything
@@ -162,7 +162,7 @@ export function SlingshotHighlights() {
           key={item.title}
           className="glass rounded-2xl p-4 text-left transition-colors hover:border-border-strong"
         >
-          <span className="flex size-8 items-center justify-center rounded-lg bg-violet-core/12 text-violet-glow ring-1 ring-inset ring-violet-core/20">
+          <span className="flex size-8 items-center justify-center rounded-lg bg-brand-core/12 text-brand-glow ring-1 ring-inset ring-brand-core/20">
             {item.icon}
           </span>
           <p className="mt-3 text-sm font-medium">{item.title}</p>

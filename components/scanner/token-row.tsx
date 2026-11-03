@@ -118,7 +118,7 @@ export const TokenRow = memo(function TokenRow({
       {/* Left accent bar, animated on selection. */}
       <motion.span
         aria-hidden
-        className="absolute inset-y-0 left-0 w-0.5 bg-linear-to-b from-violet-core to-cyan-core"
+        className="absolute inset-y-0 left-0 w-0.5 bg-linear-to-b from-brand-core to-cyan-core"
         animate={{ opacity: selected ? 1 : 0 }}
         transition={{ duration: 0.2 }}
       />
@@ -138,8 +138,8 @@ export const TokenRow = memo(function TokenRow({
         }}
         className={cn(
           "flex items-center gap-3 px-3 py-2.5 transition-colors sm:px-4",
-          "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-violet-glow",
-          selected ? "bg-violet-core/8" : "hover:bg-white/3",
+          "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-glow",
+          selected ? "bg-brand-core/8" : "hover:bg-white/3",
           disabled ? "cursor-not-allowed opacity-55" : "cursor-pointer",
         )}
       >

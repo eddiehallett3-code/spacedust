@@ -102,7 +102,7 @@ export default function HowItWorksPage() {
             <li key={tool.key} className="min-w-0">
               <a
                 href={`#${tool.key}`}
-                className="inline-block whitespace-nowrap text-violet-glow transition-colors hover:text-violet-core hover:underline"
+                className="inline-block whitespace-nowrap text-brand-glow transition-colors hover:text-brand-core hover:underline"
               >
                 {tool.name}
               </a>
@@ -308,7 +308,7 @@ export default function HowItWorksPage() {
         <p>
           Tokens with no route are not dead ends. After your sweep, Spacedust
           offers to send them{" "}
-          <Link href="/void" className="text-violet-glow hover:underline">
+          <Link href="/void" className="text-brand-glow hover:underline">
             into The Void
           </Link>{" "}
           instead: the balance is destroyed and the token account closed, so the

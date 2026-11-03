@@ -165,8 +165,8 @@ export function WrappedSolPanel({
         />
       </CardHeader>
       <CardContent className="space-y-4">
-        <p className="flex items-start gap-1.5 rounded-xl border border-violet-core/20 bg-violet-core/6 p-3 text-2xs leading-relaxed text-muted">
-          <AlertTriangle className="mt-px size-3.5 shrink-0 text-violet-glow" aria-hidden />
+        <p className="flex items-start gap-1.5 rounded-xl border border-brand-core/20 bg-brand-core/6 p-3 text-2xs leading-relaxed text-muted">
+          <AlertTriangle className="mt-px size-3.5 shrink-0 text-brand-glow" aria-hidden />
           <span>
             This is an unwrap, not a sale. The close returns the wrapped SOL and
             the account&apos;s rent to your wallet in one transaction. Nothing is
@@ -339,7 +339,7 @@ export function WrappedSolPanel({
                     href={solscanTxUrl(signature)}
                     target="_blank"
                     rel="noopener noreferrer nofollow"
-                    className="inline-flex items-center gap-1 rounded-lg border border-border bg-white/3 px-2 py-1 font-mono text-2xs text-muted transition-colors hover:border-violet-core/40 hover:text-foreground"
+                    className="inline-flex items-center gap-1 rounded-lg border border-border bg-white/3 px-2 py-1 font-mono text-2xs text-muted transition-colors hover:border-brand-core/40 hover:text-foreground"
                   >
                     {truncateAddress(signature, 4, 4)}
                     <ExternalLink className="size-3" aria-hidden />

@@ -388,7 +388,7 @@ export function DomainsPanel() {
                     href={solscanTxUrl(signature)}
                     target="_blank"
                     rel="noopener noreferrer nofollow"
-                    className="inline-flex items-center gap-1 rounded-lg border border-border bg-white/3 px-2 py-1 font-mono text-2xs text-muted transition-colors hover:border-violet-core/40 hover:text-foreground"
+                    className="inline-flex items-center gap-1 rounded-lg border border-border bg-white/3 px-2 py-1 font-mono text-2xs text-muted transition-colors hover:border-brand-core/40 hover:text-foreground"
                   >
                     {truncateAddress(signature, 4, 4)}
                     <ExternalLink className="size-3" aria-hidden />

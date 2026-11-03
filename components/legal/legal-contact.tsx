@@ -25,7 +25,7 @@ export function LegalContact() {
       {LEGAL_EMAIL ? (
         <p className="mt-1">
           Email:{" "}
-          <a href={`mailto:${LEGAL_EMAIL}`} className="text-violet-glow underline">
+          <a href={`mailto:${LEGAL_EMAIL}`} className="text-brand-glow underline">
             {LEGAL_EMAIL}
           </a>
         </p>

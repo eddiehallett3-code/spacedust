@@ -371,7 +371,7 @@ export function VoidApp() {
             </ul>
             <Link
               href="/slingshot"
-              className="inline-flex w-fit items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs text-muted transition-colors hover:border-violet-core/40 hover:text-foreground"
+              className="inline-flex w-fit items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs text-muted transition-colors hover:border-brand-core/40 hover:text-foreground"
             >
               Swap them in Slingshot
               <ArrowRight className="size-3.5" aria-hidden />
@@ -415,7 +415,7 @@ export function VoidApp() {
             className={cn(
               "flex min-w-0 flex-1 items-center justify-center gap-1 rounded-lg px-2 py-2 text-2xs font-medium transition-colors sm:gap-1.5 sm:px-3 sm:text-xs",
               activeTab === entry.key
-                ? "bg-violet-core/15 text-foreground"
+                ? "bg-brand-core/15 text-foreground"
                 : "text-muted hover:text-foreground",
             )}
           >
@@ -424,7 +424,7 @@ export function VoidApp() {
               className={cn(
                 "font-mono text-2xs sm:text-2xs",
                 entry.key === "table-cnfts" && entry.count > 0
-                  ? "text-violet-glow"
+                  ? "text-brand-glow"
                   : "text-subtle",
               )}
             >
@@ -435,7 +435,7 @@ export function VoidApp() {
       </div>
 
       {!isPro && activeTab === "cnfts" && tableCnfts.length > 0 ? (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-violet-core/25 bg-violet-core/5 px-3 py-2.5 text-2xs leading-relaxed text-muted">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-brand-core/25 bg-brand-core/5 px-3 py-2.5 text-2xs leading-relaxed text-muted">
           <p>
             <strong className="font-medium text-foreground">
               {pluralize(tableCnfts.length, "deep cNFT")}
@@ -541,8 +541,8 @@ export function VoidApp() {
           transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
           className="glass rounded-2xl p-8 text-center"
         >
-          <span className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-linear-to-br from-violet-core/20 to-cyan-core/15 ring-1 ring-inset ring-white/10">
-            <Sparkles className="size-6 text-violet-glow" aria-hidden />
+          <span className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-linear-to-br from-brand-core/20 to-cyan-core/15 ring-1 ring-inset ring-white/10">
+            <Sparkles className="size-6 text-brand-glow" aria-hidden />
           </span>
           <h2 className="mt-4 text-lg font-semibold tracking-tight">
             Nothing for The Void
@@ -553,7 +553,7 @@ export function VoidApp() {
           </p>
           <Link
             href="/slingshot"
-            className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs text-muted transition-colors hover:border-violet-core/40 hover:text-foreground"
+            className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs text-muted transition-colors hover:border-brand-core/40 hover:text-foreground"
           >
             Go to Slingshot
             <ArrowRight className="size-3.5" aria-hidden />

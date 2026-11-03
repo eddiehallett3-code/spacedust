@@ -124,7 +124,7 @@ export function BatchReport({
                       href={solscanTxUrl(row.signature)}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-violet-glow hover:underline"
+                      className="inline-flex items-center gap-1 text-brand-glow hover:underline"
                     >
                       Solscan
                       <ExternalLink className="size-3" aria-hidden />

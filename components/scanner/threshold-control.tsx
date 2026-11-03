@@ -130,7 +130,7 @@ export function ThresholdControl({
             key="default-hint"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="text-violet-glow/80"
+            className="text-brand-glow/80"
           >
             Default
           </motion.span>

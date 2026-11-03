@@ -29,7 +29,7 @@ export function ProModeSwitch({ className }: { className?: string }) {
         htmlFor="pro-mode"
         className={cn(
           "cursor-pointer select-none text-2xs font-medium leading-none transition-colors",
-          isPro ? "text-violet-glow" : "text-muted",
+          isPro ? "text-brand-glow" : "text-muted",
         )}
       >
         Pro

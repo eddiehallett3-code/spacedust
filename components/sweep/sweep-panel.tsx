@@ -119,7 +119,7 @@ export function SweepPanel({
         className={cn(
           "rounded-xl border p-3.5",
           hasPreview
-            ? "border-violet-core/35 bg-violet-core/8"
+            ? "border-brand-core/35 bg-brand-core/8"
             : "border-border bg-white/2",
         )}
       >

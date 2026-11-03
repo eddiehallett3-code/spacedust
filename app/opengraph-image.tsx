@@ -37,7 +37,7 @@ export default function OpengraphImage() {
           fontFamily: "sans-serif",
         }}
       >
-        {/* A violet rule rather than a gradient: Satori renders a solid edge
+        {/* A solid rule rather than a gradient: Satori renders a solid edge
             identically everywhere, and a card that fails to build is a worse
             outcome than a plain one. */}
         <div
@@ -45,7 +45,7 @@ export default function OpengraphImage() {
             width: 132,
             height: 8,
             borderRadius: 999,
-            backgroundColor: "#8b5cf6",
+            backgroundColor: "#4699c8",
             marginBottom: 40,
           }}
         />
@@ -74,8 +74,8 @@ export default function OpengraphImage() {
                   style={{
                     padding: "12px 26px",
                     borderRadius: 999,
-                    border: "1px solid rgba(139,92,246,0.5)",
-                    backgroundColor: "rgba(139,92,246,0.16)",
+                    border: "1px solid rgba(70,153,200,0.5)",
+                    backgroundColor: "rgba(70,153,200,0.16)",
                     color: "#ddd0ff",
                     fontSize: 30,
                   }}

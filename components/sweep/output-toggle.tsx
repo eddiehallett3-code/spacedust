@@ -87,14 +87,14 @@ export function OutputToggle({
             className={cn(
               "relative flex items-center justify-center gap-2 rounded-lg px-3 py-2",
               "text-sm font-medium transition-colors duration-200",
-              "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-glow",
+              "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-glow",
               active ? "text-white" : "text-muted hover:text-foreground",
             )}
           >
             {active ? (
               <motion.span
                 layoutId="output-toggle-pill"
-                className="absolute inset-0 -z-10 rounded-lg bg-linear-to-r from-violet-deep via-violet-core to-indigo-core shadow-[0_6px_18px_-8px_rgba(139,92,246,0.9)]"
+                className="absolute inset-0 -z-10 rounded-lg bg-linear-to-r from-brand-deep via-brand-core to-brand-glow shadow-[0_6px_18px_-8px_rgba(70,153,200,0.9)]"
                 transition={{ type: "spring", stiffness: 400, damping: 34 }}
               />
             ) : null}

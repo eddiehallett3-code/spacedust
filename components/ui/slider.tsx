@@ -33,16 +33,16 @@ export const Slider = React.forwardRef<
       {...props}
     >
       <SliderPrimitive.Track className="relative h-1.5 w-full grow overflow-hidden rounded-full bg-white/8">
-        <SliderPrimitive.Range className="absolute h-full bg-linear-to-r from-violet-core via-indigo-core to-cyan-core" />
+        <SliderPrimitive.Range className="absolute h-full bg-linear-to-r from-brand-core via-brand-glow to-cyan-core" />
       </SliderPrimitive.Track>
       {Array.from({ length: thumbCount }, (_, index) => (
         <SliderPrimitive.Thumb
           key={index}
           className={cn(
-            "block size-5 rounded-full border-2 border-white/90 bg-violet-core shadow-[0_0_0_5px_rgba(139,92,246,0.16)]",
+            "block size-5 rounded-full border-2 border-white/90 bg-brand-core shadow-[0_0_0_5px_rgba(70,153,200,0.16)]",
             "transition-[box-shadow,transform] duration-150 ease-out",
-            "hover:shadow-[0_0_0_7px_rgba(139,92,246,0.22)] hover:scale-105",
-            "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-glow",
+            "hover:shadow-[0_0_0_7px_rgba(70,153,200,0.22)] hover:scale-105",
+            "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-glow",
             "disabled:pointer-events-none",
           )}
           aria-valuetext={

@@ -101,7 +101,7 @@ export function UfoModel({ className }: { className?: string }) {
       host.appendChild(renderer.domElement);
 
       // A neutral studio environment gives the metal something to reflect
-      // without shipping an HDR file. The violet and cyan rims then pull the
+      // without shipping an HDR file. The blue and cyan rims then pull the
       // reflections toward the site's palette.
       const pmrem = new THREE.PMREMGenerator(renderer);
       const environmentScene = new RoomEnvironment();
@@ -117,9 +117,9 @@ export function UfoModel({ className }: { className?: string }) {
       key.position.set(4.5, 6, 4);
       scene.add(key);
 
-      const violetRim = new THREE.DirectionalLight(0x8b5cf6, 2.4);
-      violetRim.position.set(-5, 2.5, -3);
-      scene.add(violetRim);
+      const brandRim = new THREE.DirectionalLight(0x4699c8, 2.4);
+      brandRim.position.set(-5, 2.5, -3);
+      scene.add(brandRim);
 
       const cyanFill = new THREE.PointLight(0x22d3ee, 28, 16, 2);
       cyanFill.position.set(3.5, -1.5, 4);
@@ -268,7 +268,7 @@ export function UfoModel({ className }: { className?: string }) {
 
           /**
            * The source model has no emissive underside, so the running lights
-           * from the brand mark are added here: a ring of cyan/violet dots just
+           * from the brand mark are added here: a ring of cyan and blue dots just
            * below the rim, on the same spinning group as the hull.
            *
            * Positions and the dot radius are divided by the group scale because
@@ -281,7 +281,7 @@ export function UfoModel({ className }: { className?: string }) {
           const dotGeometry = new THREE.SphereGeometry(0.04 / scale, 8, 8);
           const dotMaterials = [
             new THREE.MeshBasicMaterial({ color: 0x67e8f9, toneMapped: false }),
-            new THREE.MeshBasicMaterial({ color: 0x8b5cf6, toneMapped: false }),
+            new THREE.MeshBasicMaterial({ color: 0x4699c8, toneMapped: false }),
           ];
           for (let index = 0; index < 8; index += 1) {
             const angle = (index / 8) * Math.PI * 2;
@@ -312,7 +312,7 @@ export function UfoModel({ className }: { className?: string }) {
               }
               // The model's canopy is a warm amber. The site's running lights
               // are cyan, so the one emissive part is pulled onto the palette;
-              // the metal itself stays neutral so the scene's violet and cyan
+              // the metal itself stays neutral so the scene's blue and cyan
               // rims still read as reflections.
               if (
                 material instanceof THREE.MeshStandardMaterial &&
@@ -406,7 +406,7 @@ export function UfoModel({ className }: { className?: string }) {
         className,
       )}
     >
-      <div className="pointer-events-none absolute inset-[10%] -z-10 rounded-full bg-[radial-gradient(circle,rgba(139,92,246,0.28),rgba(34,211,238,0.08)_48%,transparent_70%)] blur-2xl" />
+      <div className="pointer-events-none absolute inset-[10%] -z-10 rounded-full bg-[radial-gradient(circle,rgba(70,153,200,0.28),rgba(34,211,238,0.08)_48%,transparent_70%)] blur-2xl" />
 
       <div
         ref={hostRef}

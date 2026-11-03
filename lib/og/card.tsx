@@ -40,7 +40,7 @@ export function ogCard({ title, subtitle }: { title: string; subtitle: string })
         }}
       >
         <div style={{ display: "flex", flexDirection: "column" }}>
-          {/* A violet rule rather than a gradient: Satori renders a solid edge
+          {/* A solid rule rather than a gradient: Satori renders a solid edge
               identically everywhere, and a card that fails to build is a worse
               outcome than a plain one. Same treatment as the root card. */}
           <div
@@ -48,7 +48,7 @@ export function ogCard({ title, subtitle }: { title: string; subtitle: string })
               width: 132,
               height: 8,
               borderRadius: 999,
-              backgroundColor: "#8b5cf6",
+              backgroundColor: "#4699c8",
               marginBottom: 40,
             }}
           />
@@ -74,7 +74,7 @@ export function ogCard({ title, subtitle }: { title: string; subtitle: string })
             color: "#8b93b8",
           }}
         >
-          <span style={{ color: "#a78bfa", fontWeight: 700 }}>Spacedust</span>
+          <span style={{ color: "#7ab8dd", fontWeight: 700 }}>Spacedust</span>
           <span>·</span>
           <span>Non-custodial. You sign every transaction.</span>
         </div>

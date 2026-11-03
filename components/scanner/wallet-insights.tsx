@@ -119,7 +119,7 @@ export function WalletInsights({
               aria-label={`${formatUsd(dustUsd)} in tokens and ${formatUsd(rentUsd)} in rent`}
             >
               <span
-                className="h-full bg-linear-to-r from-violet-core to-cyan-core"
+                className="h-full bg-linear-to-r from-brand-core to-cyan-core"
                 style={{ width: `${(1 - split) * 100}%` }}
               />
               <span
@@ -130,7 +130,7 @@ export function WalletInsights({
 
             <div className="grid gap-3 sm:grid-cols-2">
               <Legend
-                swatch="bg-linear-to-r from-violet-core to-cyan-core"
+                swatch="bg-linear-to-r from-brand-core to-cyan-core"
                 label="Token value"
                 value={formatUsd(dustUsd)}
                 hint={`${pluralize(priced, "priced token")} of ${tokens.length}`}
@@ -150,7 +150,7 @@ export function WalletInsights({
             {split > 0.5 ? (
               <p className="flex items-start gap-1.5 rounded-xl border border-border bg-white/2 px-3 py-2.5 text-2xs leading-relaxed text-muted">
                 <Sparkles
-                  className="mt-px size-3.5 shrink-0 text-violet-glow"
+                  className="mt-px size-3.5 shrink-0 text-brand-glow"
                   aria-hidden
                 />
                 <span>
@@ -261,7 +261,7 @@ export function WalletInsights({
                     aria-label={`${token.symbol} is ${Math.round((token.valueUsd / (largest || 1)) * 100)}% of the largest holding`}
                   >
                     <span
-                      className="block h-full bg-linear-to-r from-violet-core to-cyan-core"
+                      className="block h-full bg-linear-to-r from-brand-core to-cyan-core"
                       style={{ width: `${largest > 0 ? (token.valueUsd / largest) * 100 : 0}%` }}
                     />
                   </div>
@@ -381,7 +381,7 @@ export function WalletInsights({
 
             <Link
               href="/void"
-              className="inline-flex w-fit items-center gap-1 text-xs text-violet-glow transition-colors hover:text-violet-core"
+              className="inline-flex w-fit items-center gap-1 text-xs text-brand-glow transition-colors hover:text-brand-core"
             >
               Reclaim the rent their accounts are holding
               <ArrowRight className="size-3" aria-hidden />

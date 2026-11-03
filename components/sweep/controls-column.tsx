@@ -286,9 +286,9 @@ export function SweepError({ error }: { error: FriendlyError | null }) {
 function UnpricedPrompt({ count }: { count: number }) {
   const one = count === 1;
   return (
-    <div className="rounded-2xl border border-violet-core/25 bg-violet-core/6 p-4">
+    <div className="rounded-2xl border border-brand-core/25 bg-brand-core/6 p-4">
       <p className="flex items-center gap-2 text-sm font-medium">
-        <span className="flex size-8 items-center justify-center rounded-lg bg-violet-core/12 text-violet-glow ring-1 ring-inset ring-violet-core/20">
+        <span className="flex size-8 items-center justify-center rounded-lg bg-brand-core/12 text-brand-glow ring-1 ring-inset ring-brand-core/20">
           <Orbit className="size-4" aria-hidden />
         </span>
         {pluralize(count, "token")} not listed here
@@ -331,9 +331,9 @@ function UnpricedPrompt({ count }: { count: number }) {
  */
 function VoidPrompt({ count }: { count: number }) {
   return (
-    <div className="rounded-2xl border border-violet-core/30 bg-violet-core/8 p-4">
+    <div className="rounded-2xl border border-brand-core/30 bg-brand-core/8 p-4">
       <p className="flex items-center gap-2 text-sm font-medium">
-        <span className="flex size-8 items-center justify-center rounded-lg bg-violet-core/15 text-violet-glow ring-1 ring-inset ring-violet-core/25">
+        <span className="flex size-8 items-center justify-center rounded-lg bg-brand-core/15 text-brand-glow ring-1 ring-inset ring-brand-core/25">
           <Orbit className="size-4" aria-hidden />
         </span>
         {pluralize(count, "token")} the sweeper could not route

@@ -24,11 +24,11 @@ export const Checkbox = React.forwardRef<
       className={cn(
         "peer size-[18px] shrink-0 rounded-md border border-border-strong",
         "transition-all duration-150 ease-out",
-        "hover:border-violet-core/60 hover:bg-violet-core/10",
-        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-glow",
+        "hover:border-brand-core/60 hover:bg-brand-core/10",
+        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-glow",
         "disabled:cursor-not-allowed disabled:opacity-40",
-        "data-[state=checked]:border-transparent data-[state=checked]:bg-linear-to-br data-[state=checked]:from-violet-core data-[state=checked]:to-cyan-core",
-        "data-[state=indeterminate]:border-transparent data-[state=indeterminate]:bg-linear-to-br data-[state=indeterminate]:from-violet-core data-[state=indeterminate]:to-cyan-core",
+        "data-[state=checked]:border-transparent data-[state=checked]:bg-linear-to-br data-[state=checked]:from-brand-core data-[state=checked]:to-cyan-core",
+        "data-[state=indeterminate]:border-transparent data-[state=indeterminate]:bg-linear-to-br data-[state=indeterminate]:from-brand-core data-[state=indeterminate]:to-cyan-core",
         className,
       )}
       {...props}

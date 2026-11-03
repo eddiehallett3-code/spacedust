@@ -494,7 +494,7 @@ function ScanSummary({
     <Card sheen className="overflow-hidden rounded-2xl border-border/70">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 px-4 py-3 sm:px-5">
         <div className="flex items-center gap-2.5">
-          <span className="flex size-8 items-center justify-center rounded-lg bg-violet-core/12 text-violet-glow ring-1 ring-inset ring-violet-core/20">
+          <span className="flex size-8 items-center justify-center rounded-lg bg-brand-core/12 text-brand-glow ring-1 ring-inset ring-brand-core/20">
             <ScanLine className="size-4" aria-hidden />
           </span>
           <div>
@@ -584,7 +584,7 @@ function ScanSummary({
             }
           >
             <div
-              className="h-full rounded-full bg-linear-to-r from-violet-core to-cyan-core"
+              className="h-full rounded-full bg-linear-to-r from-brand-core to-cyan-core"
               style={{ width: `${(rentShare ?? 0) * 100}%` }}
             />
           </div>
@@ -624,7 +624,7 @@ function ScanSummary({
 
       <div className="grid gap-3 border-t border-border/60 p-4 sm:grid-cols-2 sm:p-5">
         <ScanWindow
-          icon={<Coins className="size-4 text-violet-glow" aria-hidden />}
+          icon={<Coins className="size-4 text-brand-glow" aria-hidden />}
           title="Rent refund"
           value={excessDisplay}
           hint={excessHint}
@@ -632,7 +632,7 @@ function ScanSummary({
             recoverable.excessRentLamports > 0 ? (
               <Link
                 href="/salvage"
-                className="inline-flex items-center gap-0.5 text-2xs font-medium text-violet-glow transition-colors hover:text-violet-core"
+                className="inline-flex items-center gap-0.5 text-2xs font-medium text-brand-glow transition-colors hover:text-brand-core"
               >
                 Withdraw
                 <ArrowRight className="size-3" aria-hidden />
@@ -653,7 +653,7 @@ function ScanSummary({
             !scan.wrappedSolError ? (
               <Link
                 href="/salvage"
-                className="inline-flex items-center gap-0.5 text-2xs font-medium text-violet-glow transition-colors hover:text-violet-core"
+                className="inline-flex items-center gap-0.5 text-2xs font-medium text-brand-glow transition-colors hover:text-brand-core"
               >
                 Unwrap
                 <ArrowRight className="size-3" aria-hidden />
@@ -887,7 +887,7 @@ function EmptyAccountsCard({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted">
-          <Coins className="size-4 text-violet-glow" aria-hidden />
+          <Coins className="size-4 text-brand-glow" aria-hidden />
           Empty token accounts
         </CardTitle>
         <p className="mt-1 text-xs leading-relaxed text-subtle">
@@ -955,7 +955,7 @@ function EmptyAccountsCard({
 
         <Link
           href="/salvage"
-          className="inline-flex items-center gap-1 text-xs font-medium text-violet-glow transition-colors hover:text-violet-core"
+          className="inline-flex items-center gap-1 text-xs font-medium text-brand-glow transition-colors hover:text-brand-core"
         >
           Reclaim in Salvage
           <ArrowRight className="size-3.5" aria-hidden />
@@ -996,7 +996,7 @@ function WrappedSolCard({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted">
-          <ArrowDownToLine className="size-4 text-violet-glow" aria-hidden />
+          <ArrowDownToLine className="size-4 text-brand-glow" aria-hidden />
           Wrapped SOL
         </CardTitle>
         <p className="mt-1 text-xs leading-relaxed text-subtle">
@@ -1042,7 +1042,7 @@ function WrappedSolCard({
                 >
                   <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-border bg-white/4">
                     <ArrowDownToLine
-                      className="size-3.5 text-violet-glow"
+                      className="size-3.5 text-brand-glow"
                       aria-hidden
                     />
                   </div>
@@ -1073,7 +1073,7 @@ function WrappedSolCard({
 
         <Link
           href="/salvage"
-          className="inline-flex items-center gap-1 text-xs font-medium text-violet-glow transition-colors hover:text-violet-core"
+          className="inline-flex items-center gap-1 text-xs font-medium text-brand-glow transition-colors hover:text-brand-core"
         >
           Unwrap in Salvage
           <ArrowRight className="size-3.5" aria-hidden />
@@ -1109,7 +1109,7 @@ function ApprovalsCard({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted">
-          <KeyRound className="size-4 text-violet-glow" aria-hidden />
+          <KeyRound className="size-4 text-brand-glow" aria-hidden />
           Approvals
         </CardTitle>
         <p className="mt-1 text-xs leading-relaxed text-subtle">
@@ -1165,7 +1165,7 @@ function ApprovalsCard({
 
         <Link
           href="/approvals"
-          className="inline-flex items-center gap-1 text-xs font-medium text-violet-glow transition-colors hover:text-violet-core"
+          className="inline-flex items-center gap-1 text-xs font-medium text-brand-glow transition-colors hover:text-brand-core"
         >
           Review approvals
           <ArrowRight className="size-3.5" aria-hidden />
@@ -1200,7 +1200,7 @@ function SnsNamesCard({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted">
-          <AtSign className="size-4 text-violet-glow" aria-hidden />
+          <AtSign className="size-4 text-brand-glow" aria-hidden />
           .sns names
         </CardTitle>
         <p className="mt-1 text-xs leading-relaxed text-subtle">
@@ -1254,7 +1254,7 @@ function SnsNamesCard({
 
         <Link
           href="/salvage"
-          className="inline-flex items-center gap-1 text-xs font-medium text-violet-glow transition-colors hover:text-violet-core"
+          className="inline-flex items-center gap-1 text-xs font-medium text-brand-glow transition-colors hover:text-brand-core"
         >
           Manage names in Salvage
           <ArrowRight className="size-3.5" aria-hidden />
@@ -1338,7 +1338,7 @@ function HookTokensCard({ tokens }: { tokens: DustToken[] }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted">
-          <ShieldAlert className="size-4 text-violet-glow" aria-hidden />
+          <ShieldAlert className="size-4 text-brand-glow" aria-hidden />
           {pluralize(tokens.length, "transfer-hook token")}
         </CardTitle>
         <p className="mt-1 text-xs leading-relaxed text-subtle">
@@ -1387,7 +1387,7 @@ function HookTokensCard({ tokens }: { tokens: DustToken[] }) {
                 {canVoid ? (
                   <Link
                     href="/void"
-                    className="inline-flex w-fit items-center gap-1 text-xs font-medium text-violet-glow transition-colors hover:text-violet-core"
+                    className="inline-flex w-fit items-center gap-1 text-xs font-medium text-brand-glow transition-colors hover:text-brand-core"
                   >
                     Burn in The Void
                     <ArrowRight className="size-3.5" aria-hidden />

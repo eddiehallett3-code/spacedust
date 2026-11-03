@@ -80,7 +80,7 @@ export function WalletButton({ className }: { className?: string }) {
           <Tooltip content="Turtles holder — 0% fee">
             <span
               tabIndex={0}
-              className="ml-0.5 flex shrink-0 items-center rounded-full p-0.5 text-violet-glow outline-none focus-visible:ring-2 focus-visible:ring-violet-core/60"
+              className="ml-0.5 flex shrink-0 items-center rounded-full p-0.5 text-brand-glow outline-none focus-visible:ring-2 focus-visible:ring-brand-core/60"
             >
               <Turtle className="size-3.5" aria-hidden />
               <span className="sr-only">

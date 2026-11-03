@@ -14,7 +14,7 @@ export const Input = React.forwardRef<
         "text-sm text-foreground placeholder:text-subtle",
         "transition-colors duration-200",
         "hover:border-border-strong",
-        "focus-visible:border-violet-core/60 focus-visible:bg-white/6 focus-visible:outline-none",
+        "focus-visible:border-brand-core/60 focus-visible:bg-white/6 focus-visible:outline-none",
         "disabled:cursor-not-allowed disabled:opacity-50",
         // Strip the browser's number spinners; we control stepping ourselves.
         "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",

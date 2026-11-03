@@ -85,7 +85,7 @@ export default function NotFound() {
           <Link
             key={page.href}
             href={page.href}
-            className="text-violet-glow transition-colors hover:text-violet-core hover:underline"
+            className="text-brand-glow transition-colors hover:text-brand-core hover:underline"
           >
             {page.label}
           </Link>

@@ -250,8 +250,8 @@ export function VoidPanel({
                         }}
                         className={cn(
                           "flex cursor-pointer items-center gap-2.5 px-3 py-2.5 transition-colors",
-                          "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-violet-glow",
-                          isSelected ? "bg-violet-core/8" : "hover:bg-white/3",
+                          "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-glow",
+                          isSelected ? "bg-brand-core/8" : "hover:bg-white/3",
                         )}
                       >
                         {/* Decorative: the row owns the state and the click. */}
@@ -524,7 +524,7 @@ function VoidResult({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3 rounded-xl border border-success/25 bg-success/8 p-4">
-        <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-violet-core to-cyan-core shadow-[0_8px_30px_-12px_rgba(139,92,246,0.9)]">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-brand-core to-cyan-core shadow-[0_8px_30px_-12px_rgba(70,153,200,0.9)]">
           <CheckCircle2 className="size-6 text-white" aria-hidden />
         </span>
         <div className="min-w-0">
@@ -574,7 +574,7 @@ function VoidResult({
                 href={solscanTxUrl(signature)}
                 target="_blank"
                 rel="noopener noreferrer nofollow"
-                className="inline-flex items-center gap-1 rounded-lg border border-border bg-white/3 px-2 py-1 font-mono text-2xs text-muted transition-colors hover:border-violet-core/40 hover:text-foreground"
+                className="inline-flex items-center gap-1 rounded-lg border border-border bg-white/3 px-2 py-1 font-mono text-2xs text-muted transition-colors hover:border-brand-core/40 hover:text-foreground"
               >
                 {truncateAddress(signature, 4, 4)}
                 <ExternalLink className="size-3" aria-hidden />

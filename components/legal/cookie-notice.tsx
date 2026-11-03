@@ -82,7 +82,7 @@ export function CookieNotice() {
         Essential storage only. No tracking.{" "}
         <Link
           href="/privacy"
-          className="text-violet-glow underline underline-offset-2"
+          className="text-brand-glow underline underline-offset-2"
         >
           Privacy
         </Link>

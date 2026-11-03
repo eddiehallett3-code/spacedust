@@ -369,7 +369,7 @@ export function QrScanner({
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Camera className="size-4 text-violet-glow" aria-hidden />
+            <Camera className="size-4 text-brand-glow" aria-hidden />
             Scan a wallet address
           </DialogTitle>
           <DialogDescription>

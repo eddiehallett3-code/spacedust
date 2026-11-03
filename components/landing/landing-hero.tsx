@@ -56,7 +56,7 @@ export function LandingHero() {
             className="text-4xl font-semibold leading-[1.04] tracking-tight text-balance sm:text-5xl lg:text-6xl"
           >
             Clean up your{" "}
-            <span className="text-violet-glow">Solana wallet.</span>
+            <span className="text-brand-glow">Solana wallet.</span>
           </h1>
 
           <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-muted sm:text-lg lg:mx-0">
@@ -94,7 +94,7 @@ export function LandingHero() {
             ].map((item) => (
               <li key={item.text} className="flex items-center gap-1.5">
                 <item.icon
-                  className="size-3.5 shrink-0 text-violet-glow"
+                  className="size-3.5 shrink-0 text-brand-glow"
                   aria-hidden
                 />
                 {item.text}
@@ -126,8 +126,8 @@ export function LandingHero() {
             className="pointer-events-none absolute inset-0 flex items-center justify-center"
           >
             <div className="absolute size-[min(80vw,30rem)] rounded-full border border-white/[0.06] [transform:rotate(-18deg)_scaleY(0.42)]" />
-            <div className="absolute size-[min(64vw,24rem)] rounded-full border border-violet-core/15 [transform:rotate(-18deg)_scaleY(0.42)]" />
-            <div className="absolute size-40 rounded-full bg-violet-core/10 blur-3xl" />
+            <div className="absolute size-[min(64vw,24rem)] rounded-full border border-brand-core/15 [transform:rotate(-18deg)_scaleY(0.42)]" />
+            <div className="absolute size-40 rounded-full bg-brand-core/10 blur-3xl" />
           </div>
 
           <div className="landing-saucer-mobile relative w-full sm:max-w-[20rem] lg:hidden">

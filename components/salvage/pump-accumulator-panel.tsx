@@ -118,7 +118,7 @@ export function PumpAccumulatorPanel({
                 href={solscanTxUrl(summary.signature)}
                 target="_blank"
                 rel="noopener noreferrer nofollow"
-                className="mt-2 inline-flex items-center gap-1 rounded-lg border border-border bg-white/3 px-2 py-1 font-mono text-2xs text-muted transition-colors hover:border-violet-core/40 hover:text-foreground"
+                className="mt-2 inline-flex items-center gap-1 rounded-lg border border-border bg-white/3 px-2 py-1 font-mono text-2xs text-muted transition-colors hover:border-brand-core/40 hover:text-foreground"
               >
                 {truncateAddress(summary.signature, 4, 4)}
                 <ExternalLink className="size-3" aria-hidden />
@@ -155,7 +155,7 @@ export function PumpAccumulatorPanel({
         />
 
         <p className="flex items-start gap-1.5 text-2xs leading-relaxed text-subtle">
-          <Flame className="mt-px size-3.5 shrink-0 text-violet-glow" aria-hidden />
+          <Flame className="mt-px size-3.5 shrink-0 text-brand-glow" aria-hidden />
           <span>
             This returns only the rent the account holds. Your Pump.fun tokens and
             balances are untouched.{" "}

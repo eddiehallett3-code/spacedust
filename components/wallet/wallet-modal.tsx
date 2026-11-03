@@ -468,7 +468,7 @@ return (
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-muted transition-colors hover:bg-white/8 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-glow"
+            className="rounded-lg p-1.5 text-muted transition-colors hover:bg-white/8 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-glow"
             aria-label="Close wallet picker"
           >
             <X className="size-4" />
@@ -500,7 +500,7 @@ return (
             panel answers. Opening the page inside the wallet gives it the same
             provider a desktop extension would, and everything works from there. */}
         {walletLinks ? (
-          <div className="mt-3 rounded-xl border border-violet-core/35 bg-violet-core/8 p-3">
+          <div className="mt-3 rounded-xl border border-brand-core/35 bg-brand-core/8 p-3">
             <p className="text-xs font-medium text-foreground">
               Open this page inside your wallet
             </p>
@@ -514,7 +514,7 @@ return (
                 <a
                   key={name}
                   href={href}
-                  className="rounded-lg border border-border bg-white/4 px-3 py-2 text-xs font-medium text-foreground transition-colors hover:border-violet-core/45 hover:bg-white/8"
+                  className="rounded-lg border border-border bg-white/4 px-3 py-2 text-xs font-medium text-foreground transition-colors hover:border-brand-core/45 hover:bg-white/8"
                 >
                   Open in {name}
                 </a>
@@ -524,7 +524,7 @@ return (
                   type="button"
                   onClick={() => pickNamedWallet(jupiterShortcut)}
                   disabled={Boolean(pending)}
-                  className="rounded-lg border border-border bg-white/4 px-3 py-2 text-xs font-medium text-foreground transition-colors hover:border-violet-core/45 hover:bg-white/8 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-glow disabled:cursor-not-allowed disabled:opacity-45"
+                  className="rounded-lg border border-border bg-white/4 px-3 py-2 text-xs font-medium text-foreground transition-colors hover:border-brand-core/45 hover:bg-white/8 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-glow disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   Open in {jupiterShortcut.label}
                 </button>
@@ -681,14 +681,14 @@ function WalletRow({
         disabled={(!openInWallet && info.tone === "missing") || disabled}
         className={cn(
           "flex w-full items-center gap-3 rounded-xl border border-border bg-white/3 p-3 text-left transition-all duration-200",
-          "hover:border-violet-core/45 hover:bg-white/6",
-          "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-glow",
+          "hover:border-brand-core/45 hover:bg-white/6",
+          "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-glow",
           "disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-border disabled:hover:bg-white/3",
         )}
       >
         {pending ? (
           <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-white/6">
-            <Loader2 className="size-4 animate-spin text-violet-glow" />
+            <Loader2 className="size-4 animate-spin text-brand-glow" />
           </span>
         ) : icon ? (
           // Adapter icons are data: URIs shipped inside the adapter bundle, so
@@ -702,7 +702,7 @@ function WalletRow({
             className="size-9 shrink-0 rounded-lg"
           />
         ) : (
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-violet-core/15 text-xs font-semibold text-violet-glow">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-core/15 text-xs font-semibold text-brand-glow">
             {name.charAt(0).toUpperCase()}
           </span>
         )}
@@ -726,7 +726,7 @@ function WalletRow({
             target="_blank"
             rel="noopener noreferrer nofollow"
             onClick={(event) => event.stopPropagation()}
-            className="shrink-0 rounded-lg border border-border px-2 py-1 text-2xs text-muted transition-colors hover:border-violet-core/40 hover:text-foreground"
+            className="shrink-0 rounded-lg border border-border px-2 py-1 text-2xs text-muted transition-colors hover:border-brand-core/40 hover:text-foreground"
           >
             {/* "Install" is the wrong word on a phone, where the app is already
                 installed and what is needed is to open it. */}

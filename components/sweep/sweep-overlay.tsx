@@ -95,7 +95,7 @@ export function SweepOverlay({
               <motion.span
                 animate={{ rotate: 360 }}
                 transition={{ duration: 2.4, repeat: Infinity, ease: "linear" }}
-                className="flex size-12 items-center justify-center rounded-2xl bg-linear-to-br from-violet-core to-cyan-core shadow-[0_10px_36px_-10px_rgba(139,92,246,0.9)]"
+                className="flex size-12 items-center justify-center rounded-2xl bg-linear-to-br from-brand-core to-cyan-core shadow-[0_10px_36px_-10px_rgba(70,153,200,0.9)]"
               >
                 <Loader2 className="size-6 text-white" aria-hidden />
               </motion.span>
@@ -133,7 +133,7 @@ export function SweepOverlay({
                   className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/8"
                 >
                   <motion.div
-                    className="h-full rounded-full bg-linear-to-r from-violet-core to-cyan-core"
+                    className="h-full rounded-full bg-linear-to-r from-brand-core to-cyan-core"
                     animate={{
                       width: `${(progress.completed / progress.total) * 100}%`,
                     }}
@@ -167,7 +167,7 @@ function StepRail({ currentIndex }: { currentIndex: number }) {
                 done
                   ? "flex size-5 items-center justify-center rounded-full bg-success/20 text-success"
                   : active
-                    ? "flex size-5 items-center justify-center rounded-full bg-violet-core/25 text-violet-glow"
+                    ? "flex size-5 items-center justify-center rounded-full bg-brand-core/25 text-brand-glow"
                     : "flex size-5 items-center justify-center rounded-full bg-white/6 text-subtle"
               }
             >

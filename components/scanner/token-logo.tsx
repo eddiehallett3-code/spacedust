@@ -41,7 +41,7 @@ export function TokenLogo({
         aria-hidden
         className={cn(
           "inline-flex shrink-0 items-center justify-center rounded-full",
-          "bg-linear-to-br from-violet-core/30 to-cyan-core/25 font-semibold text-violet-glow",
+          "bg-linear-to-br from-brand-core/30 to-cyan-core/25 font-semibold text-brand-glow",
           "ring-1 ring-inset ring-white/10",
           className,
         )}

@@ -161,7 +161,7 @@ export function ApprovalsPanel() {
         <CardHeader className="flex-row flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <CardTitle className="flex items-center gap-2 text-base">
-              <KeyRound className="size-4 text-violet-glow" aria-hidden />
+              <KeyRound className="size-4 text-brand-glow" aria-hidden />
               Standing approvals
             </CardTitle>
             <p className="mt-1 text-xs leading-relaxed text-subtle">
@@ -391,11 +391,11 @@ function ApprovalRow({
         }}
         className={cn(
           "flex items-center gap-3 px-5 py-2.5 transition-colors sm:px-6",
-          "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-violet-glow",
+          "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-glow",
           approval.frozen
             ? "cursor-not-allowed opacity-60"
             : selected
-              ? "cursor-pointer bg-violet-core/8"
+              ? "cursor-pointer bg-brand-core/8"
               : "cursor-pointer hover:bg-white/3",
         )}
       >

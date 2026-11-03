@@ -18,7 +18,7 @@ const buttonVariants = cva(
   [
     "relative inline-flex items-center justify-center gap-2 whitespace-nowrap",
     "font-medium transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
-    "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-glow",
+    "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-glow",
     "disabled:pointer-events-none disabled:opacity-45",
     "[&_svg]:pointer-events-none [&_svg]:shrink-0",
     "select-none",
@@ -27,10 +27,10 @@ const buttonVariants = cva(
     variants: {
       variant: {
         primary: [
-          "border border-violet-glow/25 text-white",
-          "bg-violet-deep",
-          "shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_8px_24px_-16px_rgba(109,40,217,0.9)]",
-          "hover:brightness-110 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_10px_30px_-16px_rgba(109,40,217,1)]",
+          "border border-brand-glow/25 text-white",
+          "bg-brand-deep",
+          "shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_8px_24px_-16px_rgba(70,153,200,0.9)]",
+          "hover:brightness-110 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_10px_30px_-16px_rgba(70,153,200,1)]",
           "hover:-translate-y-px active:translate-y-0",
         ].join(" "),
         secondary: [
@@ -42,7 +42,7 @@ const buttonVariants = cva(
         ].join(" "),
         outline: [
           "border border-border-strong bg-transparent text-foreground",
-          "hover:bg-white/6 hover:border-violet-core/45",
+          "hover:bg-white/6 hover:border-brand-core/45",
         ].join(" "),
         danger: [
           "bg-danger/12 text-danger border border-danger/30",

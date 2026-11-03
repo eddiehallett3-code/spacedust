@@ -45,7 +45,7 @@ export function SweepHistoryPanel({ onResweep }: { onResweep: () => void }) {
           onClick={() => setOpen((previous) => !previous)}
           aria-expanded={open}
           aria-controls="past-slingshots"
-          className="flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium transition-colors hover:bg-white/4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-glow"
+          className="flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium transition-colors hover:bg-white/4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-glow"
         >
           <History className="size-4 shrink-0 text-subtle" aria-hidden />
           Past slingshots
