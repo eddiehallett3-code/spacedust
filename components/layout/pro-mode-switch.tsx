@@ -37,3 +37,28 @@ export function ProModeSwitch({ className }: { className?: string }) {
     </div>
   );
 }
+
+/**
+ * The same switch, with a line saying what it turns on.
+ *
+ * The navbar used to carry this, which put a mode toggle beside the wallet button
+ * on every page — including the ones where it changes nothing visible. A control
+ * that needs a sentence beside it belongs next to the thing it affects, so it now
+ * appears at the top of the three tools that have Pro-only panels, and nowhere
+ * else.
+ */
+export function ProModeToggleRow({ className }: { className?: string }) {
+  return (
+    <div
+      className={cn(
+        "flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-white/[0.02] px-3 py-2",
+        className,
+      )}
+    >
+      <span className="text-2xs leading-relaxed text-muted">
+        Pro mode — deeper cNFT lists, SNS names and sweep history
+      </span>
+      <ProModeSwitch />
+    </div>
+  );
+}

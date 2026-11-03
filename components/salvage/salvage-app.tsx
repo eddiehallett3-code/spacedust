@@ -10,6 +10,7 @@ import { UncloseableAccountsPanel } from "@/components/salvage/uncloseable-panel
 import { WrappedSolPanel } from "@/components/salvage/wrapped-sol-panel";
 import { RentReclaimPanel } from "@/components/sweep/rent-reclaim-panel";
 import { useMode } from "@/components/layout/mode-provider";
+import { ProModeToggleRow } from "@/components/layout/pro-mode-switch";
 import { useWalletScan } from "@/hooks/use-wallet-scan";
 
 /**
@@ -86,6 +87,8 @@ export function SalvageApp() {
         owner={publicKey?.toBase58() ?? ""}
         scanError={scan.scan?.emptyAccountsError ?? null}
       />
+
+      <ProModeToggleRow className="mb-4" />
 
       {isPro ? (
         <section className="space-y-5" aria-label="SNS names">

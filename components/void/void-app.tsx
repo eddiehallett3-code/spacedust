@@ -31,6 +31,7 @@ import { useVoid } from "@/hooks/use-void";
 import { useWalletScan } from "@/hooks/use-wallet-scan";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { useMode } from "@/components/layout/mode-provider";
+import { ProModeToggleRow } from "@/components/layout/pro-mode-switch";
 import { hideAssets, mergeIds, removeId } from "@/lib/sweep/hidden-assets";
 import { isValidSolanaAddress } from "@/lib/utils/sanitize";
 import { STORAGE_KEYS } from "@/lib/utils/constants";
@@ -379,6 +380,8 @@ export function VoidApp() {
           </CardContent>
         </Card>
       ) : null}
+
+      <ProModeToggleRow className="mb-3" />
 
       {/* Basic keeps the common paths; Pro adds the deep-cNFT flow, whose
           lookup tables and guided rounds are a lot more involved. */}

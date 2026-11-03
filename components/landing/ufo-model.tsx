@@ -406,7 +406,8 @@ export function UfoModel({ className }: { className?: string }) {
         className,
       )}
     >
-      <div className="pointer-events-none absolute inset-[10%] -z-10 rounded-full bg-[radial-gradient(circle,rgba(70,153,200,0.28),rgba(168,192,211,0.08)_48%,transparent_70%)] blur-2xl" />
+      {/* A radial gradient rather than a blurred blob: the gradient is already smooth, and a `blur-*` filter costs a full-area repaint every frame while the saucer floats over it. Same reason the starfield paints gradients. */}
+      <div className="pointer-events-none absolute inset-[10%] -z-10 rounded-full bg-[radial-gradient(circle,rgba(70,153,200,0.28),rgba(168,192,211,0.08)_48%,transparent_70%)]" />
 
       <div
         ref={hostRef}

@@ -14,7 +14,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { BrandLogo } from "@/components/layout/brand-logo";
-import { ProModeSwitch } from "@/components/layout/pro-mode-switch";
 import { ToolEmblem } from "@/components/layout/tool-emblem";
 import { WalletButton } from "@/components/wallet/wallet-button";
 import { WalletMenuActions } from "@/components/wallet/wallet-menu-actions";
@@ -211,7 +210,6 @@ export function Navbar() {
               <ShieldCheck className="size-3.5 text-brand-glow" aria-hidden />
               Non-custodial
             </Link>
-            <ProModeSwitch className="hidden sm:flex" />
             <WalletButton />
 
             {/* Mobile nav trigger. Before this existed the links simply vanished
@@ -301,10 +299,6 @@ export function Navbar() {
                   </ul>
                 </nav>
 
-                <div className="mt-3 flex items-center justify-between gap-3 border-t border-border/60 px-3 pt-3">
-                  <span className="text-sm text-muted">Pro mode</span>
-                  <ProModeSwitch />
-                </div>
                 <WalletMenuActions />
 
                 <p className="mt-3 flex items-center gap-1.5 border-t border-border/60 px-3 pt-3 text-2xs text-subtle">

@@ -3,6 +3,7 @@ import { ArrowRight, CheckCircle2, ScanLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils/cn";
 
 /**
  * The Wallet Scan entry point.
@@ -27,18 +28,24 @@ const OUTPUTS = [
   "Wrapped SOL, standing approvals, and what a sweep would refuse",
 ] as const;
 
-export function LandingProductPreview() {
+export function LandingProductPreview({ className }: { className?: string }) {
   return (
     <figure
       id="scan"
       aria-labelledby="scan-preview-title"
-      className="relative mx-auto mt-14 w-full max-w-4xl scroll-mt-24 sm:mt-16"
+      className={cn(
+        // Margins come from the caller: this block is now the hero's right-hand
+        // column on desktop and a full-width block under the hero on a phone, and
+        // those two placements need different space above them.
+        "relative mx-auto w-full max-w-4xl scroll-mt-24",
+        className,
+      )}
     >
       {/* The blue halo that used to sit behind this card is gone: a coloured
           blur behind a coloured border behind a coloured button was three accents
           doing one job, and the card reads better with the page showing through
           than with a glow it did not earn. */}
-      <Card className="glass-sheen overflow-hidden rounded-2xl border-border/70">
+      <Card className="@container glass-sheen overflow-hidden rounded-2xl border-border/70">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 px-4 py-3 sm:px-5">
           <div className="flex items-center gap-2.5">
             <span className="flex size-8 items-center justify-center rounded-lg bg-brand-core/12 text-brand-glow ring-1 ring-inset ring-brand-core/20">
@@ -55,7 +62,13 @@ export function LandingProductPreview() {
           </div>
         </div>
 
-        <div className="grid gap-5 p-4 sm:grid-cols-[1.15fr_0.85fr] sm:p-5">
+        {/* Container queries, not viewport ones. This card used to be a full-width
+            block under the hero, so `sm:` meant "the card is wide enough". It now
+            lives in the hero's right-hand column, where a 1440px viewport and a
+            530px card are both true at once — and the viewport query won, splitting
+            a 530px card into two cramped columns. It goes side-by-side only when
+            the card itself is at least 576px wide. */}
+        <div className="grid gap-5 p-4 @sm:p-5 @xl:grid-cols-[1.15fr_0.85fr]">
           <form action="/scan" method="get" className="min-w-0">
             <label
               htmlFor="landing-wallet"
@@ -63,7 +76,7 @@ export function LandingProductPreview() {
             >
               Wallet address
             </label>
-            <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+            <div className="mt-2 flex flex-col gap-2 @sm:flex-row">
               <Input
                 id="landing-wallet"
                 name="owner"

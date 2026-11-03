@@ -126,8 +126,11 @@ export function VoidEmblem({
       )}
       aria-hidden
     >
-      {/* Violet bloom behind the whole mark. */}
-      <span className="absolute inset-[10%] rounded-full bg-brand-core/25 blur-3xl" />
+      {/* The bloom behind the mark, as a gradient rather than a blurred disc:
+          `blur-3xl` on an area this size repaints the whole thing every frame
+          while the motes drift, to produce a softness a radial gradient already
+          has. */}
+      <span className="absolute inset-[10%] rounded-full bg-[radial-gradient(circle,rgba(70,153,200,0.22),transparent_70%)]" />
 
       {motes.map((mote, index) => (
         <FallingMote key={index} {...mote} spin={spin} />

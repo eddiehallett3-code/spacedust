@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, SectionTitle } from "@/components/ui/car
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useMode } from "@/components/layout/mode-provider";
+import { ProModeToggleRow } from "@/components/layout/pro-mode-switch";
 import { OutputToggle } from "@/components/sweep/output-toggle";
 import { SweepPanel } from "@/components/sweep/sweep-panel";
 import { SmartFilterToggle } from "@/components/sweep/smart-filter-toggle";
@@ -195,6 +196,8 @@ export function ControlsColumn({
         scanError={emptyAccountsError}
         onReclaimed={onRentReclaimed}
       />
+
+      <ProModeToggleRow className="mb-4" />
 
       {isPro ? (
         <SweepHistoryPanel

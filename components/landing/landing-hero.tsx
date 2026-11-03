@@ -111,18 +111,30 @@ export function LandingHero() {
           </ul>
         </div>
 
-        {/* The orbit rings are the stage. Both breakpoints render the same
-            WebGL model here; the copy hidden by a breakpoint reports a zero size
-            and never builds a scene. The saucer is in the document rather than
-            fixed, so scrolling moves it away with the hero instead of dragging
-            it over the sections below.
+        {/* The stage and the scan card share the right-hand column.
+            The card used to sit below the hero at full width, which put the
+            site's only real action — paste an address — below the fold on every
+            desktop, under a button that promised it. The hero's own comment used
+            to describe that as deliberate ("the card's top edge 32px below the
+            fold"); it is hard to defend: the visitor reads a call to action and
+            then cannot see the thing it points at.
 
-            On phones there is no minimum stage height: the stage is exactly the
-            saucer's box, so it sits directly under the safety list. The model
-            also shrinks with the viewport height (see `.landing-saucer-mobile`),
-            which keeps it fully above the fold in short in-app wallets such as
-            Jupiter's. */}
-        <div className="relative flex min-w-0 max-w-full items-center justify-center lg:min-h-[38rem] lg:justify-end">
+            Saucer above, card below it, both in this column on desktop. On a
+            phone the column stacks the same way, so nothing moves for the
+            layout that has the least room. */}
+        <div className="relative flex min-w-0 max-w-full flex-col items-center justify-center">
+          <div className="relative flex w-full items-center justify-center lg:min-h-[17rem] lg:justify-end">
+          {/* The orbit rings are the stage. Both breakpoints render the same
+              WebGL model here; the copy hidden by a breakpoint reports a zero size
+              and never builds a scene. The saucer is in the document rather than
+              fixed, so scrolling moves it away with the hero instead of dragging
+              it over the sections below.
+
+              On phones there is no minimum stage height: the stage is exactly the
+              saucer's box, so it sits directly under the safety list. The model
+              also shrinks with the viewport height (see `.landing-saucer-mobile`),
+              which keeps it fully above the fold in short in-app wallets such as
+              Jupiter's. */}
           {/* The depth field the saucer sits in: colour, parallax stars and
               drifting dust, all of which lean toward the pointer. First child
               on purpose — it paints under the rings and the model without a
@@ -135,20 +147,20 @@ export function LandingHero() {
           >
             <div className="absolute size-[min(80vw,30rem)] rounded-full border border-white/[0.06] [transform:rotate(-18deg)_scaleY(0.42)]" />
             <div className="absolute size-[min(64vw,24rem)] rounded-full border border-brand-core/15 [transform:rotate(-18deg)_scaleY(0.42)]" />
-            <div className="absolute size-40 rounded-full bg-brand-core/10 blur-3xl" />
           </div>
 
           <div className="landing-saucer-mobile relative w-full sm:max-w-[20rem] lg:hidden">
             <UfoModel className="animate-ufo-float" />
           </div>
 
-          <div className="relative hidden w-full max-w-[min(38vw,520px)] lg:block">
+          <div className="relative hidden w-full max-w-[min(32vw,420px)] lg:block">
             <UfoModel className="animate-ufo-float" />
           </div>
+          </div>
+
+          <LandingProductPreview className="mt-14 sm:mt-16 lg:mt-2 lg:max-w-none" />
         </div>
       </div>
-
-      <LandingProductPreview />
     </section>
   );
 }
