@@ -20,10 +20,11 @@ export const metadata: Metadata = {
 /**
  * Salvage.
  *
- * Basic mode is the routine recovery: empty token accounts, Token-2022 rent
- * refunds, wrapped SOL, and the diagnostic list of empty accounts the token
- * program will not let this wallet close. Pro adds only the irreversible SNS
- * name deletion.
+ * Rent recovery for a wallet: empty token accounts, Token-2022 rent refunds,
+ * wrapped SOL, the diagnostic list of empty accounts the token program will not
+ * let this wallet close, and irreversible .sns name deletion. All of it is on
+ * the page — there used to be a mode switch hiding the last of those, and it was
+ * the only thing it hid.
  */
 export default function SalvagePage() {
   return (
@@ -32,7 +33,7 @@ export default function SalvagePage() {
       <PageHeader
         emblem={<ToolEmblem tool="salvage" />}
         title="Salvage"
-        description="Retrieve rent from empty accounts, refund the surplus rent on Token-2022 accounts, unwrap wSOL, and close unused .sns names in Pro."
+        description="Retrieve rent from empty accounts, refund the surplus rent on Token-2022 accounts, unwrap wSOL, and close unused .sns names."
       />
       <SalvageApp />
     </Container>

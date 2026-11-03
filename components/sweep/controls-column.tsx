@@ -6,8 +6,6 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, SectionTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { useMode } from "@/components/layout/mode-provider";
-import { ProModeToggleRow } from "@/components/layout/pro-mode-switch";
 import { OutputToggle } from "@/components/sweep/output-toggle";
 import { SweepPanel } from "@/components/sweep/sweep-panel";
 import { SmartFilterToggle } from "@/components/sweep/smart-filter-toggle";
@@ -87,7 +85,6 @@ export function ControlsColumn({
   /** Called once accounts have been closed, so the app can rescan. */
   onRentReclaimed: () => void;
 }) {
-  const { isPro } = useMode();
   // A preview describes its own plan, and these two numbers have to describe the
   // bytes rather than the checkboxes. They differ in two real cases: a retry
   // plans a subset of the selection (the rest already went), and Jupiter can
@@ -197,16 +194,12 @@ export function ControlsColumn({
         onReclaimed={onRentReclaimed}
       />
 
-      <ProModeToggleRow className="mb-4" />
-
-      {isPro ? (
-        <SweepHistoryPanel
-          onResweep={() => {
-            sweep.reset();
-            deselectAll();
-          }}
-        />
-      ) : null}
+      <SweepHistoryPanel
+        onResweep={() => {
+          sweep.reset();
+          deselectAll();
+        }}
+      />
     </div>
   );
 }

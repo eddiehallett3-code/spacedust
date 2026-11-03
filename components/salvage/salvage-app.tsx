@@ -9,23 +9,24 @@ import { PumpAccumulatorPanel } from "@/components/salvage/pump-accumulator-pane
 import { UncloseableAccountsPanel } from "@/components/salvage/uncloseable-panel";
 import { WrappedSolPanel } from "@/components/salvage/wrapped-sol-panel";
 import { RentReclaimPanel } from "@/components/sweep/rent-reclaim-panel";
-import { useMode } from "@/components/layout/mode-provider";
-import { ProModeToggleRow } from "@/components/layout/pro-mode-switch";
 import { useWalletScan } from "@/hooks/use-wallet-scan";
 
 /**
  * Salvage.
  *
- * Basic mode is the routine recovery: empty token accounts, Token-2022 rent
- * refunds, wrapped SOL, and the diagnostic list of empty accounts the token
- * program will not let this wallet close. Pro adds the one irreversible action
- * here: deleting an unused `.sns` name. The split is about consequence, not
- * difficulty: giving a name back to the open namespace deserves a deliberate
- * switch; an unwrap or a close does not.
+ * Rent recovery for a wallet: empty token accounts, Token-2022 rent refunds,
+ * wrapped SOL, the diagnostic list of empty accounts the token program will not
+ * let this wallet close, and the one irreversible action here — deleting an
+ * unused `.sns` name.
+ *
+ * That last one used to sit behind an interface mode switch, on the argument
+ * that a destructive action deserves a deliberate second step. The step is real,
+ * but a mode toggle is a poor place for it: it hid a whole panel behind a control
+ * in the navbar, and the panel already previews and simulates before anything is
+ * signed. The warning belongs next to the button, which is where it is.
  */
 export function SalvageApp() {
   const { connected, publicKey } = useWallet();
-  const { isPro } = useMode();
   const scan = useWalletScan({ includeExcessRent: true });
 
   if (!connected) {
@@ -36,7 +37,7 @@ export function SalvageApp() {
         </p>
         <p className="mx-auto mt-2 max-w-sm text-xs leading-relaxed text-muted">
           Salvage retrieves rent, refunds the surplus rent on Token-2022
-          accounts, unwraps wSOL and closes unused .sns names in Pro — returning
+          accounts, unwraps wSOL and closes unused .sns names — returning
           rent the wallet already owns.
         </p>
         <div className="mt-4 flex justify-center">
@@ -88,26 +89,17 @@ export function SalvageApp() {
         scanError={scan.scan?.emptyAccountsError ?? null}
       />
 
-      <ProModeToggleRow className="mb-4" />
+      <section className="mt-5 space-y-5" aria-label="SNS names">
+        <div className="rounded-xl border border-brand-core/20 bg-brand-core/6 px-4 py-3">
+          <p className="text-sm font-medium text-brand-glow">SNS names</p>
+          <p className="mt-1 text-2xs leading-relaxed text-muted">
+            Give unused <code>.sns</code> names back to the open namespace. Name
+            deletion is previewed and simulated before anything is signed.
+          </p>
+        </div>
 
-      {isPro ? (
-        <section className="space-y-5" aria-label="SNS names">
-          <div className="rounded-xl border border-brand-core/20 bg-brand-core/6 px-4 py-3">
-            <p className="text-sm font-medium text-brand-glow">Pro cleanup</p>
-            <p className="mt-1 text-2xs leading-relaxed text-muted">
-              Give unused <code>.sns</code> names back to the open namespace. Name deletion
-              is previewed and simulated before anything is signed.
-            </p>
-          </div>
-
-          <DomainsPanel />
-        </section>
-      ) : (
-        <p className="rounded-xl border border-border bg-white/2 px-4 py-3 text-2xs leading-relaxed text-subtle">
-          Pro mode adds <code>.sns</code> name deletion. Turn it on in the navbar
-          when you need it.
-        </p>
-      )}
+        <DomainsPanel />
+      </section>
     </div>
   );
 }

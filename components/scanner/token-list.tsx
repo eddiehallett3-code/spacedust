@@ -56,9 +56,9 @@ export function TokenList({
   showAmounts: boolean;
   onShowAmountsChange: (next: boolean) => void;
   /**
-   * Whether the Custom switch is offered at all. Basic mode hides it because a
-   * partial sale is the less common, more error-prone path; the row still states
-   * that the default swaps 100%.
+   * Whether the Custom switch is offered at all. Kept as a prop rather than
+   * hardcoded because a caller may want the row without the control; it is
+   * always true today.
    */
   showAmountControl?: boolean;
 }) {

@@ -817,24 +817,25 @@ export default function HowItWorksPage() {
           exchange.
         </p>
 
-        <h3>5. Wrapped SOL and diagnostics are Basic; Pro adds only <code>.sns</code></h3>
+        <h3>5. Wrapped SOL, diagnostics and <code>.sns</code> names</h3>
         <p>
-          Wrapped SOL is part of the basic flow. Closing a wSOL account is an
+          Wrapped SOL is part of the routine flow. Closing a wSOL account is an
           unwrap, not a burn: the token program returns the wrapped balance and
           the rent to the owner, so there is no asset to give up. The wrapped-SOL
           card is shown even when it finds none.
         </p>
         <p>
-          The list of empty accounts this wallet cannot close is also Basic. It
-          is a read-only diagnostic, shown even when it finds nothing: a foreign
-          close authority or withheld Token-2022 fee means no instruction this
-          wallet can sign will work.
+          The list of empty accounts this wallet cannot close is a read-only
+          diagnostic, shown even when it finds nothing: a foreign close authority
+          or withheld Token-2022 fee means no instruction this wallet can sign
+          will work.
         </p>
         <p>
-          The one Pro action is deleting an unused <code>.sns</code> name. Giving
-          a name back to the open namespace cannot be undone with another
-          transaction, so it deserves a deliberate switch. The deletion is
-          previewed and simulated before a wallet is asked to sign.
+          Deleting an unused <code>.sns</code> name is the one action here that
+          cannot be undone with another transaction, so it is previewed and
+          simulated before a wallet is asked to sign. It used to sit behind a mode
+          switch; it is now simply on the page, with the irreversibility stated
+          where the button is.
         </p>
       </ToolSection>
 

@@ -79,10 +79,10 @@ const ROWS: { label: string; spacedust: Cell; them: Cell }[] = [
   {
     label: "Burning tokens, NFTs and domains",
     spacedust: YES(
-      "In Pro mode only; the default mode cannot destroy anything.",
+      "Tokens, NFTs, cNFTs and .sns names can all be destroyed, each previewed and simulated first.",
     ),
     them: YES(
-      "In Pro mode only; their Fun mode closes empty accounts and nothing else.",
+      "Their Pro mode can; their Fun mode closes empty accounts and nothing else.",
     ),
   },
   {

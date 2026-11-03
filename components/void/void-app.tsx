@@ -30,8 +30,6 @@ import { ConnectWalletCta } from "@/components/wallet/wallet-button";
 import { useVoid } from "@/hooks/use-void";
 import { useWalletScan } from "@/hooks/use-wallet-scan";
 import { useLocalStorage } from "@/hooks/use-local-storage";
-import { useMode } from "@/components/layout/mode-provider";
-import { ProModeToggleRow } from "@/components/layout/pro-mode-switch";
 import { hideAssets, mergeIds, removeId } from "@/lib/sweep/hidden-assets";
 import { isValidSolanaAddress } from "@/lib/utils/sanitize";
 import { STORAGE_KEYS } from "@/lib/utils/constants";
@@ -63,7 +61,6 @@ export function VoidApp() {
   // A third, separate pipeline: burning a one-of-one asset shares no code with
   // sweeping dust or emptying tokens, so a mistake in one cannot reach another.
   const theBurn = useNftBurn();
-  const { isPro, setMode } = useMode();
 
   /**
    * Which list the user is looking at.
@@ -169,24 +166,7 @@ export function VoidApp() {
     () => cnfts.filter((asset) => cnftFitsInline(asset) === false),
     [cnfts],
   );
-  // Basic mode has no deep-cNFT tab. Fall back to the ordinary cNFT list rather
-  // than leaving the page on a tab that is not in the tab bar.
-  const activeTab = !isPro && tab === "table-cnfts" ? "cnfts" : tab;
-
-  // Switching back to Basic must not leave a deep cNFT selected invisibly. The
-  // burn batch is assembled from the shared selection, so dropping these here is
-  // what actually keeps them out of the next burn.
-  useEffect(() => {
-    if (isPro) return;
-    setBurnSelection((previous) => {
-      const next = new Set(previous);
-      let changed = false;
-      for (const asset of tableCnfts) {
-        if (next.delete(asset.id)) changed = true;
-      }
-      return changed ? next : previous;
-    });
-  }, [isPro, tableCnfts]);
+  const activeTab = tab;
 
   /**
    * The ticked assets themselves, gathered from all three NFT tabs.
@@ -195,11 +175,8 @@ export function VoidApp() {
    * panel that pressed Burn only knows its own.
    */
   const burnSelectionAssets = useMemo(
-    () =>
-      [...nfts, ...(isPro ? cnfts : directCnfts)].filter((asset) =>
-        burnSelection.has(asset.id),
-      ),
-    [nfts, cnfts, directCnfts, isPro, burnSelection],
+    () => [...nfts, ...cnfts].filter((asset) => burnSelection.has(asset.id)),
+    [nfts, cnfts, burnSelection],
   );
 
   const [selectedMints, setSelectedMints] = useState<Set<string>>(new Set());
@@ -381,10 +358,6 @@ export function VoidApp() {
         </Card>
       ) : null}
 
-      <ProModeToggleRow className="mb-3" />
-
-      {/* Basic keeps the common paths; Pro adds the deep-cNFT flow, whose
-          lookup tables and guided rounds are a lot more involved. */}
       <div
         role="tablist"
         aria-label="What to send into The Void"
@@ -394,15 +367,11 @@ export function VoidApp() {
           { key: "tokens" as const, label: "Tokens", count: voidCandidates.length },
           { key: "nfts" as const, label: "NFTs", count: nfts.length },
           { key: "cnfts" as const, label: "cNFTs", count: directCnfts.length },
-          ...(isPro
-            ? [
-                {
-                  key: "table-cnfts" as const,
-                  label: "Deep cNFTs",
-                  count: tableCnfts.length,
-                },
-              ]
-            : []),
+          {
+            key: "table-cnfts" as const,
+            label: "Deep cNFTs",
+            count: tableCnfts.length,
+          },
         ].map((entry) => (
           <button
             key={entry.key}
@@ -436,21 +405,6 @@ export function VoidApp() {
           </button>
         ))}
       </div>
-
-      {!isPro && activeTab === "cnfts" && tableCnfts.length > 0 ? (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-brand-core/25 bg-brand-core/5 px-3 py-2.5 text-2xs leading-relaxed text-muted">
-          <p>
-            <strong className="font-medium text-foreground">
-              {pluralize(tableCnfts.length, "deep cNFT")}
-            </strong>{" "}
-            {tableCnfts.length === 1 ? "is" : "are"} hidden in Basic mode. They
-            need an address lookup table and a guided multi-round burn.
-          </p>
-          <Button variant="outline" size="sm" onClick={() => setMode("pro")}>
-            Switch to Pro
-          </Button>
-        </div>
-      ) : null}
 
       {scanError ? (
         <div

@@ -10,7 +10,7 @@ import { isValidSolanaAddress } from "@/lib/utils/sanitize";
  * `GET /api/wrapped-sol?owner=<pubkey>` — the wallet's non-empty wSOL accounts.
  *
  * The read has to happen server-side: the browser never holds the Helius key.
- * It is kept separate from `/api/tokens` because it is a Pro-only Salvage
+ * It is kept separate from `/api/tokens` because it is a Salvage
  * lookup, and adding it to every scan would make every dust sweep pay for a
  * read it never uses.
  */

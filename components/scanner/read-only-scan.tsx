@@ -1180,7 +1180,7 @@ function ApprovalsCard({
  *
  * A name has no balance and no market. It is shown because the name itself is
  * information — and because deleting it is the one way to release the rent its
- * name account holds. The actual deletion stays in Salvage, behind Pro.
+ * name account holds. The actual deletion stays in Salvage.
  */
 function SnsNamesCard({
   domains,

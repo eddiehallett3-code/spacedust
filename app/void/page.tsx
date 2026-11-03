@@ -31,7 +31,7 @@ export default function VoidPage() {
           className="w-full pb-10 pt-16 sm:pt-20"
           emblem={<ToolEmblem tool="void" />}
           title="The Void"
-          description="The Void is where the things a swap cannot help with go. Tokens with no route to SOL, USDC or JUP are sent into The Void for the rent locked in their accounts, and unwanted NFTs and cNFTs can go too — each with its own tab, its own rules, and nothing pre-selected. In Pro mode, cNFTs whose proofs need a lookup table get their own Deep cNFTs tab, so that extra step is visible before you select one. Swaps and Void sends never share a transaction."
+          description="The Void is where the things a swap cannot help with go. Tokens with no route to SOL, USDC or JUP are sent into The Void for the rent locked in their accounts, and unwanted NFTs and cNFTs can go too — each with its own tab, its own rules, and nothing pre-selected. cNFTs whose proofs need a lookup table get their own Deep cNFTs tab, so that extra step is visible before you select one. Swaps and Void sends never share a transaction."
         />
       </div>
       <VoidApp />
