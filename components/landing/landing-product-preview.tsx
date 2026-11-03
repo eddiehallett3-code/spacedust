@@ -3,7 +3,6 @@ import { ArrowRight, CheckCircle2, ScanLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils/cn";
 
 /**
  * The Wallet Scan entry point.
@@ -28,18 +27,12 @@ const OUTPUTS = [
   "Wrapped SOL, standing approvals, and what a sweep would refuse",
 ] as const;
 
-export function LandingProductPreview({ className }: { className?: string }) {
+export function LandingProductPreview() {
   return (
     <figure
       id="scan"
       aria-labelledby="scan-preview-title"
-      className={cn(
-        // Margins come from the caller: this block is now the hero's right-hand
-        // column on desktop and a full-width block under the hero on a phone, and
-        // those two placements need different space above them.
-        "relative mx-auto w-full max-w-4xl scroll-mt-24",
-        className,
-      )}
+      className="relative mx-auto mt-14 w-full max-w-4xl scroll-mt-24 sm:mt-16"
     >
       {/* The blue halo that used to sit behind this card is gone: a coloured
           blur behind a coloured border behind a coloured button was three accents
