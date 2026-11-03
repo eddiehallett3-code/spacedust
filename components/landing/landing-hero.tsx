@@ -47,8 +47,16 @@ export function LandingHero() {
           i.e. `100svh - 8rem` — which leaves the card's top edge 32px below the
           fold at any height, and its 16px glow inset inside that. Measured before
           the change: the card began at 769px at every desktop width, so a 900px
-          window showed 131px of it and a 1080px window showed 311px. */}
-      <div className="grid min-h-[calc(100svh-3.5rem)] content-start items-center gap-2 sm:gap-8 lg:min-h-[calc(100svh-8rem)] lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+          window showed 131px of it and a 1080px window showed 311px.
+
+          CAPPED at 54rem, because "the first screen" is a different amount of
+          space on every screen and only some of it holds anything. On a 1440x1900
+          window the uncapped grid was 1,772px tall with 500px of content at the
+          top — a full screen of nothing between the hero and the card, which reads
+          as a page that failed to load rather than a page with room to breathe.
+          The cap leaves laptop heights untouched (a 900px window still resolves to
+          772px) and stops the tall ones stretching. */}
+      <div className="grid min-h-[calc(100svh-3.5rem)] content-start items-center gap-2 sm:gap-8 lg:min-h-[min(calc(100svh-8rem),54rem)] lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
         <div className="mx-auto min-w-0 max-w-2xl text-center lg:mx-0 lg:text-left">
           <h1
             id="landing-heading"

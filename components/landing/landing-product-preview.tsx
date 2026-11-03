@@ -95,7 +95,12 @@ export function LandingProductPreview() {
             </p>
           </form>
 
-          <div className="rounded-xl border border-border/60 bg-white/[0.02] p-3">
+          {/* Not a second card.
+              This sat in its own bordered, tinted box inside the card, which is
+              two frames around one idea — and the outer card already ends here,
+              so the box was drawing a boundary the layout had already made. The
+              label and the rule below it do the grouping instead. */}
+          <div className="mt-4 border-t border-border/60 pt-3">
             <p className="text-2xs font-medium uppercase tracking-[0.16em] text-subtle">
               What the scan returns
             </p>

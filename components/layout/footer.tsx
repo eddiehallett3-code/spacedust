@@ -178,7 +178,7 @@ export function Footer() {
               Delete my data
             </Link>
           </nav>
-          <p className="text-xs leading-relaxed text-subtle">
+          <p className="max-w-prose text-xs leading-relaxed text-subtle">
             <strong className="font-semibold text-muted">Safety note:</strong>{" "}
             Always verify you are on the correct domain before connecting your
             wallet, and never approve a transaction you do not understand. This
