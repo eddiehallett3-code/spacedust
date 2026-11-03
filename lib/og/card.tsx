@@ -56,7 +56,7 @@ export function ogCard({ title, subtitle }: { title: string; subtitle: string })
           <div
             style={{
               fontSize: 34,
-              color: "#b9b3d6",
+              color: "#b7c4d4",
               marginTop: 22,
               lineHeight: 1.35,
             }}

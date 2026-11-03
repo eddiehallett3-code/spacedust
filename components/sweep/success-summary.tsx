@@ -75,7 +75,7 @@ export function SuccessSummary({
         delay: Math.random() * 0.6,
         duration: 1.6 + Math.random() * 1.4,
         rotate: Math.random() * 360,
-        color: ["#4699c8", "#22d3ee", "#7ab8dd", "#34d399"][index % 4],
+        color: ["#4699c8", "#a8c0d3", "#7ab8dd", "#34d399"][index % 4],
       })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [summary.tokenCount, summary.successCount],

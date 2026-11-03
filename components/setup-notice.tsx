@@ -128,7 +128,7 @@ export function SetupNotice() {
               ))}
             </ol>
             <p className="mt-2 text-2xs text-subtle">
-              Edit <code className="text-cyan-glow">.env.local</code>, then
+              Edit <code className="text-chrome-glow">.env.local</code>, then
               restart the dev server — environment variables are read at
               startup, not per request.
             </p>

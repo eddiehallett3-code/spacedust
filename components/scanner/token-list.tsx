@@ -198,7 +198,7 @@ function EmptyState() {
       <motion.span
         animate={{ rotate: [0, -8, 8, 0] }}
         transition={{ duration: 3.2, repeat: Infinity, repeatDelay: 2 }}
-        className="flex size-14 items-center justify-center rounded-2xl bg-linear-to-br from-brand-core/20 to-cyan-core/15 ring-1 ring-inset ring-white/10"
+        className="flex size-14 items-center justify-center rounded-2xl bg-linear-to-br from-brand-core/20 to-chrome-core/15 ring-1 ring-inset ring-white/10"
       >
         <Sparkles className="size-6 text-brand-glow" aria-hidden />
       </motion.span>

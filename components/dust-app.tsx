@@ -765,7 +765,7 @@ function ConnectPrompt() {
       <motion.span
         animate={{ y: [0, -6, 0] }}
         transition={{ duration: 3.4, repeat: Infinity, ease: "easeInOut" }}
-        className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-linear-to-br from-brand-core to-cyan-core shadow-[0_12px_40px_-12px_rgba(70,153,200,0.95)]"
+        className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-linear-to-br from-brand-core to-chrome-core shadow-[0_12px_40px_-12px_rgba(70,153,200,0.95)]"
       >
         <Sparkles className="size-7 text-white" aria-hidden />
       </motion.span>

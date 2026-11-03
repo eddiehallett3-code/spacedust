@@ -64,7 +64,7 @@ export function HowItWorksStrip() {
             ) : null}
 
             <div className="flex items-center gap-2.5">
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-brand-core/25 to-cyan-core/15 ring-1 ring-inset ring-white/10">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-brand-core/25 to-chrome-core/15 ring-1 ring-inset ring-white/10">
                 <step.icon className="size-4 text-brand-glow" aria-hidden />
               </span>
               <span className="font-mono text-xs text-subtle">

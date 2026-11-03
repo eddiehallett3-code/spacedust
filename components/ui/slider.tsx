@@ -33,7 +33,7 @@ export const Slider = React.forwardRef<
       {...props}
     >
       <SliderPrimitive.Track className="relative h-1.5 w-full grow overflow-hidden rounded-full bg-white/8">
-        <SliderPrimitive.Range className="absolute h-full bg-linear-to-r from-brand-core via-brand-glow to-cyan-core" />
+        <SliderPrimitive.Range className="absolute h-full bg-linear-to-r from-brand-core via-brand-glow to-chrome-core" />
       </SliderPrimitive.Track>
       {Array.from({ length: thumbCount }, (_, index) => (
         <SliderPrimitive.Thumb

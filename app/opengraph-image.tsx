@@ -57,7 +57,7 @@ export default function OpengraphImage() {
         <div
           style={{
             fontSize: 36,
-            color: "#b9b3d6",
+            color: "#b7c4d4",
             marginTop: 22,
             lineHeight: 1.35,
           }}
@@ -76,7 +76,7 @@ export default function OpengraphImage() {
                     borderRadius: 999,
                     border: "1px solid rgba(70,153,200,0.5)",
                     backgroundColor: "rgba(70,153,200,0.16)",
-                    color: "#ddd0ff",
+                    color: "#d8e4f0",
                     fontSize: 30,
                   }}
                 >

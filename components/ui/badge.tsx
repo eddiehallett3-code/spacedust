@@ -14,7 +14,7 @@ const badgeVariants = cva(
         danger: "border-rose-500/25 bg-rose-500/12 text-rose-300",
         muted: "border-transparent bg-white/4 text-muted",
         // Token-2022 marker.
-        token2022: "border-cyan-500/25 bg-cyan-500/10 text-cyan-300",
+        token2022: "border-chrome-core/35 bg-chrome-core/12 text-chrome-glow",
       },
       size: {
         sm: "px-1.5 py-0.5 text-2xs",

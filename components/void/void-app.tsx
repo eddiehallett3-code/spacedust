@@ -541,7 +541,7 @@ export function VoidApp() {
           transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
           className="glass rounded-2xl p-8 text-center"
         >
-          <span className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-linear-to-br from-brand-core/20 to-cyan-core/15 ring-1 ring-inset ring-white/10">
+          <span className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-linear-to-br from-brand-core/20 to-chrome-core/15 ring-1 ring-inset ring-white/10">
             <Sparkles className="size-6 text-brand-glow" aria-hidden />
           </span>
           <h2 className="mt-4 text-lg font-semibold tracking-tight">

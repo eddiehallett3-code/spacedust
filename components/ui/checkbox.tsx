@@ -27,8 +27,8 @@ export const Checkbox = React.forwardRef<
         "hover:border-brand-core/60 hover:bg-brand-core/10",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-glow",
         "disabled:cursor-not-allowed disabled:opacity-40",
-        "data-[state=checked]:border-transparent data-[state=checked]:bg-linear-to-br data-[state=checked]:from-brand-core data-[state=checked]:to-cyan-core",
-        "data-[state=indeterminate]:border-transparent data-[state=indeterminate]:bg-linear-to-br data-[state=indeterminate]:from-brand-core data-[state=indeterminate]:to-cyan-core",
+        "data-[state=checked]:border-transparent data-[state=checked]:bg-linear-to-br data-[state=checked]:from-brand-core data-[state=checked]:to-chrome-core",
+        "data-[state=indeterminate]:border-transparent data-[state=indeterminate]:bg-linear-to-br data-[state=indeterminate]:from-brand-core data-[state=indeterminate]:to-chrome-core",
         className,
       )}
       {...props}

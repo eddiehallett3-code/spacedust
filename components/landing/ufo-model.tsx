@@ -101,7 +101,7 @@ export function UfoModel({ className }: { className?: string }) {
       host.appendChild(renderer.domElement);
 
       // A neutral studio environment gives the metal something to reflect
-      // without shipping an HDR file. The blue and cyan rims then pull the
+      // without shipping an HDR file. The blue and chrome rims then pull the
       // reflections toward the site's palette.
       const pmrem = new THREE.PMREMGenerator(renderer);
       const environmentScene = new RoomEnvironment();
@@ -121,9 +121,9 @@ export function UfoModel({ className }: { className?: string }) {
       brandRim.position.set(-5, 2.5, -3);
       scene.add(brandRim);
 
-      const cyanFill = new THREE.PointLight(0x22d3ee, 28, 16, 2);
-      cyanFill.position.set(3.5, -1.5, 4);
-      scene.add(cyanFill);
+      const chromeFill = new THREE.PointLight(0xa8c0d3, 28, 16, 2);
+      chromeFill.position.set(3.5, -1.5, 4);
+      scene.add(chromeFill);
 
       const group = new THREE.Group();
       group.rotation.set(0.02, 0, 0);
@@ -268,7 +268,7 @@ export function UfoModel({ className }: { className?: string }) {
 
           /**
            * The source model has no emissive underside, so the running lights
-           * from the brand mark are added here: a ring of cyan and blue dots just
+           * from the brand mark are added here: a ring of chrome and blue dots just
            * below the rim, on the same spinning group as the hull.
            *
            * Positions and the dot radius are divided by the group scale because
@@ -280,7 +280,7 @@ export function UfoModel({ className }: { className?: string }) {
           lights = new THREE.Group();
           const dotGeometry = new THREE.SphereGeometry(0.04 / scale, 8, 8);
           const dotMaterials = [
-            new THREE.MeshBasicMaterial({ color: 0x67e8f9, toneMapped: false }),
+            new THREE.MeshBasicMaterial({ color: 0xdde9f4, toneMapped: false }),
             new THREE.MeshBasicMaterial({ color: 0x4699c8, toneMapped: false }),
           ];
           for (let index = 0; index < 8; index += 1) {
@@ -295,9 +295,9 @@ export function UfoModel({ className }: { className?: string }) {
           }
           spin.add(lights);
 
-          // A small cyan lamp under the hull so the underside is readable when
+          // A small chrome lamp under the hull so the underside is readable when
           // the flight turns it toward the camera.
-          const underGlow = new THREE.PointLight(0x67e8f9, 8, 5, 2);
+          const underGlow = new THREE.PointLight(0xdde9f4, 8, 5, 2);
           underGlow.position.set(0, -1.1 / scale, 0);
           group.add(underGlow);
 
@@ -311,14 +311,14 @@ export function UfoModel({ className }: { className?: string }) {
                 material.envMapIntensity = 1.2;
               }
               // The model's canopy is a warm amber. The site's running lights
-              // are cyan, so the one emissive part is pulled onto the palette;
-              // the metal itself stays neutral so the scene's blue and cyan
+              // are blue, so the one emissive part is pulled onto the palette;
+              // the metal itself stays neutral so the scene's blue and chrome
               // rims still read as reflections.
               if (
                 material instanceof THREE.MeshStandardMaterial &&
                 material.name === "Ventanilla"
               ) {
-                material.emissive.set("#67e8f9");
+                material.emissive.set("#dde9f4");
                 material.emissiveIntensity = 1.5;
               }
               material.needsUpdate = true;
@@ -406,7 +406,7 @@ export function UfoModel({ className }: { className?: string }) {
         className,
       )}
     >
-      <div className="pointer-events-none absolute inset-[10%] -z-10 rounded-full bg-[radial-gradient(circle,rgba(70,153,200,0.28),rgba(34,211,238,0.08)_48%,transparent_70%)] blur-2xl" />
+      <div className="pointer-events-none absolute inset-[10%] -z-10 rounded-full bg-[radial-gradient(circle,rgba(70,153,200,0.28),rgba(168,192,211,0.08)_48%,transparent_70%)] blur-2xl" />
 
       <div
         ref={hostRef}

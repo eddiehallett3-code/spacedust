@@ -119,7 +119,7 @@ export function WalletInsights({
               aria-label={`${formatUsd(dustUsd)} in tokens and ${formatUsd(rentUsd)} in rent`}
             >
               <span
-                className="h-full bg-linear-to-r from-brand-core to-cyan-core"
+                className="h-full bg-linear-to-r from-brand-core to-chrome-core"
                 style={{ width: `${(1 - split) * 100}%` }}
               />
               <span
@@ -130,7 +130,7 @@ export function WalletInsights({
 
             <div className="grid gap-3 sm:grid-cols-2">
               <Legend
-                swatch="bg-linear-to-r from-brand-core to-cyan-core"
+                swatch="bg-linear-to-r from-brand-core to-chrome-core"
                 label="Token value"
                 value={formatUsd(dustUsd)}
                 hint={`${pluralize(priced, "priced token")} of ${tokens.length}`}
@@ -261,7 +261,7 @@ export function WalletInsights({
                     aria-label={`${token.symbol} is ${Math.round((token.valueUsd / (largest || 1)) * 100)}% of the largest holding`}
                   >
                     <span
-                      className="block h-full bg-linear-to-r from-brand-core to-cyan-core"
+                      className="block h-full bg-linear-to-r from-brand-core to-chrome-core"
                       style={{ width: `${largest > 0 ? (token.valueUsd / largest) * 100 : 0}%` }}
                     />
                   </div>

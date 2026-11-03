@@ -35,7 +35,7 @@ interface Meteor {
   length: number;
 }
 
-const STAR_TINTS = ["#e2e8ff", "#bae6fd", "#cfe4f5", "#ffffff"] as const;
+const STAR_TINTS = ["#e2e8ff", "#cddced", "#cfe4f5", "#ffffff"] as const;
 const TAU = Math.PI * 2;
 
 export function StarfieldBackground() {
@@ -175,10 +175,10 @@ export function StarfieldBackground() {
       const fade = Math.sin(progress * Math.PI);
 
       const gradient = context.createLinearGradient(tailX, tailY, headX, headY);
-      gradient.addColorStop(0, "rgba(103, 232, 249, 0)");
+      gradient.addColorStop(0, "rgba(221,233,244, 0)");
       gradient.addColorStop(
         0.55,
-        `rgba(103, 232, 249, ${(0.18 * fade).toFixed(3)})`,
+        `rgba(221,233,244, ${(0.18 * fade).toFixed(3)})`,
       );
       gradient.addColorStop(1, `rgba(255, 255, 255, ${(0.9 * fade).toFixed(3)})`);
 
@@ -311,7 +311,7 @@ export function StarfieldBackground() {
     >
       <canvas ref={canvasRef} className="size-full" />
       {/* Nebula wash: one, not three.
-          There used to be a blue orb top-left, a cyan one right and a third blue one
+          There used to be a blue orb top-left, a steel one right and a third blue one
           bottom-left, all drifting on different delays. Against frosted cards that
           read as three differently-tinted surfaces and, on a page with one accent
           colour, as decoration for its own sake. One slow blue behind the copy

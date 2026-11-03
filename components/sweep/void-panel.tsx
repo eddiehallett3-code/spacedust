@@ -524,7 +524,7 @@ function VoidResult({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3 rounded-xl border border-success/25 bg-success/8 p-4">
-        <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-brand-core to-cyan-core shadow-[0_8px_30px_-12px_rgba(70,153,200,0.9)]">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-brand-core to-chrome-core shadow-[0_8px_30px_-12px_rgba(70,153,200,0.9)]">
           <CheckCircle2 className="size-6 text-white" aria-hidden />
         </span>
         <div className="min-w-0">

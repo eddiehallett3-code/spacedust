@@ -16,7 +16,7 @@ export const Switch = React.forwardRef<
         "border border-transparent transition-colors duration-200",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-glow",
         "disabled:cursor-not-allowed disabled:opacity-50",
-        "data-[state=checked]:bg-linear-to-r data-[state=checked]:from-brand-core data-[state=checked]:to-cyan-core",
+        "data-[state=checked]:bg-linear-to-r data-[state=checked]:from-brand-core data-[state=checked]:to-chrome-core",
         "data-[state=unchecked]:bg-white/12",
         className,
       )}

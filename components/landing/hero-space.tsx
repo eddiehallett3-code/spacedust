@@ -72,7 +72,7 @@ const LOOK = {
 } as const;
 
 /** Star tints, the same four the page-wide field uses. */
-const TINTS = ["#e2e8ff", "#bae6fd", "#cfe4f5", "#ffffff"] as const;
+const TINTS = ["#e2e8ff", "#cddced", "#cfe4f5", "#ffffff"] as const;
 
 const TAU = Math.PI * 2;
 

@@ -584,7 +584,7 @@ function ScanSummary({
             }
           >
             <div
-              className="h-full rounded-full bg-linear-to-r from-brand-core to-cyan-core"
+              className="h-full rounded-full bg-linear-to-r from-brand-core to-chrome-core"
               style={{ width: `${(rentShare ?? 0) * 100}%` }}
             />
           </div>
@@ -642,7 +642,7 @@ function ScanSummary({
         />
         <ScanWindow
           icon={
-            <ArrowDownToLine className="size-4 text-cyan-glow" aria-hidden />
+            <ArrowDownToLine className="size-4 text-chrome-glow" aria-hidden />
           }
           title="Wrapped SOL"
           value={wrappedSolDisplay}

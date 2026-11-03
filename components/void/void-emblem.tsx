@@ -67,7 +67,7 @@ function FallingMote({
   );
 }
 
-const CYAN_MOTE = "bg-cyan-glow shadow-[0_0_10px_2px_rgba(103,232,249,0.75)]";
+const CYAN_MOTE = "bg-chrome-glow shadow-[0_0_10px_2px_rgba(221,233,244,0.75)]";
 const VIOLET_MOTE = "bg-brand-glow shadow-[0_0_10px_2px_rgba(122,184,221,0.75)]";
 
 /** Slow, wide infall: matter crossing a lot of space before the horizon. */
@@ -156,7 +156,7 @@ export function VoidEmblem({
       {/* Ambient dust drifting nearby. */}
       {dust ? (
         <>
-          <span className="absolute left-6 top-8 size-1 rounded-full bg-cyan-glow/70 animate-twinkle" />
+          <span className="absolute left-6 top-8 size-1 rounded-full bg-chrome-glow/70 animate-twinkle" />
           <span
             className="absolute right-8 top-6 size-1 rounded-full bg-foreground/60 animate-twinkle"
             style={{ animationDelay: "1.2s" }}

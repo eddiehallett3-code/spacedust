@@ -2,7 +2,7 @@
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Spacedust design system
-   Dark-first, glassmorphic, with a cool blue → cyan accent ramp taken from the
+   Dark-first, glassmorphic, with a cool blue → chrome accent ramp taken from the
    logo's speed lines. The blue is sampled from the mark itself (#4699c8), so
    the interface and the icon are the same product rather than two opinions.
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -31,8 +31,18 @@
   --color-brand-glow: #7ab8dd;
   --color-brand-core: #4699c8;
   --color-brand-deep: #2a6584;
-  --color-cyan-glow: #67e8f9;
-  --color-cyan-core: #22d3ee;
+  /*
+   * Chrome, not cyan.
+   *
+   * The ramp used to run blue → cyan, and cyan was the last of the neon: a bright
+   * 187° highlight reads as a dashboard, not as an instrument. These two carry the
+   * same jobs — the far end of a control gradient, the inside of a code span, the
+   * motes around an emblem, the shimmer on a heading — in cool white and steel.
+   * `glow` is nearly white for things that have to separate from body text;
+   * `core` is a mid steel for fills, where white would blow out.
+   */
+  --color-chrome-glow: #dde9f4;
+  --color-chrome-core: #a8c0d3;
 
   /* Semantic tokens, mapped into shadcn-style utility names. */
   --color-background: var(--color-space-950);
@@ -195,7 +205,7 @@
       ),
       radial-gradient(
         ellipse 60% 40% at 90% 10%,
-        color-mix(in oklab, var(--color-cyan-core) 10%, transparent),
+        color-mix(in oklab, var(--color-chrome-core) 10%, transparent),
         transparent 70%
       );
     /* Deliberately not `background-attachment: fixed`: iOS repaints the whole
@@ -265,7 +275,7 @@
     position: absolute;
     inset: 0 0 auto 0;
     height: 1px;
-    /* A single lit edge rather than a blue-to-cyan gradient: the gradient is the
+    /* A single lit edge rather than a blue-to-chrome gradient: the gradient is the
        one element that most made this look generated, and it competed with the
        accent colours the page uses for meaning. */
     background: linear-gradient(
@@ -282,7 +292,7 @@
     background-image: linear-gradient(
       100deg,
       var(--color-brand-glow) 0%,
-      var(--color-cyan-glow) 50%,
+      var(--color-chrome-glow) 50%,
       var(--color-brand-glow) 100%
     );
     background-size: 200% auto;

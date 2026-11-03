@@ -13,7 +13,7 @@ export function Prose({
       className={cn(
         "max-w-none space-y-4 text-sm leading-relaxed text-muted",
         "[&_a]:text-brand-glow [&_a]:underline [&_a]:underline-offset-2 hover:[&_a]:text-brand-core",
-        "[&_code]:rounded-md [&_code]:border [&_code]:border-border [&_code]:bg-white/5 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.8em] [&_code]:text-cyan-glow",
+        "[&_code]:rounded-md [&_code]:border [&_code]:border-border [&_code]:bg-white/5 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.8em] [&_code]:text-chrome-glow",
         "[&_em]:text-foreground [&_em]:not-italic",
         "[&_h2]:mt-8 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:tracking-tight [&_h2]:text-foreground",
         "[&_h2:first-child]:mt-0",

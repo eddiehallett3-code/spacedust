@@ -118,7 +118,7 @@ export const TokenRow = memo(function TokenRow({
       {/* Left accent bar, animated on selection. */}
       <motion.span
         aria-hidden
-        className="absolute inset-y-0 left-0 w-0.5 bg-linear-to-b from-brand-core to-cyan-core"
+        className="absolute inset-y-0 left-0 w-0.5 bg-linear-to-b from-brand-core to-chrome-core"
         animate={{ opacity: selected ? 1 : 0 }}
         transition={{ duration: 0.2 }}
       />

@@ -106,7 +106,7 @@ export function LandingProductPreview() {
                   className="flex items-start gap-2 text-2xs leading-relaxed text-muted"
                 >
                   <CheckCircle2
-                    className="mt-0.5 size-3.5 shrink-0 text-cyan-glow"
+                    className="mt-0.5 size-3.5 shrink-0 text-chrome-glow"
                     aria-hidden
                   />
                   <span>{item}</span>
