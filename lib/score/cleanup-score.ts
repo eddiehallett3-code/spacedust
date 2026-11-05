@@ -56,7 +56,14 @@ export interface CleanupFactor {
   label: string;
   /** Points this factor removed from 100. */
   points: number;
-  /** Its ceiling, so the UI can show the weight honestly. */
+  /**
+   * The factor's ceiling — the most it can ever deduct.
+   *
+   * Deliberately not rendered. It shipped as "0/30" in the first version and read
+   * as a fraction of something meaningful, when 30 is only how the weights were
+   * split up internally. Kept in the model because the tests assert against it and
+   * because the weights should be inspectable, not because a person needs it.
+   */
   max: number;
   /** One line saying what was counted. */
   detail: string;

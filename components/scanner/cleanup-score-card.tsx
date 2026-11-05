@@ -76,7 +76,6 @@ export function CleanupScoreCard({
                 )}
               >
                 {factor.points > 0 ? `−${factor.points}` : "0"}
-                <span className="text-subtle">/{factor.max}</span>
               </p>
             </li>
           ))}
@@ -84,8 +83,9 @@ export function CleanupScoreCard({
 
         <p className="text-2xs leading-relaxed text-subtle">
           Counts only what this app can act on: rent you can reclaim, holdings with
-          no market, issuing powers over what you hold, and standing approvals. It
-          is a cleanup score, not a safety rating.
+          no market, issuing powers over what you hold, and standing approvals.
+          Each point is one off the hundred. It is a cleanup score, not a safety
+          rating.
         </p>
       </CardContent>
     </Card>
