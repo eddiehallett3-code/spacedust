@@ -30,6 +30,7 @@ import {
 import { Input, Skeleton } from "@/components/ui/input";
 import { TokenLogo } from "@/components/scanner/token-logo";
 import { WalletInsights } from "@/components/scanner/wallet-insights";
+import { CleanupScoreCard } from "@/components/scanner/cleanup-score-card";
 import { QrScanner } from "@/components/payload/qr-scanner";
 import { ConnectWalletCta } from "@/components/wallet/wallet-button";
 import { summariseRecoverable, totalLimitations } from "@/lib/sweep/recoverable";
@@ -794,6 +795,10 @@ function ScanResult({
         copied={copied}
         onCopyLink={onCopyLink}
       />
+
+      {/* The summary's verdict. Everything below it is the detail behind this
+          number, which is why it comes before the lists rather than after. */}
+      <CleanupScoreCard scan={scan} recoverable={recoverable} />
 
       {/* Tokens and NFTs first, because "what is in here" is the question the
           scan is opened to answer. The recoverable and security details follow. */}
