@@ -102,6 +102,20 @@ const nextConfig: NextConfig = {
     }));
 
     return [
+      /**
+       * A shared scan link carries a wallet address, so it must never be indexed.
+       *
+       * `generateMetadata` in `app/scan/page.tsx` sets the same thing in a meta
+       * tag, and this header is the belt to that braces: a crawler that reads only
+       * headers, or a response where the meta tag is missed, still gets told no.
+       * The bare `/scan` page — the tool's front door — has no `owner` parameter
+       * and stays indexable.
+       */
+      {
+        source: "/scan",
+        has: [{ type: "query", key: "owner" }],
+        headers: [{ key: "X-Robots-Tag", value: "noindex, follow" }],
+      },
       ...iconHeaders,
       {
         /**
