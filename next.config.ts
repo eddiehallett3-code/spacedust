@@ -232,6 +232,23 @@ const nextConfig: NextConfig = {
    * from those paths costs nothing and removes one more reason for a wallet to
    * see a dApp with no icon or name.
    */
+  /**
+   * Retired pages, sent where their subject matter now lives.
+   *
+   * `/refund-policy` was a real page until 19 October, then deleted along with a
+   * contact-email change. Google still has the URL and reports it as a 404, which
+   * is the honest status but a dead end for anyone arriving from an old link.
+   *
+   * A permanent redirect rather than a restored page: the terms already answer it
+   * — section 4 covers the one fee and when it is charged, and the terms state
+   * plainly that on-chain transactions cannot be reversed — so /terms is where a
+   * reader asking "can I get this back?" should land. Restoring the page instead
+   * would be a legal decision, not an SEO one; if that is wanted, the file is in
+   * history at `01ea961^`.
+   */
+  async redirects() {
+    return [{ source: "/refund-policy", destination: "/terms", permanent: true }];
+  },
   async rewrites() {
     return [
       { source: "/manifest.json", destination: "/manifest.webmanifest" },
