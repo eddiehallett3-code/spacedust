@@ -406,8 +406,20 @@ export function UfoModel({ className }: { className?: string }) {
         className,
       )}
     >
-      {/* A radial gradient rather than a blurred blob: the gradient is already smooth, and a `blur-*` filter costs a full-area repaint every frame while the saucer floats over it. Same reason the starfield paints gradients. */}
-      <div className="pointer-events-none absolute inset-[10%] -z-10 rounded-full bg-[radial-gradient(circle,rgba(70,153,200,0.28),rgba(168,192,211,0.08)_48%,transparent_70%)]" />
+      {/* The atmosphere behind the saucer, as a gradient rather than a blurred
+          blob: the gradient is already smooth, and a `blur-*` filter costs a
+          full-area repaint every frame while the saucer floats over it. Same
+          reason the starfield paints gradients.
+
+          Sized `closest-side` on purpose. The box is 4:3, so a `circle` gradient
+          defaults to a radius reaching the *farthest corner* — wider than the
+          half-height — which meant the colour was still ~5% opaque exactly where
+          the element ended, and the halo showed a hard edge across its top and
+          bottom. `closest-side` touches the edges at 100% while the colour is
+          already transparent by 72%, so there is nothing left to cut. The
+          `rounded-full` that used to be here is gone for the same reason: it was
+          clipping an ellipse the fade had already shaped. */}
+      <div className="pointer-events-none absolute inset-[10%] -z-10 bg-[radial-gradient(ellipse_closest-side,rgba(70,153,200,0.28),rgba(168,192,211,0.08)_48%,transparent_72%)]" />
 
       <div
         ref={hostRef}
